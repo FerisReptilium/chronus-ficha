@@ -109,6 +109,8 @@ window.ChronusRouter = (function() {
       window.ChronusDocuments?.load?.();
     } else if (cleanHash === '#/soundtrack') {
       window.ChronusSoundtrack?.load?.();
+    } else if (cleanHash === '#/library') {
+      window.ChronusLibrary?.load?.();
     }
 
     // Atualizar links ativos no Navbar

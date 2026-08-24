@@ -412,3 +412,34 @@
 .soundtrack-desc {
   margin-top: 8px;
 }
+
+/* Scoped styles for Library cards */
+.library-version {
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+  margin-top: -4px;
+  margin-bottom: 10px;
+}
+
+.library-version strong {
+  color: var(--gold-highlight);
+}
+
+.library-desc {
+  margin-top: 8px;
+}
+
+.library-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(201, 154, 69, 0.2);
+}
+
+.library-meta-item {
+  border-color: rgba(201, 154, 69, 0.35);
+  color: #dfcb9f;
+  font-size: 0.76rem;
+}
