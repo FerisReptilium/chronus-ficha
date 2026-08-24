@@ -92,11 +92,15 @@ window.ChronusRouter = (function() {
       document.body.classList.remove('in-sheet-mode');
     }
 
-    // Se for rota de dashboard, recarrega dados atualizados
+    // Se for rota de dashboard ou conteúdo, recarrega dados atualizados
     if (cleanHash === '#/player') {
       window.ChronusPlayerDashboard?.load();
     } else if (cleanHash === '#/narrator') {
       window.ChronusNarratorPanel?.load();
+    } else if (cleanHash === '#/chronicle') {
+      window.ChronusChronicle?.load?.();
+    } else if (cleanHash === '#/sessions') {
+      window.ChronusSessions?.load?.();
     }
 
     // Atualizar links ativos no Navbar

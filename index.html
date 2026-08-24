@@ -426,11 +426,13 @@
     <section id="view-chronicle" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
-          <div class="editorial-box">
+          <div class="section-head-editorial">
             <span class="section-kicker">Crônica Ativa</span>
-            <h3>A Crônica dos Despertos</h3>
-            <p>O compêndio de capítulos e arcos narrativos será carregado na Fase 2B.</p>
-            <a href="#/home" class="portal-btn portal-btn-secondary">← Voltar ao Início</a>
+            <h2 class="section-heading">A Crônica dos Despertos</h2>
+            <p class="section-desc-lead">Capítulos, prólogos e revelações da cabala de Despertos.</p>
+          </div>
+          <div id="chronicle-list-container">
+            <!-- Renderizado dinamicamente por ChronusChronicle -->
           </div>
         </div>
       </div>
@@ -439,11 +441,13 @@
     <section id="view-sessions" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
-          <div class="editorial-box">
+          <div class="section-head-editorial">
             <span class="section-kicker">Diário de Bordo</span>
-            <h3>Diário de Sessões</h3>
-            <p>O histórico detalhado dos encontros da mesa será integrado na Fase 2B.</p>
-            <a href="#/home" class="portal-btn portal-btn-secondary">← Voltar ao Início</a>
+            <h2 class="section-heading">Diário de Sessões</h2>
+            <p class="section-desc-lead">Registros cronológicos dos encontros da mesa e eventos da investigação.</p>
+          </div>
+          <div id="sessions-list-container">
+            <!-- Renderizado dinamicamente por ChronusSessions -->
           </div>
         </div>
       </div>
@@ -579,6 +583,8 @@
   <script src="js/services/content.js"></script>
   <script src="js/router.js"></script>
   <script src="js/modules/home.js"></script>
+  <script src="js/modules/chronicle.js"></script>
+  <script src="js/modules/sessions.js"></script>
   <script src="js/modules/player_dashboard.js"></script>
   <script src="js/modules/narrator_panel.js"></script>
   <script src="js/modules/sheet_engine.js"></script>

@@ -251,3 +251,63 @@
   color: var(--ink-muted);
   margin-bottom: 20px;
 }
+
+/* ==========================================================================
+   CONTEÚDO EDITORIAL — LISTAGENS, CARDS E ESTADOS (FASE 2B)
+   ========================================================================== */
+.card-subtitle-editorial {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--gold-highlight);
+  margin-top: -6px;
+  margin-bottom: 12px;
+}
+
+.content-card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.session-meta-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+.meta-date-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-date-ingame {
+  color: var(--gold-primary);
+}
+
+.session-status-badge.status-completed {
+  border-color: rgba(69, 160, 73, 0.4);
+  color: #72cf77;
+}
+
+.session-status-badge.status-in-progress {
+  border-color: rgba(201, 154, 69, 0.5);
+  color: var(--gold-highlight);
+}
+
+.session-status-badge.status-planned {
+  border-color: rgba(140, 126, 110, 0.3);
+  color: #a89a88;
+}
+
+.session-status-badge.status-canceled {
+  border-color: rgba(180, 40, 40, 0.4);
+  color: #e06868;
+}
