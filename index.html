@@ -31,7 +31,7 @@
   <!-- =========================================================================
        1. BARRA DE NAVEGAÇÃO GLOBAL (HEADER)
        ========================================================================= -->
-  <header class="portal-nav-bar no-print">
+  <header class="portal-nav-bar portal-shell no-print">
     <div class="portal-container nav-container">
       <a href="#/home" class="nav-brand" title="Página Inicial do CHRONUS">
         <div class="nav-brand-sigil">✦</div>
@@ -72,7 +72,7 @@
 
   <!-- Drawer do Menu Mobile -->
   <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
-  <aside class="mobile-nav-drawer" id="mobile-nav-drawer" aria-label="Menu Mobile">
+  <aside class="mobile-nav-drawer portal-shell" id="mobile-nav-drawer" aria-label="Menu Mobile">
     <div class="mobile-drawer-header">
       <div class="nav-brand-titles">
         <span class="nav-brand-main">CHRONUS</span>
@@ -102,7 +102,7 @@
   <main class="portal-main-wrapper" id="portal-content">
 
     <!-- VIEW 1: HOME CINEMATOGRÁFICA -->
-    <section id="view-home" class="portal-view is-active">
+    <section id="view-home" class="portal-view portal-shell is-active">
       <div class="hero-cinematic">
         <div class="hero-content">
           <div class="hero-sigil-badge">
@@ -256,7 +256,7 @@
     </section>
 
     <!-- VIEW 2: DASHBOARD DO JOGADOR ("MINHA ÁREA") -->
-    <section id="view-player" class="portal-view">
+    <section id="view-player" class="portal-view portal-shell">
       <div class="player-dashboard-section">
         <div class="portal-container">
           <div class="dashboard-head-banner">
@@ -271,7 +271,7 @@
     </section>
 
     <!-- VIEW 3: PAINEL DO NARRADOR -->
-    <section id="view-narrator" class="portal-view">
+    <section id="view-narrator" class="portal-view portal-shell">
       <div class="narrator-panel-section">
         <div class="portal-container">
           <div id="narrator-panel-container">
@@ -382,7 +382,7 @@
     </section>
 
     <!-- VIEW 5: O SISTEMA (INTRODUÇÃO EDITORIAL) -->
-    <section id="view-system" class="portal-view">
+    <section id="view-system" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container" style="max-width: 860px;">
           <div class="section-head-editorial">
@@ -423,7 +423,7 @@
     </section>
 
     <!-- VIEWS PLACEHOLDER (FASE 2B) -->
-    <section id="view-chronicle" class="portal-view">
+    <section id="view-chronicle" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -436,7 +436,7 @@
       </div>
     </section>
 
-    <section id="view-sessions" class="portal-view">
+    <section id="view-sessions" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -449,7 +449,7 @@
       </div>
     </section>
 
-    <section id="view-npcs" class="portal-view">
+    <section id="view-npcs" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -462,7 +462,7 @@
       </div>
     </section>
 
-    <section id="view-maps" class="portal-view">
+    <section id="view-maps" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -475,7 +475,7 @@
       </div>
     </section>
 
-    <section id="view-files" class="portal-view">
+    <section id="view-files" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -488,7 +488,7 @@
       </div>
     </section>
 
-    <section id="view-soundtrack" class="portal-view">
+    <section id="view-soundtrack" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -501,7 +501,7 @@
       </div>
     </section>
 
-    <section id="view-library" class="portal-view">
+    <section id="view-library" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
           <div class="editorial-box">
@@ -519,7 +519,7 @@
   <!-- =========================================================================
        3. MODAIS DE AUTENTICAÇÃO E SENHA
        ========================================================================= -->
-  <div id="authGate" class="auth-gate no-print" hidden style="display: none;">
+  <div id="authGate" class="auth-gate portal-shell no-print" hidden style="display: none;">
     <form id="authForm" class="auth-card" autocomplete="on">
       <button type="button" class="modal-close-corner" id="btn-close-auth-modal" title="Fechar">✕</button>
       <h2>CHRONUS</h2>
@@ -542,7 +542,7 @@
     </form>
   </div>
 
-  <div id="passwordGate" class="auth-gate no-print" hidden style="display: none;">
+  <div id="passwordGate" class="auth-gate portal-shell no-print" hidden style="display: none;">
     <form id="passwordForm" class="auth-card" autocomplete="off">
       <button type="button" class="modal-close-corner" id="passwordCancelButton" title="Fechar">✕</button>
       <h2 id="passwordTitle">Alterar senha</h2>

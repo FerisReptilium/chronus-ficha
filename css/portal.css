@@ -1,4 +1,30 @@
 /* ==========================================================================
+   RESET ESPECÍFICO E ISOLADO AO NAMESPACE .portal-shell
+   A ficha (#view-sheet) NÃO possui a classe .portal-shell e permanece 100% isolada.
+   ========================================================================== */
+.portal-shell,
+.portal-shell *,
+.portal-shell *::before,
+.portal-shell *::after {
+  box-sizing: border-box;
+}
+
+.portal-shell h1,
+.portal-shell h2,
+.portal-shell h3,
+.portal-shell h4,
+.portal-shell h5,
+.portal-shell h6,
+.portal-shell p,
+.portal-shell ul,
+.portal-shell ol,
+.portal-shell blockquote,
+.portal-shell figure {
+  margin: 0;
+  padding: 0;
+}
+
+/* ==========================================================================
    CHRONUS — ECOLOGIA SOBRENATURAL: DESIGN SYSTEM & PORTAL THEME
    Estética: Horror Sobrenatural, Ocultismo Urbano, Anos 90, Editorial Adulto
    ========================================================================== */

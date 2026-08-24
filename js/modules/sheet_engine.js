@@ -6,9 +6,9 @@
  * PRESERVAÇÃO TOTAL: Coordenadas (1449x2048), bindings, marcadores, IndexedDB e renderização.
  */
 window.ChronusSheetEngine = (function() {
-
-(async () => {
   'use strict';
+
+
 
   const W = 1449;
   const H = 2048;
@@ -879,156 +879,6 @@ window.ChronusSheetEngine = (function() {
     }
   }
 
-  async function setupCloudAuth() {
-    const form=document.getElementById('authForm');
-    const email=document.getElementById('authEmail');
-    const password=document.getElementById('authPassword');
-    const signup=document.getElementById('authSignupButton');
-    const offline=document.getElementById('authOfflineButton');
-    const account=document.getElementById('accountButton');
-    const logout=document.getElementById('logoutButton');
-    const passwordButton=document.getElementById('passwordButton');
-    const forgotButton=document.getElementById('authForgotButton');
-    const passwordForm=document.getElementById('passwordForm');
-    const passwordCancel=document.getElementById('passwordCancelButton');
-    const narratorPanelButton=document.getElementById('narratorPanelButton');
-    const narratorRefreshButton=document.getElementById('narratorRefreshButton');
-
-    account?.addEventListener('click',()=>showAuthGate());
-    passwordButton?.addEventListener('click',()=>showPasswordGate('change'));
-    passwordCancel?.addEventListener('click',()=>hidePasswordGate());
-    forgotButton?.addEventListener('click',async()=>{
-      const mail=email.value.trim();
-      const msg=document.getElementById('authMessage');
-      if(!mail){ if(msg){msg.textContent='Digite seu e-mail acima para receber o link de recuperação.';msg.classList.add('is-error');} email.focus(); return; }
-      if(msg){msg.textContent='Enviando link de recuperação…';msg.classList.remove('is-error');}
-      const { error }=await supabaseClient.auth.resetPasswordForEmail(mail,{redirectTo:passwordRedirectUrl()});
-      if(error){ if(msg){msg.textContent='Não foi possível enviar o link: '+error.message;msg.classList.add('is-error');} return; }
-      if(msg) msg.textContent='Link enviado. Abra o e-mail e use o botão de recuperação para criar uma nova senha.';
-    });
-    passwordForm?.addEventListener('submit',async(e)=>{
-      e.preventDefault();
-      const p1=document.getElementById('newPassword')?.value||'';
-      const p2=document.getElementById('confirmPassword')?.value||'';
-      const msg=document.getElementById('passwordMessage');
-      if(passwordRecoveryMode && !passwordRecoveryAuthorized){
-        if(msg){msg.textContent='Este link de recuperação não foi validado. Solicite um novo link.';msg.classList.add('is-error');}
-        return;
-      }
-      if(p1.length<8){if(msg){msg.textContent='A senha precisa ter pelo menos 8 caracteres.';msg.classList.add('is-error');}return;}
-      if(p1!==p2){if(msg){msg.textContent='As duas senhas não são iguais.';msg.classList.add('is-error');}return;}
-      if(msg){msg.textContent='Salvando nova senha…';msg.classList.remove('is-error');}
-      const { error }=await supabaseClient.auth.updateUser({password:p1});
-      if(error){if(msg){msg.textContent='Não foi possível alterar a senha: '+error.message;msg.classList.add('is-error');}return;}
-      if(msg) msg.textContent='Senha atualizada com sucesso ✓';
-      setTimeout(()=>hidePasswordGate(),900);
-    });
-    narratorPanelButton?.addEventListener('click',()=>{ sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY); sessionStorage.removeItem(NARRATOR_VIEW_META_KEY); location.href=location.pathname; });
-    narratorRefreshButton?.addEventListener('click',()=>loadNarratorDashboard());
-    offline?.addEventListener('click',()=>{hideAuthGate();setSaveStatus('Modo local • sem nuvem','offline');});
-
-    if (!window.supabase?.createClient) {
-      updateAccountUi(null);
-      setSaveStatus('Offline • salvo local','offline');
-      showAuthGate('Não foi possível carregar a conexão com o Supabase. Você pode continuar no modo local.', true);
-      return;
-    }
-
-    const recoveryCallback=getPasswordRecoveryCallback();
-
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
-    });
-
-    // O Supabase só autoriza a troca de senha quando emite PASSWORD_RECOVERY.
-    // Nunca confie apenas no parâmetro ?passwordReset=1, pois um link expirado também retorna para esta URL.
-    supabaseClient.auth.onAuthStateChange((event,sessionNow)=>{
-      if(event==='PASSWORD_RECOVERY') {
-        passwordRecoveryAuthorized=true;
-        cloudUser=sessionNow?.user||cloudUser;
-        hideAuthGate();
-        setTimeout(()=>showPasswordGate('recovery'),0);
-      }
-      if(event==='SIGNED_OUT') { cloudUser=null;cloudCharacterId=null;cloudReady=false;currentProfile=null;narratorReadOnly=false;clearNarratorModes();updateAccountUi(null); }
-      if(event==='SIGNED_IN' && sessionNow?.user && sessionNow.user.id!==cloudUser?.id) {
-        setTimeout(()=>bootstrapRoleForUser(sessionNow.user),0);
-      }
-    });
-
-    if(recoveryCallback.requested && recoveryCallback.error){
-      passwordRecoveryAuthorized=false;
-      const expired = recoveryCallback.errorCode==='otp_expired' || /expired/i.test(recoveryCallback.errorDescription||'');
-      const reason = expired
-        ? 'O link de recuperação expirou ou já foi utilizado. Solicite um novo link em “Esqueci minha senha”.'
-        : 'Não foi possível validar o link de recuperação. Solicite um novo link em “Esqueci minha senha”.';
-      await supabaseClient.auth.signOut().catch(()=>{});
-      clearPasswordRecoveryUrl();
-      updateAccountUi(null);
-      showAuthGate(reason,true);
-      return;
-    }
-
-    form?.addEventListener('submit',async(e)=>{
-      e.preventDefault();
-      const mail=email.value.trim(), pass=password.value;
-      const msg=document.getElementById('authMessage');
-      if(msg){msg.textContent='Entrando…';msg.classList.remove('is-error');}
-      const { data, error } = await supabaseClient.auth.signInWithPassword({email:mail,password:pass});
-      if(error){if(msg){msg.textContent='Não foi possível entrar: '+error.message;msg.classList.add('is-error');}return;}
-      if(data?.user) await bootstrapRoleForUser(data.user);
-    });
-
-    signup?.addEventListener('click',async()=>{
-      const mail=email.value.trim(), pass=password.value;
-      const msg=document.getElementById('authMessage');
-      if(!mail || pass.length<6){if(msg){msg.textContent='Informe um e-mail válido e uma senha com pelo menos 6 caracteres.';msg.classList.add('is-error');}return;}
-      if(msg){msg.textContent='Criando conta…';msg.classList.remove('is-error');}
-      const { data, error } = await supabaseClient.auth.signUp({email:mail,password:pass});
-      if(error){if(msg){msg.textContent='Não foi possível criar a conta: '+error.message;msg.classList.add('is-error');}return;}
-      if(data?.session && data?.user) await bootstrapRoleForUser(data.user);
-      else if(msg) msg.textContent='Conta criada. Verifique seu e-mail para confirmar o acesso.';
-    });
-
-    logout?.addEventListener('click',async()=>{
-      if(!confirm('Sair da conta CHRONUS neste dispositivo? A ficha sincronizada continuará salva na nuvem.'))return;
-      if(currentProfile?.role!=='narrator' && localStorage.getItem(CLOUD_DIRTY_KEY)==='1') {
-        if(!navigator.onLine){ alert('Há alterações ainda não sincronizadas. Conecte-se à internet antes de sair para não perder dados.'); return; }
-        await pushStateToCloud();
-        if(localStorage.getItem(CLOUD_DIRTY_KEY)==='1'){ alert('A sincronização não foi concluída. Tente novamente antes de sair.'); return; }
-      }
-      await supabaseClient.auth.signOut();
-      cloudUser=null; cloudCharacterId=null; cloudReady=false;
-      localStorage.removeItem(STORAGE_KEY);
-      LEGACY_KEYS.forEach(k=>localStorage.removeItem(k));
-      localStorage.removeItem(CLOUD_USER_KEY); localStorage.removeItem(CLOUD_CHARACTER_KEY);
-      localStorage.removeItem(CLOUD_DIRTY_KEY); localStorage.removeItem(CLOUD_SYNCED_KEY);
-      localStorage.removeItem(PORTRAIT_DIRTY_KEY);
-      sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY); sessionStorage.removeItem(NARRATOR_VIEW_META_KEY);
-      currentProfile=null; narratorReadOnly=false; narratorViewMeta=null; passwordRecoveryMode=false; passwordRecoveryAuthorized=false;
-      hidePasswordGate();
-      await clearPortrait();
-      location.reload();
-    });
-
-    window.addEventListener('offline',()=>{ if(cloudUser)setSaveStatus('Offline • salvo local','offline'); });
-    window.addEventListener('online',()=>{
-      if(cloudUser){setSaveStatus('Reconectando…','saving'); if(currentProfile?.role!=='narrator' && localStorage.getItem(CLOUD_DIRTY_KEY)==='1')scheduleCloudSave(200); else bootstrapRoleForUser(cloudUser);}
-    });
-
-    const { data:{ session }, error } = await supabaseClient.auth.getSession();
-    if(error) console.warn('CHRONUS: sessão Supabase',error);
-    if(session?.user) {
-      await bootstrapRoleForUser(session.user);
-      // A tela de nova senha é aberta somente pelo evento PASSWORD_RECOVERY acima.
-    } else {
-      updateAccountUi(null);
-      if(recoveryCallback.requested && !passwordRecoveryAuthorized) {
-        clearPasswordRecoveryUrl();
-        showAuthGate('O link de recuperação não pôde ser validado. Solicite um novo link em “Esqueci minha senha”.',true);
-      } else showAuthGate();
-    }
-  }
-
   function setupTabs() {
     const activate=(id, save=true)=>{
       document.querySelectorAll('.sheet-page').forEach(p=>p.classList.toggle('is-active',p.id===id));
@@ -1065,25 +915,26 @@ window.ChronusSheetEngine = (function() {
   }
   function registerSW(){}
 
-  applyDataBoxes();
-  bindInputs();
-  renderAttributes();
-  renderResources();
-  renderMana();
-  renderWounds();
-  renderList('skillsLayer',SKILL_Y,'skills');
-  renderList('advantagesLayer',ADV_Y,'advantages');
-  renderParadox();
-  renderArcana();
-  renderEquipment();
-  renderFormulas();
-  renderPage2();
-  await setupPortrait();
-  setupTabs();
-  setupActions();
-  registerSW();
-  await setupCloudAuth();
-})();
+  
+  async function initSheet() {
+    applyDataBoxes();
+    bindInputs();
+    renderAttributes();
+    renderResources();
+    renderMana();
+    renderWounds();
+    renderList('skillsLayer', SKILL_Y, 'skills');
+    renderList('advantagesLayer', ADV_Y, 'advantages');
+    renderParadox();
+    renderArcana();
+    renderEquipment();
+    renderFormulas();
+    renderPage2();
+    await setupPortrait();
+    setupTabs();
+    setupActions();
+    registerSW();
+  }
 
 
 
@@ -1159,9 +1010,15 @@ window.ChronusSheetEngine = (function() {
     }
   }
 
-  // Conectar listener ao ChronusAuth
+  // Inicializar o DOM da ficha assim que carregado
+  initSheet();
+
+  // Conectar listener ao ChronusAuth (ÚNICA AUTORIDADE)
   if (window.ChronusAuth) {
     window.ChronusAuth.onAuthChange(async (user, profile) => {
+      if (!supabaseClient && window.ChronusSupabase) {
+        supabaseClient = window.ChronusSupabase.getClient();
+      }
       if (user) {
         migrateLegacyStorageForUser(user.id);
         if (profile?.role === 'narrator') {
@@ -1183,6 +1040,7 @@ window.ChronusSheetEngine = (function() {
   }
 
   return {
+    init: initSheet,
     applyNarratorViewMode: () => {
       try {
         const cfg = window.CHRONUS_CONFIG;
