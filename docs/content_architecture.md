@@ -1,44 +1,64 @@
 # ARQUITETURA DE CONTEÚDO DO PORTAL CHRONUS
-## FASE 2B — MODELO DE DADOS & SEGURANÇA RLS
+## FASE 2B — MODELO DE DADOS, STORAGE PRIVADO & SEGURANÇA RLS
 
-> **Documento:** Especificação Técnica de Backend e Dados  
+> **Documento:** Especificação Técnica de Backend, Armazenamento e Segurança  
 > **Sistema:** CHRONUS — Ecologia Sobrenatural  
-> **Versão da Arquitetura:** 1.0  
-> **Status:** Proposta para Revisão (Nenhum SQL executado)
+> **Versão da Arquitetura:** 2.0 (Revisão Final Aprovada Conceitualmente)  
+> **Status:** Pronto para Revisão (Nenhum SQL executado)
 
 ---
 
-## 1. Princípios Arquiteturais e Diretrizes Fundamentais
+## 1. Diretrizes Arquiteturais & Regras Imutáveis
 
-1. **Segregação Física Estrita de Segredos (1-to-1 Extensions):**
-   - O Row Level Security (RLS) do PostgreSQL protege linhas inteiras, não colunas isoladas.
-   - Nenhuma anotação, identidade oculta, enigma ou verdade sobrenatural exclusiva do Narrador é armazenada na mesma linha ou tabela de dados acessíveis a jogadores.
-   - Entidades com segredos utilizam tabelas privadas acopladas (`npc_secrets`, `location_secrets`, `document_secrets`), acessíveis **estritamente pela role `'narrator'`**. O navegador do jogador nunca recebe ou trafega esses dados.
+1. **Segregação Física Total de Segredos (1-to-1 Extensions):**
+   - RLS protege linhas, não colunas.
+   - Nenhuma anotação confidencial, identidade oculta, estatística ou fraqueza mecânica reside nas tabelas visíveis a jogadores (`npcs`, `locations`, `campaign_documents`).
+   - Todos os segredos residem em tabelas privadas (`npc_secrets`, `location_secrets`, `document_secrets`), cujo RLS restringe 100% das operações exclusivamente à role `'narrator'`.
 
-2. **Modelo de Visibilidade em 3 Níveis:**
-   - Cada registro editorial público/jogador possui o campo:  
-     `visibility TEXT NOT NULL DEFAULT 'players' CHECK (visibility IN ('public', 'players', 'narrator'))`
-   - **Anônimo:** Acessa somente `visibility = 'public'` com `published = true`.
-   - **Jogador (`player`):** Acessa `visibility IN ('public', 'players')` com `published = true`.
-   - **Narrador (`narrator`):** Acessa todos os registros (`public`, `players`, `narrator`), inclusive rascunhos (`published = false`) e todas as tabelas de segredos.
+2. **Storage 100% Privado com Visibilidade por Subpastas:**
+   - Todos os novos buckets (`campaign-images`, `maps`, `documents`, `library`) são **estritamente PRIVADOS (`public = false`)**.
+   - `getPublicUrl` é **proibido** para conteúdo protegido. O acesso aos arquivos ocorre via downloads autenticados (`.download()`) ou signed URLs temporárias (`createSignedUrl(path, 3600)`).
+   - Organização estrutural em subpastas raiz para decisão determinística e de alta performance de RLS no storage:
+     - `<bucket>/public/...` $	o$ Acesso anônimo, jogador e narrador.
+     - `<bucket>/players/...` $	o$ Acesso exclusivo a jogador autenticado e narrador.
+     - `<bucket>/narrator/...` $	o$ Acesso exclusivo ao narrador.
+   - O bucket legado `portraits` permanece 100% inalterado.
 
-3. **Decisão sobre Relacionamentos: Junction Tables Tipadas:**
-   - Em vez de uma tabela polimórfica genérica (`content_relations`), foram adotadas **Junction Tables Tipadas Específicas** (`session_npcs`, `session_locations`, `session_documents`, `chapter_npcs`, etc.).
-   - **Justificativa:** Integridade referencial real via `FOREIGN KEY ... ON DELETE CASCADE`, índices otimizados por chave estrangeira, queries aninhadas nativas no cliente Supabase PostgREST (`.select('*, session_npcs(npcs(*))')`) e simplificação das políticas de RLS.
+3. **RLS Bilateral e Blindagem em Junction Tables:**
+   - As 7 tabelas de ligação (`session_npcs`, `session_locations`, `session_documents`, `chapter_npcs`, `chapter_locations`, `npc_locations`, `npc_documents`) possuem políticas que exigem que o usuário tenha permissão de leitura sobre **AMBAS as entidades conectadas**.
+   - Se uma Sessão Pública estiver relacionada a um NPC com `visibility = 'narrator'`, a relação em `session_npcs` é filtrada e invisível para jogadores e anônimos.
 
-4. **100% de Compatibilidade Aditiva:**
-   - Nenhuma tabela, trigger, constraint ou policy existente (`characters`, `profiles`, bucket `portraits`) é modificada ou excluída.
+4. **Uniformização do Ciclo Editorial:**
+   - Todas as tabelas possuem `published BOOLEAN NOT NULL DEFAULT false`, `published_at TIMESTAMPTZ` e `sort_order INT NOT NULL DEFAULT 0`.
+   - Regra de leitura para o público: `published = true AND (published_at IS NULL OR published_at <= now())`.
+   - Narradores visualizam rascunhos e publicações futuras.
+
+5. **Prólogo e Numeração Flexível:**
+   - `chronicle_chapters.chapter_number` é anulável (`INT NULL`), permitindo que Prólogos (ou Capítulos Especiais) não fiquem restritos a inteiros positivos rígidos.
+   - `sort_order` é a autoridade máxima de ordenação na interface.
+
+6. **100% de Compatibilidade Aditiva:**
+   - `public.characters`, `public.profiles`, `auth.users`, bucket `portraits`, ficha v0.6.1 e o Portal Fase 2A permanecem intactos.
 
 ---
 
-## 2. Diagrama Entidade-Relacionamento
+## 2. Diagrama Entidade-Relacionamento e Storage
 
 ```text
+======================= STORAGE BUCKETS (PRIVADOS) =======================
+  [ campaign-images ]   --> public/..., players/..., narrator/...
+  [ maps ]              --> public/..., players/..., narrator/...
+  [ documents ]         --> public/..., players/..., narrator/...
+  [ library ]           --> public/..., players/..., narrator/...
+  [ portraits (legado)] --> {user_id}/portrait (inalterado)
+
+======================== MODELO RELACIONAL DE DADOS =======================
+
 +-----------------------+           +-----------------------+
 |  chronicle_chapters   |           |   campaign_sessions   |
 +-----------------------+           +-----------------------+
 | id (PK, UUID)         |           | id (PK, UUID)         |
-| chapter_number (INT)  |           | session_number (INT)  |
+| chapter_number (NULL) |           | session_number (INT)  |
 | title (TEXT)          |           | title (TEXT)          |
 | slug (TEXT, UNIQUE)   |           | slug (TEXT, UNIQUE)   |
 | summary (TEXT)        |           | session_date (DATE)   |
@@ -91,235 +111,51 @@
 
 ---
 
-## 3. Especificação das Tabelas
+## 3. Matriz de Segurança Conceitual e Provas de Consulta
 
-### 3.1. Crônica & Capítulos (`chronicle_chapters`)
-Registra os grandes arcos, prólogos e capítulos que compõem a narrativa global.
+### 3.1. Simulação: Usuário ANÔNIMO (Não Autenticado)
+1. `SELECT * FROM chronicle_chapters;`
+   - ✅ Retorna capítulos com `visibility = 'public' AND published = true AND published_at <= now()`.
+   - ❌ Linhas com `visibility = 'players'` ou `'narrator'` ou `published = false` **não aparecem no result set**.
+2. `SELECT * FROM npcs WHERE visibility = 'narrator';`
+   - ❌ Retorna **0 linhas** (bloqueado por RLS).
+3. `SELECT * FROM npc_secrets;`
+   - ❌ Retorna **0 linhas** (bloqueado por RLS).
+4. `storage.from('documents').download('narrator/evidencia_secreta.pdf')`
+   - ❌ Retorna **HTTP 403 Forbidden** (rejeitado por policy).
+5. `SELECT * FROM session_npcs;`
+   - ✅ Retorna somente pares onde a Sessão É pública E o NPC É público. Relações com NPCs secretos são omitidas.
 
-- `id`: UUID, Chave Primária (`gen_random_uuid()`).
-- `chapter_number`: INT NOT NULL (ex: 0 para Prólogo, 1 para Capítulo I, etc.).
-- `title`: TEXT NOT NULL.
-- `subtitle`: TEXT.
-- `slug`: TEXT NOT NULL UNIQUE (usado nas rotas do portal: `#/chronicle/capitulo-1`).
-- `summary`: TEXT (sinopse pública exibida nos cards).
-- `content`: TEXT NOT NULL (corpo do texto em Markdown).
-- `cover_image_path`: TEXT (caminho no bucket `campaign-images`).
-- `visibility`: TEXT NOT NULL DEFAULT `'public'` (`'public'`, `'players'`, `'narrator'`).
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `published`: BOOLEAN NOT NULL DEFAULT false.
-- `published_at`: TIMESTAMPTZ.
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
+### 3.2. Simulação: Usuário JOGADOR (`role = 'player'`)
+1. `SELECT * FROM campaign_sessions;`
+   - ✅ Retorna sessões com `visibility IN ('public', 'players')` e `published = true`.
+   - ❌ Não retorna sessões de rascunho ou exclusivas do Narrador.
+2. `SELECT * FROM npc_secrets;`
+   - ❌ Retorna **0 linhas** (bloqueado por RLS).
+3. `storage.from('maps').download('players/distrito_sul.jpg')`
+   - ✅ Download autenticado autorizado com sucesso.
+4. `storage.from('maps').download('narrator/bunker_oculto.jpg')`
+   - ❌ Retorna **HTTP 403 Forbidden**.
+5. `SELECT * FROM session_npcs;`
+   - ✅ Retorna apenas conexões entre Sessões (public/players) e NPCs (public/players). Se a sessão tiver um NPC `narrator`, a linha da junction table **não é retornada**.
 
----
-
-### 3.2. Diário de Sessões (`campaign_sessions`)
-Registra os relatórios de jogo mesa a mesa.
-
-- `id`: UUID, Chave Primária.
-- `session_number`: INT NOT NULL UNIQUE (ex: 1, 2, 3...).
-- `title`: TEXT NOT NULL.
-- `slug`: TEXT NOT NULL UNIQUE (ex: `sessao-01-o-despertar`).
-- `session_date`: DATE (data em que a sessão ocorreu no mundo real).
-- `in_game_date`: TEXT (data cronológica dentro do universo de RPG, ex: "12 de Outubro de 1998").
-- `summary`: TEXT NOT NULL.
-- `events_log`: TEXT (acontecimentos detalhados da sessão).
-- `clues_uncovered`: TEXT (pistas e descobertas do grupo).
-- `cover_image_path`: TEXT.
-- `status`: TEXT NOT NULL DEFAULT `'completed'` (`'planned'`, `'in_progress'`, `'completed'`, `'canceled'`).
-- `visibility`: TEXT NOT NULL DEFAULT `'players'` (`'public'`, `'players'`, `'narrator'`).
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `published`: BOOLEAN NOT NULL DEFAULT false.
-- `published_at`: TIMESTAMPTZ.
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
+### 3.3. Simulação: NARRADOR (`role = 'narrator'`)
+1. `SELECT * FROM chronicle_chapters;`
+   - ✅ Retorna todos os capítulos (public, players, narrator, drafts com `published = false`).
+2. `SELECT * FROM npcs JOIN npc_secrets ON npcs.id = npc_secrets.npc_id;`
+   - ✅ Retorna o NPC completo com anotações, agenda, lealdades e segredos.
+3. `storage.from('documents').download('narrator/evidencia_secreta.pdf')`
+   - ✅ Acesso total a qualquer arquivo em qualquer prefixo (`public/`, `players/`, `narrator/`).
+4. `INSERT / UPDATE / DELETE` em qualquer tabela ou bucket:
+   - ✅ 100% autorizado.
 
 ---
 
-### 3.3. Dossiê de NPCs (`npcs` + `npc_secrets`)
+## 4. Riscos Residuais e Estratégias de Mitigação
 
-#### Tabela `npcs` (Pública / Jogadores):
-- `id`: UUID, Chave Primária.
-- `name`: TEXT NOT NULL.
-- `slug`: TEXT NOT NULL UNIQUE.
-- `portrait_path`: TEXT (caminho no bucket `campaign-images`).
-- `role_occupation`: TEXT (ex: "Detetive de Homicídios", "Curador do Museu").
-- `faction`: TEXT (Afiliação aparente ou Tradição).
-- `apparent_age`: TEXT.
-- `public_description`: TEXT.
-- `known_personality`: TEXT.
-- `status`: TEXT NOT NULL DEFAULT `'alive'` (`'alive'`, `'dead'`, `'missing'`, `'unknown'`, `'transformed'`).
-- `relationship_to_group`: TEXT (ex: "Aliado", "Antagonista", "Neutro", "Contato", "Mentor").
-- `first_appearance_session_id`: UUID REFERENCES `campaign_sessions(id)` ON DELETE SET NULL.
-- `last_appearance_session_id`: UUID REFERENCES `campaign_sessions(id)` ON DELETE SET NULL.
-- `visibility`: TEXT NOT NULL DEFAULT `'players'`.
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `published`: BOOLEAN NOT NULL DEFAULT false.
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
-#### Tabela `npc_secrets` (1-to-1 Privada — SOMENTE NARRADOR):
-- `id`: UUID, Chave Primária.
-- `npc_id`: UUID NOT NULL UNIQUE REFERENCES `npcs(id)` ON DELETE CASCADE.
-- `true_identity`: TEXT (Nome verdadeiro, avatar desperto ou natureza oculta).
-- `true_faction`: TEXT (Lealdade secreta real).
-- `agenda`: TEXT (Motivações ocultas e planos de curto/longo prazo).
-- `secrets`: TEXT (Segredos reveláveis aos jogadores).
-- `narrator_notes`: TEXT (Estatísticas, resistências, fraquezas mecânicas, ganchos de cena).
-- `hidden_status`: TEXT (Status real caso forjado perante os jogadores).
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
----
-
-### 3.4. Atlas de Mapas & Locais (`locations` + `location_secrets`)
-
-#### Tabela `locations` (Pública / Jogadores):
-- `id`: UUID, Chave Primária.
-- `name`: TEXT NOT NULL.
-- `slug`: TEXT NOT NULL UNIQUE.
-- `type`: TEXT NOT NULL (`'city'`, `'district'`, `'building'`, `'bunker'`, `'club'`, `'facility'`, `'supernatural_domain'`, `'battlemap'`, `'other'`).
-- `district_region`: TEXT (ex: "Centro Histórico", "Zona Portuária").
-- `narrative_address`: TEXT (ex: "Rua das Acácias, 104 - Fundos").
-- `public_description`: TEXT.
-- `image_path`: TEXT.
-- `map_image_path`: TEXT (caminho no bucket `maps`).
-- `parent_location_id`: UUID REFERENCES `locations(id)` ON DELETE SET NULL (para aninhamento de locais).
-- `visibility`: TEXT NOT NULL DEFAULT `'players'`.
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `published`: BOOLEAN NOT NULL DEFAULT false.
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
-#### Tabela `location_secrets` (1-to-1 Privada — SOMENTE NARRADOR):
-- `id`: UUID, Chave Primária.
-- `location_id`: UUID NOT NULL UNIQUE REFERENCES `locations(id)` ON DELETE CASCADE.
-- `narrator_notes`: TEXT.
-- `hidden_features`: TEXT (Passagens secretas, cofres, armadilhas, defesas).
-- `supernatural_truth`: TEXT (Ressonância mística, Nós de mana, manifestações do Paradoxo).
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
----
-
-### 3.5. Arquivos da Crônica / Evidências (`campaign_documents` + `document_secrets`)
-
-#### Tabela `campaign_documents` (Pública / Jogadores):
-- `id`: UUID, Chave Primária.
-- `title`: TEXT NOT NULL.
-- `slug`: TEXT NOT NULL UNIQUE.
-- `type`: TEXT NOT NULL (`'photograph'`, `'letter'`, `'report'`, `'newspaper_clipping'`, `'official_record'`, `'clue'`, `'artifact'`, `'audio_log'`, `'other'`).
-- `narrative_date`: TEXT (ex: "18 de Novembro de 1989").
-- `public_description`: TEXT.
-- `transcription`: TEXT (transcrição do documento para facilitar leitura e acessibilidade).
-- `image_path`: TEXT (caminho no bucket `documents`).
-- `file_path`: TEXT (PDF ou anexo no bucket `documents`).
-- `found_in_session_id`: UUID REFERENCES `campaign_sessions(id)` ON DELETE SET NULL.
-- `visibility`: TEXT NOT NULL DEFAULT `'players'`.
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `published`: BOOLEAN NOT NULL DEFAULT false.
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
-#### Tabela `document_secrets` (1-to-1 Privada — SOMENTE NARRADOR):
-- `id`: UUID, Chave Primária.
-- `document_id`: UUID NOT NULL UNIQUE REFERENCES `campaign_documents(id)` ON DELETE CASCADE.
-- `narrator_notes`: TEXT.
-- `hidden_meaning`: TEXT (Criptografia, mensagens em tinta invisível, marcas de água).
-- `solution_translation`: TEXT (Tradução da língua arcaica ou solução do enigma).
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
----
-
-### 3.6. Trilha Sonora (`soundtrack`)
-- `id`: UUID, Chave Primária.
-- `title`: TEXT NOT NULL.
-- `youtube_url`: TEXT NOT NULL.
-- `category`: TEXT NOT NULL (`'theme'`, `'investigation'`, `'horror'`, `'combat'`, `'suspense'`, `'epilogue'`, `'ambient'`).
-- `description`: TEXT.
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `active`: BOOLEAN NOT NULL DEFAULT true.
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
----
-
-### 3.7. Biblioteca CHRONUS (`library_items`)
-- `id`: UUID, Chave Primária.
-- `title`: TEXT NOT NULL.
-- `slug`: TEXT NOT NULL UNIQUE.
-- `category`: TEXT NOT NULL (`'system_book'`, `'pocket_manual'`, `'quick_guide'`, `'character_sheet'`, `'supplement'`, `'extra'`).
-- `version`: TEXT NOT NULL DEFAULT `'1.0'`.
-- `description`: TEXT.
-- `cover_path`: TEXT (caminho no bucket `library`).
-- `file_path`: TEXT NOT NULL (PDF no bucket `library`).
-- `file_size_bytes`: BIGINT.
-- `page_count`: INT.
-- `sort_order`: INT NOT NULL DEFAULT 0.
-- `visibility`: TEXT NOT NULL DEFAULT `'public'`.
-- `published_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-- `created_by`: UUID REFERENCES `auth.users(id)` ON DELETE SET NULL.
-- `created_at` / `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT now().
-
----
-
-### 3.8. Junction Tables Tipadas de Relacionamento
-Garantem integridade relacional nativa e permitem consultas aninhadas com `ON DELETE CASCADE`:
-
-1. `session_npcs`: `(session_id, npc_id, role_in_session)`
-2. `session_locations`: `(session_id, location_id, notes)`
-3. `session_documents`: `(session_id, document_id, discovery_context)`
-4. `chapter_npcs`: `(chapter_id, npc_id)`
-5. `chapter_locations`: `(chapter_id, location_id)`
-6. `npc_locations`: `(npc_id, location_id, association_type)`
-7. `npc_documents`: `(npc_id, document_id, association_type)`
-
----
-
-## 4. Arquitetura de Storage (Buckets)
-
-| Bucket | Acesso | Limite de Tamanho | MIME Types | Estrutura de Diretórios | RLS de Storage |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `campaign-images` | **Público** | 5 MB | Imagens (`jpg`, `png`, `webp`, `svg`) | `chapters/`, `sessions/`, `npcs/`, `locations/` | **Leitura:** Livre / **Escrita:** Somente Narrador |
-| `maps` | **Público** | 15 MB | Imagens (`jpg`, `png`, `webp`, `svg`) | `districts/`, `facilities/`, `battlemaps/` | **Leitura:** Livre / **Escrita:** Somente Narrador |
-| `documents` | **Público/Auth** | 20 MB | Imagens + PDFs (`pdf`, `jpg`, `png`, `webp`) | `evidence/`, `letters/`, `records/` | **Leitura:** Conforme Visibilidade / **Escrita:** Somente Narrador |
-| `library` | **Público** | 50 MB | PDFs e Capas (`pdf`, `jpg`, `png`, `webp`) | `manuals/`, `guides/`, `sheets/`, `covers/` | **Leitura:** Livre / **Escrita:** Somente Narrador |
-| `portraits` *(Legado)* | **Privado** | 5 MB | Imagens | `${user_id}/portrait` | *(100% Inalterado)* |
-
----
-
-## 5. Exemplos de Consultas no Frontend (Supabase Client)
-
-### 5.1. Consulta Pública/Jogador: Listar Sessões com NPCs e Locais Aninhados
-```typescript
-// O jogador recebe apenas dados públicos e autorizados
-const { data: sessions, error } = await supabase
-  .from('campaign_sessions')
-  .select(`
-    id, session_number, title, slug, in_game_date, summary, cover_image_path,
-    session_npcs (
-      npcs ( id, name, slug, portrait_path, role_occupation )
-    ),
-    session_locations (
-      locations ( id, name, slug, type, district_region )
-    )
-  `)
-  .order('session_number', { ascending: false });
-```
-
-### 5.2. Consulta do Narrador: NPC com seu Segredo Privado
-```typescript
-// Somente o Narrador autenticado recebe a linha de 'npc_secrets'
-const { data: npc, error } = await supabase
-  .from('npcs')
-  .select(`
-    *,
-    npc_secrets ( true_identity, true_faction, agenda, secrets, narrator_notes )
-  `)
-  .eq('slug', 'agente-valmir-costa')
-  .single();
-```
-
----
-
-## 6. Plano de Contingência e Rollback
-- O arquivo `supabase/migrations/001_portal_content_rollback.sql` executa o desmonte seguro de todas as tabelas, funções auxiliares e policies criadas nesta migração.
-- A migração e o rollback são **100% isolados** das tabelas legadas da ficha e dos perfis de usuário.
+| Risco Identificado | Probabilidade | Impacto | Mitigação Arquitetural Implementada |
+| :--- | :---: | :---: | :--- |
+| **Vazamento de Segredos por Join no Frontend** | Nula | Crítico | Segredos físicos em tabelas separadas 1-to-1 com RLS restrito a `is_chronus_narrator()`. Mesmo se o frontend solicitar `select('*, npc_secrets(*)')`, o Supabase retornará `npc_secrets: null` para jogadores. |
+| **Vazamento de Relacionamentos por Junction Tables** | Nula | Alto | RLS bilateral em todas as junction tables validando que o usuário tenha acesso a ambos os lados da relação (`EXISTS ... s.id` AND `EXISTS ... n.id`). |
+| **Acesso Indevido a Arquivos por URL Pública** | Nula | Alto | Todos os 4 novos buckets foram configurados como **estritamente PRIVADOS (`public = false`)**. O acesso exige token JWT ou signed URLs de curta duração geradas com validação de role. |
+| **Deleção Acidental de Conta de Usuário** | Baixa | Médio | Todas as colunas `created_by` utilizam `ON DELETE SET NULL`, garantindo que o acervo editorial nunca seja destruído por exclusão de um perfil de usuário. |

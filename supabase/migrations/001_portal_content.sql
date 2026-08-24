@@ -1,18 +1,24 @@
 -- ============================================================================
 -- CHRONUS — ECOLOGIA SOBRENATURAL
--- MIGRATION 001: ARQUITETURA DE CONTEÚDO EDITORIAL E SEGREGAÇÃO DE SEGREDOS
+-- MIGRATION 001: ARQUITETURA DE CONTEÚDO EDITORIAL & SEGREGAÇÃO DE SEGREDOS (v2.0)
 -- ============================================================================
--- IMPORTANTE:
--- 1. Totalmente aditiva — preserva characters, profiles, auth.users e bucket portraits.
--- 2. RLS estrita por visibilidade (public, players, narrator) e segredos 1-to-1 privados.
--- 3. Junction tables tipadas com integridade referencial (ON DELETE CASCADE).
+-- DIRETRIZES DE ENGENHARIA & SEGURANÇA:
+-- 1. 100% Aditiva: Preserva public.characters, public.profiles, auth.users e bucket portraits.
+-- 2. Segregação Física de Segredos: npc_secrets, location_secrets e document_secrets em
+--    tabelas dedicadas 1-to-1 acessíveis EXCLUSIVAMENTE pelo Narrador.
+-- 3. Storage Blindado: Buckets 100% PRIVADOS com download autenticado/signed URL e
+--    policies de visibilidade baseadas no prefixo do path (public/, players/, narrator/).
+-- 4. RLS de Junction Tables Bilateral: Consultas a relações só retornam se o usuário puder
+--    ler AMBAS as entidades relacionadas.
+-- 5. Publicação Uniforme: published (boolean) e published_at (timestamptz) em todas as tabelas.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. FUNÇÕES AUXILIARES DE AUTORIZAÇÃO (SECURITY DEFINER)
+-- 1. FUNÇÕES AUXILIARES DE AUTORIZAÇÃO & AUDITORIA (SECURITY DEFINER)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION public.is_narrator()
+-- Função do Narrador (Segura e idempotente)
+CREATE OR REPLACE FUNCTION public.is_chronus_narrator()
 RETURNS BOOLEAN
 LANGUAGE sql
 SECURITY DEFINER
@@ -25,7 +31,8 @@ AS $$
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.is_player_or_narrator()
+-- Função de Jogador ou Narrador
+CREATE OR REPLACE FUNCTION public.is_chronus_player_or_narrator()
 RETURNS BOOLEAN
 LANGUAGE sql
 SECURITY DEFINER
@@ -38,13 +45,26 @@ AS $$
   );
 $$;
 
+-- Função genérica de atualização de timestamp
+CREATE OR REPLACE FUNCTION public.handle_chronus_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 -- ----------------------------------------------------------------------------
 -- 2. CRÔNICA: CAPÍTULOS & ARCOS NARRATIVOS
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.chronicle_chapters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chapter_number INT NOT NULL,
+  chapter_number INT, -- Nullable para acomodar Prólogo (NULL ou 0)
   title TEXT NOT NULL,
   subtitle TEXT,
   slug TEXT NOT NULL UNIQUE,
@@ -61,7 +81,12 @@ CREATE TABLE IF NOT EXISTS public.chronicle_chapters (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chronicle_chapters_slug ON public.chronicle_chapters(slug);
-CREATE INDEX IF NOT EXISTS idx_chronicle_chapters_visibility ON public.chronicle_chapters(visibility, published, sort_order);
+CREATE INDEX IF NOT EXISTS idx_chronicle_chapters_listing ON public.chronicle_chapters(visibility, published, published_at, sort_order);
+CREATE INDEX IF NOT EXISTS idx_chronicle_chapters_created_by ON public.chronicle_chapters(created_by);
+
+CREATE OR REPLACE TRIGGER trg_chronicle_chapters_updated_at
+  BEFORE UPDATE ON public.chronicle_chapters
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 3. SESSÕES: DIÁRIO DE SESSÕES & LOG DE MESA
@@ -90,7 +115,13 @@ CREATE TABLE IF NOT EXISTS public.campaign_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_campaign_sessions_number ON public.campaign_sessions(session_number);
 CREATE INDEX IF NOT EXISTS idx_campaign_sessions_slug ON public.campaign_sessions(slug);
-CREATE INDEX IF NOT EXISTS idx_campaign_sessions_visibility ON public.campaign_sessions(visibility, published);
+CREATE INDEX IF NOT EXISTS idx_campaign_sessions_date ON public.campaign_sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_campaign_sessions_listing ON public.campaign_sessions(visibility, published, published_at, sort_order);
+CREATE INDEX IF NOT EXISTS idx_campaign_sessions_created_by ON public.campaign_sessions(created_by);
+
+CREATE OR REPLACE TRIGGER trg_campaign_sessions_updated_at
+  BEFORE UPDATE ON public.campaign_sessions
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 4. NPCS: DOSSIÊ PÚBLICO & SEGREDOS DO NARRADOR (1-TO-1)
@@ -113,15 +144,23 @@ CREATE TABLE IF NOT EXISTS public.npcs (
   visibility TEXT NOT NULL DEFAULT 'players' CHECK (visibility IN ('public', 'players', 'narrator')),
   sort_order INT NOT NULL DEFAULT 0,
   published BOOLEAN NOT NULL DEFAULT false,
+  published_at TIMESTAMPTZ,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_npcs_slug ON public.npcs(slug);
-CREATE INDEX IF NOT EXISTS idx_npcs_visibility ON public.npcs(visibility, published);
+CREATE INDEX IF NOT EXISTS idx_npcs_listing ON public.npcs(visibility, published, published_at, sort_order);
+CREATE INDEX IF NOT EXISTS idx_npcs_first_session ON public.npcs(first_appearance_session_id);
+CREATE INDEX IF NOT EXISTS idx_npcs_last_session ON public.npcs(last_appearance_session_id);
+CREATE INDEX IF NOT EXISTS idx_npcs_created_by ON public.npcs(created_by);
 
--- Tabela Privada de Segredos de NPCs (1-to-1)
+CREATE OR REPLACE TRIGGER trg_npcs_updated_at
+  BEFORE UPDATE ON public.npcs
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
+
+-- TABELA PRIVADA DE SEGREDOS DE NPCS (1-TO-1 — SOMENTE NARRADOR)
 CREATE TABLE IF NOT EXISTS public.npc_secrets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   npc_id UUID NOT NULL UNIQUE REFERENCES public.npcs(id) ON DELETE CASCADE,
@@ -135,7 +174,11 @@ CREATE TABLE IF NOT EXISTS public.npc_secrets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_npc_secrets_fk ON public.npc_secrets(npc_id);
+CREATE INDEX IF NOT EXISTS idx_npc_secrets_npc_id ON public.npc_secrets(npc_id);
+
+CREATE OR REPLACE TRIGGER trg_npc_secrets_updated_at
+  BEFORE UPDATE ON public.npc_secrets
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 5. LOCAIS & MAPAS: ATLAS GEOGRÁFICO & SEGREDOS (1-TO-1)
@@ -155,6 +198,7 @@ CREATE TABLE IF NOT EXISTS public.locations (
   visibility TEXT NOT NULL DEFAULT 'players' CHECK (visibility IN ('public', 'players', 'narrator')),
   sort_order INT NOT NULL DEFAULT 0,
   published BOOLEAN NOT NULL DEFAULT false,
+  published_at TIMESTAMPTZ,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -162,9 +206,15 @@ CREATE TABLE IF NOT EXISTS public.locations (
 
 CREATE INDEX IF NOT EXISTS idx_locations_slug ON public.locations(slug);
 CREATE INDEX IF NOT EXISTS idx_locations_type ON public.locations(type);
-CREATE INDEX IF NOT EXISTS idx_locations_visibility ON public.locations(visibility, published);
+CREATE INDEX IF NOT EXISTS idx_locations_parent ON public.locations(parent_location_id);
+CREATE INDEX IF NOT EXISTS idx_locations_listing ON public.locations(visibility, published, published_at, sort_order);
+CREATE INDEX IF NOT EXISTS idx_locations_created_by ON public.locations(created_by);
 
--- Tabela Privada de Segredos de Locais (1-to-1)
+CREATE OR REPLACE TRIGGER trg_locations_updated_at
+  BEFORE UPDATE ON public.locations
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
+
+-- TABELA PRIVADA DE SEGREDOS DE LOCAIS (1-TO-1 — SOMENTE NARRADOR)
 CREATE TABLE IF NOT EXISTS public.location_secrets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   location_id UUID NOT NULL UNIQUE REFERENCES public.locations(id) ON DELETE CASCADE,
@@ -175,7 +225,11 @@ CREATE TABLE IF NOT EXISTS public.location_secrets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_location_secrets_fk ON public.location_secrets(location_id);
+CREATE INDEX IF NOT EXISTS idx_location_secrets_location_id ON public.location_secrets(location_id);
+
+CREATE OR REPLACE TRIGGER trg_location_secrets_updated_at
+  BEFORE UPDATE ON public.location_secrets
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 6. ARQUIVOS & EVIDÊNCIAS: DOCUMENTOS & SEGREDOS (1-TO-1)
@@ -195,6 +249,7 @@ CREATE TABLE IF NOT EXISTS public.campaign_documents (
   visibility TEXT NOT NULL DEFAULT 'players' CHECK (visibility IN ('public', 'players', 'narrator')),
   sort_order INT NOT NULL DEFAULT 0,
   published BOOLEAN NOT NULL DEFAULT false,
+  published_at TIMESTAMPTZ,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -202,9 +257,15 @@ CREATE TABLE IF NOT EXISTS public.campaign_documents (
 
 CREATE INDEX IF NOT EXISTS idx_campaign_documents_slug ON public.campaign_documents(slug);
 CREATE INDEX IF NOT EXISTS idx_campaign_documents_type ON public.campaign_documents(type);
-CREATE INDEX IF NOT EXISTS idx_campaign_documents_visibility ON public.campaign_documents(visibility, published);
+CREATE INDEX IF NOT EXISTS idx_campaign_documents_session ON public.campaign_documents(found_in_session_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_documents_listing ON public.campaign_documents(visibility, published, published_at, sort_order);
+CREATE INDEX IF NOT EXISTS idx_campaign_documents_created_by ON public.campaign_documents(created_by);
 
--- Tabela Privada de Segredos de Documentos (1-to-1)
+CREATE OR REPLACE TRIGGER trg_campaign_documents_updated_at
+  BEFORE UPDATE ON public.campaign_documents
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
+
+-- TABELA PRIVADA DE SEGREDOS DE DOCUMENTOS (1-TO-1 — SOMENTE NARRADOR)
 CREATE TABLE IF NOT EXISTS public.document_secrets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id UUID NOT NULL UNIQUE REFERENCES public.campaign_documents(id) ON DELETE CASCADE,
@@ -215,7 +276,11 @@ CREATE TABLE IF NOT EXISTS public.document_secrets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_document_secrets_fk ON public.document_secrets(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_secrets_doc_id ON public.document_secrets(document_id);
+
+CREATE OR REPLACE TRIGGER trg_document_secrets_updated_at
+  BEFORE UPDATE ON public.document_secrets
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 7. TRILHA SONORA (YOUTUBE EMBED)
@@ -229,12 +294,19 @@ CREATE TABLE IF NOT EXISTS public.soundtrack (
   description TEXT,
   sort_order INT NOT NULL DEFAULT 0,
   active BOOLEAN NOT NULL DEFAULT true,
+  published BOOLEAN NOT NULL DEFAULT true,
+  published_at TIMESTAMPTZ,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_soundtrack_category ON public.soundtrack(category, sort_order);
+CREATE INDEX IF NOT EXISTS idx_soundtrack_category ON public.soundtrack(category, active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_soundtrack_created_by ON public.soundtrack(created_by);
+
+CREATE OR REPLACE TRIGGER trg_soundtrack_updated_at
+  BEFORE UPDATE ON public.soundtrack
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 8. BIBLIOTECA OFICIAL (PDFS & LIVROS)
@@ -253,14 +325,20 @@ CREATE TABLE IF NOT EXISTS public.library_items (
   page_count INT,
   sort_order INT NOT NULL DEFAULT 0,
   visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'players', 'narrator')),
+  published BOOLEAN NOT NULL DEFAULT true,
   published_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_library_items_category ON public.library_items(category, sort_order);
 CREATE INDEX IF NOT EXISTS idx_library_items_slug ON public.library_items(slug);
+CREATE INDEX IF NOT EXISTS idx_library_items_listing ON public.library_items(category, visibility, published, sort_order);
+CREATE INDEX IF NOT EXISTS idx_library_items_created_by ON public.library_items(created_by);
+
+CREATE OR REPLACE TRIGGER trg_library_items_updated_at
+  BEFORE UPDATE ON public.library_items
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- 9. JUNCTION TABLES TIPADAS PARA RELACIONAMENTOS
@@ -273,6 +351,7 @@ CREATE TABLE IF NOT EXISTS public.session_npcs (
   role_in_session TEXT,
   PRIMARY KEY (session_id, npc_id)
 );
+CREATE INDEX IF NOT EXISTS idx_session_npcs_npc_id ON public.session_npcs(npc_id);
 
 -- Sessão <-> Locais
 CREATE TABLE IF NOT EXISTS public.session_locations (
@@ -281,6 +360,7 @@ CREATE TABLE IF NOT EXISTS public.session_locations (
   notes TEXT,
   PRIMARY KEY (session_id, location_id)
 );
+CREATE INDEX IF NOT EXISTS idx_session_locations_loc_id ON public.session_locations(location_id);
 
 -- Sessão <-> Documentos
 CREATE TABLE IF NOT EXISTS public.session_documents (
@@ -289,6 +369,7 @@ CREATE TABLE IF NOT EXISTS public.session_documents (
   discovery_context TEXT,
   PRIMARY KEY (session_id, document_id)
 );
+CREATE INDEX IF NOT EXISTS idx_session_documents_doc_id ON public.session_documents(document_id);
 
 -- Capítulo <-> NPCs
 CREATE TABLE IF NOT EXISTS public.chapter_npcs (
@@ -296,6 +377,7 @@ CREATE TABLE IF NOT EXISTS public.chapter_npcs (
   npc_id UUID NOT NULL REFERENCES public.npcs(id) ON DELETE CASCADE,
   PRIMARY KEY (chapter_id, npc_id)
 );
+CREATE INDEX IF NOT EXISTS idx_chapter_npcs_npc_id ON public.chapter_npcs(npc_id);
 
 -- Capítulo <-> Locais
 CREATE TABLE IF NOT EXISTS public.chapter_locations (
@@ -303,6 +385,7 @@ CREATE TABLE IF NOT EXISTS public.chapter_locations (
   location_id UUID NOT NULL REFERENCES public.locations(id) ON DELETE CASCADE,
   PRIMARY KEY (chapter_id, location_id)
 );
+CREATE INDEX IF NOT EXISTS idx_chapter_locations_loc_id ON public.chapter_locations(location_id);
 
 -- NPC <-> Locais
 CREATE TABLE IF NOT EXISTS public.npc_locations (
@@ -311,6 +394,7 @@ CREATE TABLE IF NOT EXISTS public.npc_locations (
   association_type TEXT,
   PRIMARY KEY (npc_id, location_id)
 );
+CREATE INDEX IF NOT EXISTS idx_npc_locations_loc_id ON public.npc_locations(location_id);
 
 -- NPC <-> Documentos
 CREATE TABLE IF NOT EXISTS public.npc_documents (
@@ -319,9 +403,10 @@ CREATE TABLE IF NOT EXISTS public.npc_documents (
   association_type TEXT,
   PRIMARY KEY (npc_id, document_id)
 );
+CREATE INDEX IF NOT EXISTS idx_npc_documents_doc_id ON public.npc_documents(document_id);
 
 -- ----------------------------------------------------------------------------
--- 10. ATIVAÇÃO DE ROW LEVEL SECURITY (RLS)
+-- 10. ATIVAÇÃO DE ROW LEVEL SECURITY (RLS) EM TODAS AS TABELAS
 -- ----------------------------------------------------------------------------
 
 ALTER TABLE public.chronicle_chapters ENABLE ROW LEVEL SECURITY;
@@ -344,179 +429,412 @@ ALTER TABLE public.npc_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.npc_documents ENABLE ROW LEVEL SECURITY;
 
 -- ----------------------------------------------------------------------------
--- 11. POLICIES: TABELAS EDITORIAIS (3 NÍVEIS DE VISIBILIDADE)
+-- 11. POLICIES RLS: TABELAS EDITORIAIS PRINCIPAIS
 -- ----------------------------------------------------------------------------
 
 -- A. chronicle_chapters
 CREATE POLICY "chronicle_chapters_select_policy"
   ON public.chronicle_chapters FOR SELECT
   USING (
-    (visibility = 'public' AND published = true)
-    OR (visibility = 'players' AND published = true AND public.is_player_or_narrator())
-    OR (public.is_narrator())
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
   );
 
 CREATE POLICY "chronicle_chapters_admin_policy"
   ON public.chronicle_chapters FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
 -- B. campaign_sessions
 CREATE POLICY "campaign_sessions_select_policy"
   ON public.campaign_sessions FOR SELECT
   USING (
-    (visibility = 'public' AND published = true)
-    OR (visibility = 'players' AND published = true AND public.is_player_or_narrator())
-    OR (public.is_narrator())
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
   );
 
 CREATE POLICY "campaign_sessions_admin_policy"
   ON public.campaign_sessions FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
 -- C. npcs
 CREATE POLICY "npcs_select_policy"
   ON public.npcs FOR SELECT
   USING (
-    (visibility = 'public' AND published = true)
-    OR (visibility = 'players' AND published = true AND public.is_player_or_narrator())
-    OR (public.is_narrator())
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
   );
 
 CREATE POLICY "npcs_admin_policy"
   ON public.npcs FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
 -- D. locations
 CREATE POLICY "locations_select_policy"
   ON public.locations FOR SELECT
   USING (
-    (visibility = 'public' AND published = true)
-    OR (visibility = 'players' AND published = true AND public.is_player_or_narrator())
-    OR (public.is_narrator())
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
   );
 
 CREATE POLICY "locations_admin_policy"
   ON public.locations FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
 -- E. campaign_documents
 CREATE POLICY "campaign_documents_select_policy"
   ON public.campaign_documents FOR SELECT
   USING (
-    (visibility = 'public' AND published = true)
-    OR (visibility = 'players' AND published = true AND public.is_player_or_narrator())
-    OR (public.is_narrator())
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
   );
 
 CREATE POLICY "campaign_documents_admin_policy"
   ON public.campaign_documents FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
--- F. library_items
+-- F. soundtrack
+CREATE POLICY "soundtrack_select_policy"
+  ON public.soundtrack FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      active = true
+      AND published = true
+      AND (published_at IS NULL OR published_at <= now())
+    )
+  );
+
+CREATE POLICY "soundtrack_admin_policy"
+  ON public.soundtrack FOR ALL
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
+
+-- G. library_items
 CREATE POLICY "library_items_select_policy"
   ON public.library_items FOR SELECT
   USING (
-    (visibility = 'public' AND published = true)
-    OR (visibility = 'players' AND published = true AND public.is_player_or_narrator())
-    OR (public.is_narrator())
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
   );
 
 CREATE POLICY "library_items_admin_policy"
   ON public.library_items FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
-
--- G. soundtrack
-CREATE POLICY "soundtrack_select_policy"
-  ON public.soundtrack FOR SELECT
-  USING (active = true OR public.is_narrator());
-
-CREATE POLICY "soundtrack_admin_policy"
-  ON public.soundtrack FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
 -- ----------------------------------------------------------------------------
--- 12. POLICIES: TABELAS DE SEGREDOS (EXCLUSIVO NARRADOR)
+-- 12. POLICIES RLS: TABELAS DE SEGREDOS (ESTRITAMENTE PRIVADAS — NARRADOR)
 -- ----------------------------------------------------------------------------
 
-CREATE POLICY "npc_secrets_narrator_only"
+CREATE POLICY "npc_secrets_narrator_exclusive"
   ON public.npc_secrets FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
-CREATE POLICY "location_secrets_narrator_only"
+CREATE POLICY "location_secrets_narrator_exclusive"
   ON public.location_secrets FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
-CREATE POLICY "document_secrets_narrator_only"
+CREATE POLICY "document_secrets_narrator_exclusive"
   ON public.document_secrets FOR ALL
-  USING (public.is_narrator())
-  WITH CHECK (public.is_narrator());
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
 
 -- ----------------------------------------------------------------------------
--- 13. POLICIES: JUNCTION TABLES
+-- 13. POLICIES RLS: JUNCTION TABLES (BLINDAGEM BILATERAL CONTRA VAZAMENTO)
 -- ----------------------------------------------------------------------------
 
-CREATE POLICY "session_npcs_select" ON public.session_npcs FOR SELECT USING (true);
-CREATE POLICY "session_npcs_admin" ON public.session_npcs FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+-- 1. session_npcs: Só retorna se o usuário puder ver a Sessão E o NPC
+CREATE POLICY "session_npcs_select_protected"
+  ON public.session_npcs FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.campaign_sessions s
+        WHERE s.id = session_id
+        AND s.published = true
+        AND (s.published_at IS NULL OR s.published_at <= now())
+        AND (s.visibility = 'public' OR (s.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.npcs n
+        WHERE n.id = npc_id
+        AND n.published = true
+        AND (n.published_at IS NULL OR n.published_at <= now())
+        AND (n.visibility = 'public' OR (n.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
 
-CREATE POLICY "session_locations_select" ON public.session_locations FOR SELECT USING (true);
-CREATE POLICY "session_locations_admin" ON public.session_locations FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+CREATE POLICY "session_npcs_admin" ON public.session_npcs FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
 
-CREATE POLICY "session_documents_select" ON public.session_documents FOR SELECT USING (true);
-CREATE POLICY "session_documents_admin" ON public.session_documents FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+-- 2. session_locations: Só retorna se puder ver a Sessão E o Local
+CREATE POLICY "session_locations_select_protected"
+  ON public.session_locations FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.campaign_sessions s
+        WHERE s.id = session_id
+        AND s.published = true
+        AND (s.published_at IS NULL OR s.published_at <= now())
+        AND (s.visibility = 'public' OR (s.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.locations l
+        WHERE l.id = location_id
+        AND l.published = true
+        AND (l.published_at IS NULL OR l.published_at <= now())
+        AND (l.visibility = 'public' OR (l.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
 
-CREATE POLICY "chapter_npcs_select" ON public.chapter_npcs FOR SELECT USING (true);
-CREATE POLICY "chapter_npcs_admin" ON public.chapter_npcs FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+CREATE POLICY "session_locations_admin" ON public.session_locations FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
 
-CREATE POLICY "chapter_locations_select" ON public.chapter_locations FOR SELECT USING (true);
-CREATE POLICY "chapter_locations_admin" ON public.chapter_locations FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+-- 3. session_documents: Só retorna se puder ver a Sessão E o Documento
+CREATE POLICY "session_documents_select_protected"
+  ON public.session_documents FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.campaign_sessions s
+        WHERE s.id = session_id
+        AND s.published = true
+        AND (s.published_at IS NULL OR s.published_at <= now())
+        AND (s.visibility = 'public' OR (s.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.campaign_documents d
+        WHERE d.id = document_id
+        AND d.published = true
+        AND (d.published_at IS NULL OR d.published_at <= now())
+        AND (d.visibility = 'public' OR (d.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
 
-CREATE POLICY "npc_locations_select" ON public.npc_locations FOR SELECT USING (true);
-CREATE POLICY "npc_locations_admin" ON public.npc_locations FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+CREATE POLICY "session_documents_admin" ON public.session_documents FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
 
-CREATE POLICY "npc_documents_select" ON public.npc_documents FOR SELECT USING (true);
-CREATE POLICY "npc_documents_admin" ON public.npc_documents FOR ALL USING (public.is_narrator()) WITH CHECK (public.is_narrator());
+-- 4. chapter_npcs: Só retorna se puder ver o Capítulo E o NPC
+CREATE POLICY "chapter_npcs_select_protected"
+  ON public.chapter_npcs FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.chronicle_chapters c
+        WHERE c.id = chapter_id
+        AND c.published = true
+        AND (c.published_at IS NULL OR c.published_at <= now())
+        AND (c.visibility = 'public' OR (c.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.npcs n
+        WHERE n.id = npc_id
+        AND n.published = true
+        AND (n.published_at IS NULL OR n.published_at <= now())
+        AND (n.visibility = 'public' OR (n.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
+
+CREATE POLICY "chapter_npcs_admin" ON public.chapter_npcs FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
+
+-- 5. chapter_locations: Só retorna se puder ver o Capítulo E o Local
+CREATE POLICY "chapter_locations_select_protected"
+  ON public.chapter_locations FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.chronicle_chapters c
+        WHERE c.id = chapter_id
+        AND c.published = true
+        AND (c.published_at IS NULL OR c.published_at <= now())
+        AND (c.visibility = 'public' OR (c.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.locations l
+        WHERE l.id = location_id
+        AND l.published = true
+        AND (l.published_at IS NULL OR l.published_at <= now())
+        AND (l.visibility = 'public' OR (l.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
+
+CREATE POLICY "chapter_locations_admin" ON public.chapter_locations FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
+
+-- 6. npc_locations: Só retorna se puder ver o NPC E o Local
+CREATE POLICY "npc_locations_select_protected"
+  ON public.npc_locations FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.npcs n
+        WHERE n.id = npc_id
+        AND n.published = true
+        AND (n.published_at IS NULL OR n.published_at <= now())
+        AND (n.visibility = 'public' OR (n.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.locations l
+        WHERE l.id = location_id
+        AND l.published = true
+        AND (l.published_at IS NULL OR l.published_at <= now())
+        AND (l.visibility = 'public' OR (l.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
+
+CREATE POLICY "npc_locations_admin" ON public.npc_locations FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
+
+-- 7. npc_documents: Só retorna se puder ver o NPC E o Documento
+CREATE POLICY "npc_documents_select_protected"
+  ON public.npc_documents FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.npcs n
+        WHERE n.id = npc_id
+        AND n.published = true
+        AND (n.published_at IS NULL OR n.published_at <= now())
+        AND (n.visibility = 'public' OR (n.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+      AND
+      EXISTS (
+        SELECT 1 FROM public.campaign_documents d
+        WHERE d.id = document_id
+        AND d.published = true
+        AND (d.published_at IS NULL OR d.published_at <= now())
+        AND (d.visibility = 'public' OR (d.visibility = 'players' AND public.is_chronus_player_or_narrator()))
+      )
+    )
+  );
+
+CREATE POLICY "npc_documents_admin" ON public.npc_documents FOR ALL
+  USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
 
 -- ----------------------------------------------------------------------------
--- 14. BUCKETS DE STORAGE (DEFINIÇÃO ADITIVA)
+-- 14. BUCKETS DE STORAGE (100% PRIVADOS COM CONTROLE DE VISIBILIDADE POR PATH)
 -- ----------------------------------------------------------------------------
+-- Estrutura de Diretórios Obrigatória em cada bucket:
+--   <bucket>/public/...   -> Acessível por anônimos, jogadores e narrador
+--   <bucket>/players/...  -> Acessível por jogadores autenticados e narrador
+--   <bucket>/narrator/... -> Acessível EXCLUSIVAMENTE pelo narrador
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES
-  ('campaign-images', 'campaign-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']),
-  ('maps', 'maps', true, 15728640, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']),
-  ('documents', 'documents', true, 20971520, ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
-  ('library', 'library', true, 52428800, ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+  ('campaign-images', 'campaign-images', false, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']),
+  ('maps', 'maps', false, 15728640, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']),
+  ('documents', 'documents', false, 20971520, ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  ('library', 'library', false, 52428800, ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO UPDATE SET
-  public = EXCLUDED.public,
+  public = false,
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- Policies de Storage
-CREATE POLICY "Public Read for campaign-images" ON storage.objects FOR SELECT USING (bucket_id = 'campaign-images');
-CREATE POLICY "Narrator Upload for campaign-images" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'campaign-images' AND public.is_narrator());
-CREATE POLICY "Narrator Update for campaign-images" ON storage.objects FOR UPDATE USING (bucket_id = 'campaign-images' AND public.is_narrator());
-CREATE POLICY "Narrator Delete for campaign-images" ON storage.objects FOR DELETE USING (bucket_id = 'campaign-images' AND public.is_narrator());
+-- Storage Read Policy: Validação de Visibilidade por Pasta Raiz
+CREATE POLICY "campaign_storage_read_policy"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
+    AND (
+      public.is_chronus_narrator()
+      OR (
+        (storage.foldername(name))[1] = 'public'
+      )
+      OR (
+        (storage.foldername(name))[1] = 'players'
+        AND public.is_chronus_player_or_narrator()
+      )
+    )
+  );
 
-CREATE POLICY "Public Read for maps" ON storage.objects FOR SELECT USING (bucket_id = 'maps');
-CREATE POLICY "Narrator Upload for maps" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'maps' AND public.is_narrator());
-CREATE POLICY "Narrator Update for maps" ON storage.objects FOR UPDATE USING (bucket_id = 'maps' AND public.is_narrator());
-CREATE POLICY "Narrator Delete for maps" ON storage.objects FOR DELETE USING (bucket_id = 'maps' AND public.is_narrator());
+-- Storage Write Policies: Somente Narrador
+CREATE POLICY "campaign_storage_insert_policy"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
+    AND public.is_chronus_narrator()
+  );
 
-CREATE POLICY "Public Read for documents" ON storage.objects FOR SELECT USING (bucket_id = 'documents');
-CREATE POLICY "Narrator Upload for documents" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'documents' AND public.is_narrator());
-CREATE POLICY "Narrator Update for documents" ON storage.objects FOR UPDATE USING (bucket_id = 'documents' AND public.is_narrator());
-CREATE POLICY "Narrator Delete for documents" ON storage.objects FOR DELETE USING (bucket_id = 'documents' AND public.is_narrator());
+CREATE POLICY "campaign_storage_update_policy"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
+    AND public.is_chronus_narrator()
+  );
 
-CREATE POLICY "Public Read for library" ON storage.objects FOR SELECT USING (bucket_id = 'library');
-CREATE POLICY "Narrator Upload for library" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'library' AND public.is_narrator());
-CREATE POLICY "Narrator Update for library" ON storage.objects FOR UPDATE USING (bucket_id = 'library' AND public.is_narrator());
-CREATE POLICY "Narrator Delete for library" ON storage.objects FOR DELETE USING (bucket_id = 'library' AND public.is_narrator());
+CREATE POLICY "campaign_storage_delete_policy"
+  ON storage.objects FOR DELETE
+  USING (
+    bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
+    AND public.is_chronus_narrator()
+  );
