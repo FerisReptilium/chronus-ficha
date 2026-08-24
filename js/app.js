@@ -53,6 +53,7 @@ function setupAuthForms() {
     const email = loginEmail?.value.trim();
     const pass = loginPassword?.value;
     const msg = document.getElementById('authMessage');
+    const loginBtn = document.getElementById('authLoginButton');
 
     if (!email || !pass) {
       if (msg) { msg.textContent = 'Informe e-mail e senha.'; msg.classList.add('is-error'); }
@@ -60,6 +61,7 @@ function setupAuthForms() {
     }
 
     if (msg) { msg.textContent = 'Autenticando…'; msg.classList.remove('is-error'); }
+    if (loginBtn) loginBtn.disabled = true;
 
     try {
       const res = await window.ChronusAuth.handleLogin(email, pass);
@@ -70,6 +72,8 @@ function setupAuthForms() {
       }
     } catch (err) {
       if (msg) { msg.textContent = 'Falha no acesso: ' + (err.message || err); msg.classList.add('is-error'); }
+    } finally {
+      if (loginBtn) loginBtn.disabled = false;
     }
   });
 

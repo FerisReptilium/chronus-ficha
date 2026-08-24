@@ -84,8 +84,8 @@ window.ChronusAuth = (function() {
 
     const recoveryCallback = getPasswordRecoveryCallback();
 
-    // ÚNICO LISTENER GLOBAL DE AUTENTICAÇÃO
-    client.auth.onAuthStateChange(async (event, session) => {
+    // ÚNICO LISTENER GLOBAL DE AUTENTICAÇÃO (SÍNCRONO - ZERO DEADLOCK)
+    client.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         passwordRecoveryAuthorized = true;
         currentUser = session?.user || currentUser;
@@ -99,9 +99,15 @@ window.ChronusAuth = (function() {
       }
       if (event === 'SIGNED_IN' && session?.user) {
         currentUser = session.user;
-        currentProfile = await fetchProfile(session.user);
-        updateNavAuthUi(currentUser, currentProfile);
-        notifyAuthListeners(currentUser, currentProfile);
+        const eventUserId = session.user.id;
+        // Deferir processamento assíncrono para fora do callback interno do Supabase
+        setTimeout(async () => {
+          const profile = await fetchProfile(session.user);
+          if ((currentUser?.id || null) !== eventUserId) return;
+          currentProfile = profile;
+          updateNavAuthUi(currentUser, currentProfile);
+          notifyAuthListeners(currentUser, currentProfile);
+        }, 0);
       }
     });
 
