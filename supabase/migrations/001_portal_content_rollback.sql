@@ -9,6 +9,8 @@
 -- 4. NUNCA toca em characters, profiles, auth.users, bucket portraits ou funções legadas.
 -- ============================================================================
 
+BEGIN;
+
 -- 1. Remover Policies de Storage dos 4 buckets da campanha
 DROP POLICY IF EXISTS "campaign_storage_read_policy" ON storage.objects;
 DROP POLICY IF EXISTS "campaign_storage_insert_policy" ON storage.objects;
@@ -67,3 +69,5 @@ DROP FUNCTION IF EXISTS public.handle_chronus_updated_at();
 DROP FUNCTION IF EXISTS public.is_chronus_player_or_narrator();
 
 -- NOTA: public.is_chronus_narrator() NÃO É REMOVIDA (preserva integridade do sistema legado).
+
+COMMIT;

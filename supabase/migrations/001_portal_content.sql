@@ -12,6 +12,8 @@
 -- 7. Grants mínimos e explícitos por perfil e role.
 -- ============================================================================
 
+BEGIN;
+
 -- ----------------------------------------------------------------------------
 -- 1. FUNÇÕES AUXILIARES DE AUTORIZAÇÃO (SECURITY DEFINER & HARDENED)
 -- ----------------------------------------------------------------------------
@@ -1071,3 +1073,5 @@ CREATE POLICY "campaign_storage_delete_policy"
     bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
     AND public.is_chronus_narrator()
   );
+
+COMMIT;
