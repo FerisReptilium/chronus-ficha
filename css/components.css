@@ -311,3 +311,58 @@
   border-color: rgba(180, 40, 40, 0.4);
   color: #e06868;
 }
+
+/* Scoped styles for NPC cards */
+.npc-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+.npc-meta-item strong {
+  color: var(--gold-highlight);
+  font-weight: 600;
+}
+
+.npc-personality-lead {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #dfcb9f;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(201, 154, 69, 0.2);
+}
+
+.npc-personality-lead strong {
+  font-style: normal;
+  color: var(--gold-primary);
+}
+
+.npc-status-badge.status-alive {
+  border-color: rgba(69, 160, 73, 0.4);
+  color: #72cf77;
+}
+
+.npc-status-badge.status-dead {
+  border-color: rgba(180, 40, 40, 0.4);
+  color: #e06868;
+}
+
+.npc-status-badge.status-missing {
+  border-color: rgba(201, 154, 69, 0.5);
+  color: var(--gold-highlight);
+}
+
+.npc-status-badge.status-unknown {
+  border-color: rgba(140, 126, 110, 0.3);
+  color: #a89a88;
+}
+
+.npc-status-badge.status-transformed {
+  border-color: rgba(156, 39, 176, 0.5);
+  color: #ba68c8;
+}

@@ -456,11 +456,13 @@
     <section id="view-npcs" class="portal-view portal-shell">
       <div class="editorial-section">
         <div class="portal-container">
-          <div class="editorial-box">
+          <div class="section-head-editorial">
             <span class="section-kicker">Dossiê de Campo</span>
-            <h3>Banco Visual de NPCs</h3>
-            <p>A galeria de figuras proeminentes e contatos será integrada na Fase 2B.</p>
-            <a href="#/home" class="portal-btn portal-btn-secondary">← Voltar ao Início</a>
+            <h2 class="section-heading">Dossiê de NPCs</h2>
+            <p class="section-desc-lead">Figuras proeminentes, contatos, mentores e entidades catalogadas.</p>
+          </div>
+          <div id="npcs-list-container">
+            <!-- Renderizado dinamicamente por ChronusNpcs -->
           </div>
         </div>
       </div>
@@ -585,6 +587,7 @@
   <script src="js/modules/home.js"></script>
   <script src="js/modules/chronicle.js"></script>
   <script src="js/modules/sessions.js"></script>
+  <script src="js/modules/npcs.js"></script>
   <script src="js/modules/player_dashboard.js"></script>
   <script src="js/modules/narrator_panel.js"></script>
   <script src="js/modules/sheet_engine.js"></script>

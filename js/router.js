@@ -101,6 +101,8 @@ window.ChronusRouter = (function() {
       window.ChronusChronicle?.load?.();
     } else if (cleanHash === '#/sessions') {
       window.ChronusSessions?.load?.();
+    } else if (cleanHash === '#/npcs') {
+      window.ChronusNpcs?.load?.();
     }
 
     // Atualizar links ativos no Navbar
