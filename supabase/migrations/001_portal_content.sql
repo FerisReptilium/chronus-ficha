@@ -1,43 +1,32 @@
 -- ============================================================================
 -- CHRONUS — ECOLOGIA SOBRENATURAL
--- MIGRATION 001: ARQUITETURA DE CONTEÚDO EDITORIAL & SEGREGAÇÃO DE SEGREDOS (v2.0)
+-- MIGRATION 001: ARQUITETURA DE CONTEÚDO EDITORIAL & STORAGE AUDITADO (v3.0)
 -- ============================================================================
--- DIRETRIZES DE ENGENHARIA & SEGURANÇA:
+-- DIRETRIZES DE ENGENHARIA & SEGURANÇA MÁXIMA:
 -- 1. 100% Aditiva: Preserva public.characters, public.profiles, auth.users e bucket portraits.
--- 2. Segregação Física de Segredos: npc_secrets, location_secrets e document_secrets em
---    tabelas dedicadas 1-to-1 acessíveis EXCLUSIVAMENTE pelo Narrador.
--- 3. Storage Blindado: Buckets 100% PRIVADOS com download autenticado/signed URL e
---    policies de visibilidade baseadas no prefixo do path (public/, players/, narrator/).
--- 4. RLS de Junction Tables Bilateral: Consultas a relações só retornam se o usuário puder
---    ler AMBAS as entidades relacionadas.
--- 5. Publicação Uniforme: published (boolean) e published_at (timestamptz) em todas as tabelas.
+-- 2. Não recria nem modifica a função existente public.is_chronus_narrator().
+-- 3. Nova função public.is_chronus_player_or_narrator() com search_path = '' e referências qualificadas.
+-- 4. Tabela public.portal_assets: Registro de auditoria e governança do ciclo editorial do Storage.
+-- 5. Storage Default-Deny: storage.objects só permite download se houver portal_assets publicado
+--    correspondente e dentro da visibilidade permitida.
+-- 6. Storage UPDATE com USING e WITH CHECK rigorosos.
+-- 7. RLS de Junction Tables com verificação bilateral obrigatória.
+-- 8. Soundtrack com suporte completo a visibility, published e published_at.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. FUNÇÕES AUXILIARES DE AUTORIZAÇÃO & AUDITORIA (SECURITY DEFINER)
+-- 1. FUNÇÕES AUXILIARES DE AUTORIZAÇÃO (SECURITY DEFINER & HARDENED)
 -- ----------------------------------------------------------------------------
 
--- Função do Narrador (Segura e idempotente)
-CREATE OR REPLACE FUNCTION public.is_chronus_narrator()
-RETURNS BOOLEAN
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-STABLE
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = auth.uid() AND role = 'narrator'
-  );
-$$;
+-- NOTA: public.is_chronus_narrator() já existe no projeto Supabase e NÃO É RECRIADA aqui.
 
--- Função de Jogador ou Narrador
+-- Nova função auxiliar para checagem conjunta de jogador ou narrador
 CREATE OR REPLACE FUNCTION public.is_chronus_player_or_narrator()
 RETURNS BOOLEAN
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
 STABLE
+SET search_path = ''
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.profiles
@@ -45,12 +34,15 @@ AS $$
   );
 $$;
 
+REVOKE ALL ON FUNCTION public.is_chronus_player_or_narrator() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_chronus_player_or_narrator() TO anon, authenticated, service_role;
+
 -- Função genérica de atualização de timestamp
 CREATE OR REPLACE FUNCTION public.handle_chronus_updated_at()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   NEW.updated_at = now();
@@ -59,7 +51,36 @@ END;
 $$;
 
 -- ----------------------------------------------------------------------------
--- 2. CRÔNICA: CAPÍTULOS & ARCOS NARRATIVOS
+-- 2. REGISTRO CENTRAL DE ASSETS DE STORAGE (portal_assets)
+-- ----------------------------------------------------------------------------
+-- Governa a publicação, visibilidade e ciclo de vida de todo arquivo armazenado
+-- nos buckets da campanha. Impede download de rascunhos ou arquivos órfãos.
+
+CREATE TABLE IF NOT EXISTS public.portal_assets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bucket_id TEXT NOT NULL,
+  object_path TEXT NOT NULL,
+  content_type TEXT,
+  content_id UUID, -- Referência opcional à entidade (capítulo, sessão, npc, local, doc, library)
+  visibility TEXT NOT NULL DEFAULT 'players' CHECK (visibility IN ('public', 'players', 'narrator')),
+  published BOOLEAN NOT NULL DEFAULT false,
+  published_at TIMESTAMPTZ,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_portal_assets_bucket_path UNIQUE (bucket_id, object_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_portal_assets_lookup ON public.portal_assets(bucket_id, object_path);
+CREATE INDEX IF NOT EXISTS idx_portal_assets_access ON public.portal_assets(visibility, published, published_at);
+CREATE INDEX IF NOT EXISTS idx_portal_assets_content ON public.portal_assets(content_id);
+
+CREATE OR REPLACE TRIGGER trg_portal_assets_updated_at
+  BEFORE UPDATE ON public.portal_assets
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
+
+-- ----------------------------------------------------------------------------
+-- 3. CRÔNICA: CAPÍTULOS & ARCOS NARRATIVOS
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.chronicle_chapters (
@@ -89,7 +110,7 @@ CREATE OR REPLACE TRIGGER trg_chronicle_chapters_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 3. SESSÕES: DIÁRIO DE SESSÕES & LOG DE MESA
+-- 4. SESSÕES: DIÁRIO DE SESSÕES & LOG DE MESA
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.campaign_sessions (
@@ -124,7 +145,7 @@ CREATE OR REPLACE TRIGGER trg_campaign_sessions_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 4. NPCS: DOSSIÊ PÚBLICO & SEGREDOS DO NARRADOR (1-TO-1)
+-- 5. NPCS: DOSSIÊ PÚBLICO & SEGREDOS DO NARRADOR (1-TO-1)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.npcs (
@@ -181,7 +202,7 @@ CREATE OR REPLACE TRIGGER trg_npc_secrets_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 5. LOCAIS & MAPAS: ATLAS GEOGRÁFICO & SEGREDOS (1-TO-1)
+-- 6. LOCAIS & MAPAS: ATLAS GEOGRÁFICO & SEGREDOS (1-TO-1)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.locations (
@@ -232,7 +253,7 @@ CREATE OR REPLACE TRIGGER trg_location_secrets_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 6. ARQUIVOS & EVIDÊNCIAS: DOCUMENTOS & SEGREDOS (1-TO-1)
+-- 7. ARQUIVOS & EVIDÊNCIAS: DOCUMENTOS & SEGREDOS (1-TO-1)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.campaign_documents (
@@ -283,7 +304,7 @@ CREATE OR REPLACE TRIGGER trg_document_secrets_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 7. TRILHA SONORA (YOUTUBE EMBED)
+-- 8. TRILHA SONORA (YOUTUBE EMBED COM VISIBILIDADE & PUBLICAÇÃO)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.soundtrack (
@@ -293,6 +314,7 @@ CREATE TABLE IF NOT EXISTS public.soundtrack (
   category TEXT NOT NULL CHECK (category IN ('theme', 'investigation', 'horror', 'combat', 'suspense', 'epilogue', 'ambient')),
   description TEXT,
   sort_order INT NOT NULL DEFAULT 0,
+  visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'players', 'narrator')),
   active BOOLEAN NOT NULL DEFAULT true,
   published BOOLEAN NOT NULL DEFAULT true,
   published_at TIMESTAMPTZ,
@@ -301,7 +323,7 @@ CREATE TABLE IF NOT EXISTS public.soundtrack (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_soundtrack_category ON public.soundtrack(category, active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_soundtrack_listing ON public.soundtrack(category, visibility, published, sort_order);
 CREATE INDEX IF NOT EXISTS idx_soundtrack_created_by ON public.soundtrack(created_by);
 
 CREATE OR REPLACE TRIGGER trg_soundtrack_updated_at
@@ -309,7 +331,7 @@ CREATE OR REPLACE TRIGGER trg_soundtrack_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 8. BIBLIOTECA OFICIAL (PDFS & LIVROS)
+-- 9. BIBLIOTECA OFICIAL (PDFS & LIVROS)
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.library_items (
@@ -341,7 +363,7 @@ CREATE OR REPLACE TRIGGER trg_library_items_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_chronus_updated_at();
 
 -- ----------------------------------------------------------------------------
--- 9. JUNCTION TABLES TIPADAS PARA RELACIONAMENTOS
+-- 10. JUNCTION TABLES TIPADAS PARA RELACIONAMENTOS
 -- ----------------------------------------------------------------------------
 
 -- Sessão <-> NPCs
@@ -406,9 +428,10 @@ CREATE TABLE IF NOT EXISTS public.npc_documents (
 CREATE INDEX IF NOT EXISTS idx_npc_documents_doc_id ON public.npc_documents(document_id);
 
 -- ----------------------------------------------------------------------------
--- 10. ATIVAÇÃO DE ROW LEVEL SECURITY (RLS) EM TODAS AS TABELAS
+-- 11. ATIVAÇÃO DE ROW LEVEL SECURITY (RLS)
 -- ----------------------------------------------------------------------------
 
+ALTER TABLE public.portal_assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chronicle_chapters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.npcs ENABLE ROW LEVEL SECURITY;
@@ -429,7 +452,30 @@ ALTER TABLE public.npc_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.npc_documents ENABLE ROW LEVEL SECURITY;
 
 -- ----------------------------------------------------------------------------
--- 11. POLICIES RLS: TABELAS EDITORIAIS PRINCIPAIS
+-- 12. POLICIES: PORTAL ASSETS
+-- ----------------------------------------------------------------------------
+
+CREATE POLICY "portal_assets_select_policy"
+  ON public.portal_assets FOR SELECT
+  USING (
+    public.is_chronus_narrator()
+    OR (
+      published = true
+      AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
+    )
+  );
+
+CREATE POLICY "portal_assets_admin_policy"
+  ON public.portal_assets FOR ALL
+  USING (public.is_chronus_narrator())
+  WITH CHECK (public.is_chronus_narrator());
+
+-- ----------------------------------------------------------------------------
+-- 13. POLICIES: TABELAS EDITORIAIS PRINCIPAIS
 -- ----------------------------------------------------------------------------
 
 -- A. chronicle_chapters
@@ -541,6 +587,10 @@ CREATE POLICY "soundtrack_select_policy"
       active = true
       AND published = true
       AND (published_at IS NULL OR published_at <= now())
+      AND (
+        visibility = 'public'
+        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
+      )
     )
   );
 
@@ -570,7 +620,7 @@ CREATE POLICY "library_items_admin_policy"
   WITH CHECK (public.is_chronus_narrator());
 
 -- ----------------------------------------------------------------------------
--- 12. POLICIES RLS: TABELAS DE SEGREDOS (ESTRITAMENTE PRIVADAS — NARRADOR)
+-- 14. POLICIES: TABELAS DE SEGREDOS (ESTRITAMENTE PRIVADAS — NARRADOR)
 -- ----------------------------------------------------------------------------
 
 CREATE POLICY "npc_secrets_narrator_exclusive"
@@ -589,10 +639,10 @@ CREATE POLICY "document_secrets_narrator_exclusive"
   WITH CHECK (public.is_chronus_narrator());
 
 -- ----------------------------------------------------------------------------
--- 13. POLICIES RLS: JUNCTION TABLES (BLINDAGEM BILATERAL CONTRA VAZAMENTO)
+-- 15. POLICIES: JUNCTION TABLES (BLINDAGEM BILATERAL CONTRA VAZAMENTO)
 -- ----------------------------------------------------------------------------
 
--- 1. session_npcs: Só retorna se o usuário puder ver a Sessão E o NPC
+-- 1. session_npcs: Só retorna se puder ver a Sessão E o NPC
 CREATE POLICY "session_npcs_select_protected"
   ON public.session_npcs FOR SELECT
   USING (
@@ -782,12 +832,8 @@ CREATE POLICY "npc_documents_admin" ON public.npc_documents FOR ALL
   USING (public.is_chronus_narrator()) WITH CHECK (public.is_chronus_narrator());
 
 -- ----------------------------------------------------------------------------
--- 14. BUCKETS DE STORAGE (100% PRIVADOS COM CONTROLE DE VISIBILIDADE POR PATH)
+-- 16. BUCKETS DE STORAGE & POLICIES AUDITADAS POR portal_assets
 -- ----------------------------------------------------------------------------
--- Estrutura de Diretórios Obrigatória em cada bucket:
---   <bucket>/public/...   -> Acessível por anônimos, jogadores e narrador
---   <bucket>/players/...  -> Acessível por jogadores autenticados e narrador
---   <bucket>/narrator/... -> Acessível EXCLUSIVAMENTE pelo narrador
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES
@@ -800,24 +846,28 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- Storage Read Policy: Validação de Visibilidade por Pasta Raiz
+-- C. SELECT storage.objects (Validação Server-Side contra portal_assets)
 CREATE POLICY "campaign_storage_read_policy"
   ON storage.objects FOR SELECT
   USING (
     bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
     AND (
       public.is_chronus_narrator()
-      OR (
-        (storage.foldername(name))[1] = 'public'
-      )
-      OR (
-        (storage.foldername(name))[1] = 'players'
-        AND public.is_chronus_player_or_narrator()
+      OR EXISTS (
+        SELECT 1 FROM public.portal_assets a
+        WHERE a.bucket_id = storage.objects.bucket_id
+          AND a.object_path = storage.objects.name
+          AND a.published = true
+          AND (a.published_at IS NULL OR a.published_at <= now())
+          AND (
+            a.visibility = 'public'
+            OR (a.visibility = 'players' AND public.is_chronus_player_or_narrator())
+          )
       )
     )
   );
 
--- Storage Write Policies: Somente Narrador
+-- D. INSERT storage.objects (Exclusivo Narrador)
 CREATE POLICY "campaign_storage_insert_policy"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -825,13 +875,19 @@ CREATE POLICY "campaign_storage_insert_policy"
     AND public.is_chronus_narrator()
   );
 
+-- E. UPDATE storage.objects (USING + WITH CHECK rigorosos)
 CREATE POLICY "campaign_storage_update_policy"
   ON storage.objects FOR UPDATE
   USING (
     bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
     AND public.is_chronus_narrator()
+  )
+  WITH CHECK (
+    bucket_id IN ('campaign-images', 'maps', 'documents', 'library')
+    AND public.is_chronus_narrator()
   );
 
+-- F. DELETE storage.objects (Exclusivo Narrador)
 CREATE POLICY "campaign_storage_delete_policy"
   ON storage.objects FOR DELETE
   USING (
