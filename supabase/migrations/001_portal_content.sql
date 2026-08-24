@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS public.soundtrack (
   sort_order INT NOT NULL DEFAULT 0,
   visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'players', 'narrator')),
   active BOOLEAN NOT NULL DEFAULT true,
-  published BOOLEAN NOT NULL DEFAULT true,
+  published BOOLEAN NOT NULL DEFAULT false,
   published_at TIMESTAMPTZ,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -245,8 +245,8 @@ CREATE TABLE IF NOT EXISTS public.library_items (
   page_count INT,
   sort_order INT NOT NULL DEFAULT 0,
   visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'players', 'narrator')),
-  published BOOLEAN NOT NULL DEFAULT true,
-  published_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  published BOOLEAN NOT NULL DEFAULT false,
+  published_at TIMESTAMPTZ,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -640,15 +640,7 @@ TO authenticated;
 CREATE POLICY "portal_assets_select_policy"
   ON public.portal_assets FOR SELECT
   USING (
-    public.is_chronus_narrator()
-    OR (
-      published = true
-      AND (published_at IS NULL OR published_at <= now())
-      AND (
-        visibility = 'public'
-        OR (visibility = 'players' AND public.is_chronus_player_or_narrator())
-      )
-    )
+    public.can_read_portal_asset(bucket_id, object_path)
   );
 
 CREATE POLICY "portal_assets_admin_policy"
