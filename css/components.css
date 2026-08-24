@@ -1,0 +1,253 @@
+/* ==========================================================================
+   CHRONUS — COMPONENTES, BOTÕES E MODAIS
+   ========================================================================== */
+
+/* Botões do Portal */
+.portal-btn {
+  font-family: var(--font-title);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border: 1px solid var(--border-gold);
+  background: linear-gradient(180deg, #332214, #21150c);
+  color: #faeed4;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.portal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.7), 0 0 12px rgba(201, 154, 69, 0.3);
+  border-color: var(--gold-highlight);
+  color: #ffffff;
+}
+
+.portal-btn-gold {
+  background: linear-gradient(180deg, var(--gold-primary), var(--gold-dark));
+  color: #120b05;
+  border-color: var(--gold-highlight);
+  text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+}
+
+.portal-btn-gold:hover {
+  background: linear-gradient(180deg, var(--gold-highlight), var(--gold-primary));
+  color: #000000;
+  box-shadow: 0 0 16px rgba(201, 154, 69, 0.6);
+}
+
+.portal-btn-primary {
+  background: linear-gradient(180deg, #422d1b, #26190e);
+  border-color: var(--gold-primary);
+  color: var(--gold-highlight);
+}
+
+.portal-btn-secondary {
+  background: rgba(22, 16, 11, 0.7);
+  border-color: rgba(201, 154, 69, 0.3);
+  color: #c9b9a3;
+}
+
+.portal-btn-lg {
+  padding: 14px 28px;
+  font-size: 0.92rem;
+  letter-spacing: 1.5px;
+}
+
+/* Modais de Autenticação / Senha */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: rgba(5, 4, 3, 0.88);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.auth-card {
+  background: linear-gradient(180deg, #22160d, #140d07);
+  border: 1px solid var(--border-gold-strong);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 440px;
+  padding: 35px 30px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.9), 0 0 25px rgba(201, 154, 69, 0.2);
+  position: relative;
+}
+
+.auth-card h2 {
+  font-family: var(--font-title);
+  font-size: 1.8rem;
+  color: var(--gold-highlight);
+  text-align: center;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+}
+
+.auth-subtitle {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  color: var(--ink-muted);
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.auth-card label {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold-primary);
+  margin-bottom: 6px;
+}
+
+.auth-card input {
+  width: 100%;
+  background: #0d0906;
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: var(--ink-main);
+  font-size: 0.95rem;
+  margin-bottom: 18px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-card input:focus {
+  border-color: var(--gold-highlight);
+  box-shadow: 0 0 10px rgba(201, 154, 69, 0.3);
+}
+
+.auth-primary {
+  width: 100%;
+  background: linear-gradient(180deg, var(--gold-primary), var(--gold-dark));
+  color: #120b05;
+  border: 1px solid var(--gold-highlight);
+  border-radius: 4px;
+  padding: 12px;
+  font-family: var(--font-title);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.auth-primary:hover {
+  background: linear-gradient(180deg, var(--gold-highlight), var(--gold-primary));
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--gold-primary);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+  display: block;
+  margin: 14px auto 0 auto;
+  font-family: var(--font-sans);
+}
+
+.auth-link:hover {
+  color: var(--gold-highlight);
+}
+
+.auth-message {
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 14px;
+  padding: 8px;
+  border-radius: 4px;
+  color: #10b981;
+}
+
+.auth-message.is-error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.auth-security {
+  font-size: 0.72rem;
+  color: #7a6e62;
+  text-align: center;
+  margin-top: 20px;
+  line-height: 1.4;
+  border-top: 1px solid rgba(201, 154, 69, 0.15);
+  padding-top: 14px;
+}
+
+.modal-close-corner {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.modal-close-corner:hover {
+  color: var(--gold-highlight);
+}
+
+/* Spinner Oculto */
+.spinner-occult {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(201, 154, 69, 0.2);
+  border-top-color: var(--gold-highlight);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink-muted);
+  font-family: var(--font-title);
+  letter-spacing: 1px;
+}
+
+.editorial-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 35px 25px;
+  text-align: center;
+  max-width: 600px;
+  margin: 40px auto;
+}
+
+.editorial-box h3 {
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  color: var(--gold-highlight);
+  margin-bottom: 10px;
+}
+
+.editorial-box p {
+  color: var(--ink-muted);
+  margin-bottom: 20px;
+}

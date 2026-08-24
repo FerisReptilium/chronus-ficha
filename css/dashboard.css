@@ -1,0 +1,209 @@
+/* ==========================================================================
+   CHRONUS — DASHBOARD DO JOGADOR ("MINHA ÁREA")
+   ========================================================================== */
+
+.player-dashboard-section {
+  padding: 50px 0 70px 0;
+}
+
+.dashboard-head-banner {
+  margin-bottom: 35px;
+}
+
+.dashboard-kicker {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  color: var(--gold-primary);
+  text-transform: uppercase;
+}
+
+.dashboard-title {
+  font-family: var(--font-title);
+  font-size: clamp(2rem, 3.5vw, 2.8rem);
+  color: var(--gold-highlight);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+
+/* Card Hero do Personagem */
+.character-hero-card {
+  background: linear-gradient(135deg, rgba(28, 20, 14, 0.95), rgba(16, 11, 8, 0.95));
+  border: 1px solid var(--border-gold-strong);
+  border-radius: 12px;
+  padding: 35px 30px;
+  display: flex;
+  gap: 35px;
+  align-items: center;
+  box-shadow: var(--shadow-ambient), 0 0 25px rgba(201, 154, 69, 0.15);
+  margin-bottom: 45px;
+  backdrop-filter: blur(8px);
+}
+
+.character-portrait-frame {
+  width: 180px;
+  height: 220px;
+  min-width: 180px;
+  border: 2px solid var(--gold-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: #090705;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+}
+
+.character-portrait-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.character-details {
+  flex: 1;
+}
+
+.character-meta-top {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.badge-occult {
+  background: linear-gradient(180deg, var(--gold-primary), var(--gold-dark));
+  color: #0d0906;
+  font-family: var(--font-title);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.sync-status-text {
+  font-size: 0.8rem;
+  color: #a89f91;
+}
+
+.character-name-heading {
+  font-family: var(--font-title);
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-weight: 800;
+  color: var(--gold-highlight);
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+.character-concept-lead {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-style: italic;
+  color: #dfcb9f;
+  margin-bottom: 22px;
+}
+
+.character-tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+  background: rgba(12, 9, 6, 0.6);
+  border: 1px solid rgba(201, 154, 69, 0.2);
+  border-radius: 6px;
+  padding: 14px 18px;
+}
+
+.tag-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.tag-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gold-primary);
+  margin-bottom: 2px;
+}
+
+.tag-val {
+  font-size: 0.92rem;
+  color: var(--ink-main);
+  font-weight: 600;
+}
+
+.character-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Grid de Acompanhamento */
+.dashboard-tracking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.tracking-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 22px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.tracking-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--gold-primary);
+}
+
+.card-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.card-info h4 {
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  color: var(--gold-highlight);
+  margin-bottom: 4px;
+}
+
+.card-info p {
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.card-link {
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold-primary);
+  text-decoration: none;
+}
+
+.card-link:hover {
+  color: var(--gold-highlight);
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .character-hero-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  .character-meta-top {
+    justify-content: center;
+  }
+  .character-cta-row {
+    justify-content: center;
+  }
+}

@@ -1,0 +1,400 @@
+/* ==========================================================================
+   CHRONUS — ECOLOGIA SOBRENATURAL: DESIGN SYSTEM & PORTAL THEME
+   Estética: Horror Sobrenatural, Ocultismo Urbano, Anos 90, Editorial Adulto
+   ========================================================================== */
+
+:root {
+  --bg-void: #080605;
+  --bg-deep: #100c09;
+  --bg-card: rgba(22, 17, 13, 0.88);
+  --bg-card-hover: rgba(32, 24, 18, 0.95);
+  --bg-parchment: #f4ebd7;
+  --bg-parchment-dark: #dfcb9f;
+
+  --ink-dark: #1f140c;
+  --ink-main: #e8dcc8;
+  --ink-muted: #a39582;
+  --ink-faint: rgba(232, 220, 200, 0.15);
+
+  --gold-highlight: #f8df93;
+  --gold-primary: #c99a45;
+  --gold-dark: #8c6423;
+  --gold-shadow: #3b280c;
+  --border-gold: rgba(201, 154, 69, 0.35);
+  --border-gold-strong: #c99a45;
+
+  --crimson-dark: #5c0f0f;
+  --crimson-primary: #8f1d1d;
+  --crimson-hover: #b52b2b;
+
+  --font-title: 'Cinzel', Georgia, serif;
+  --font-accent: 'Cinzel Decorative', Georgia, serif;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Montserrat', system-ui, -apple-system, sans-serif;
+
+  --shadow-ambient: 0 12px 32px rgba(0, 0, 0, 0.7);
+  --shadow-gold: 0 0 20px rgba(201, 154, 69, 0.2);
+  --max-w-portal: 1280px;
+}
+
+/* Reset Global e Tipografia */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-void);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(201, 154, 69, 0.07) 0%, transparent 65%),
+    radial-gradient(circle at 80% 50%, rgba(143, 29, 29, 0.04) 0%, transparent 50%),
+    linear-gradient(180deg, #090706 0%, #120e0b 50%, #080605 100%);
+  background-attachment: fixed;
+  color: var(--ink-main);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Esconder shell do portal quando em modo Ficha Digital se necessário */
+body.in-sheet-mode .portal-footer,
+body.in-sheet-mode .portal-nav-bar {
+  display: flex;
+}
+
+/* Layout Principal */
+.portal-main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.portal-container {
+  width: 100%;
+  max-width: var(--max-w-portal);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Views SPA */
+.portal-view {
+  display: none;
+  animation: fadeInView 0.35s ease-out forwards;
+}
+
+.portal-view.is-active {
+  display: block;
+}
+
+@keyframes fadeInView {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   HERO CINEMATOGRÁFICO DA HOME
+   ========================================================================== */
+.hero-cinematic {
+  position: relative;
+  min-height: 82vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 20px;
+  background: 
+    radial-gradient(ellipse at 50% 40%, rgba(18, 14, 11, 0.7) 0%, rgba(8, 6, 5, 0.95) 80%),
+    linear-gradient(180deg, rgba(8,6,5,0.4) 0%, rgba(8,6,5,1) 100%);
+  border-bottom: 1px solid var(--border-gold);
+}
+
+.hero-content {
+  width: 100%;
+  overflow: hidden;
+  max-width: 920px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-sigil-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(35, 24, 15, 0.75);
+  border: 1px solid var(--border-gold);
+  border-radius: 30px;
+  padding: 6px 18px;
+  margin-bottom: 25px;
+  backdrop-filter: blur(8px);
+}
+
+.hero-sigil-badge span {
+  font-family: var(--font-title);
+  font-size: 0.78rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-highlight);
+}
+
+.hero-main-title {
+  font-family: var(--font-title);
+  font-size: clamp(2.8rem, 6.5vw, 5.2rem);
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--gold-highlight);
+  text-shadow: 0 0 35px rgba(201, 154, 69, 0.4), 0 4px 12px rgba(0,0,0,0.9);
+  line-height: 1.05;
+  margin-bottom: 8px;
+}
+
+.hero-subtitle {
+  font-family: var(--font-title);
+  font-size: clamp(1rem, 2.2vw, 1.45rem);
+  font-weight: 600;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 30px;
+}
+
+.hero-quote {
+  font-family: var(--font-serif);
+  font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+  font-style: italic;
+  color: #dfcb9f;
+  margin: 0 auto 40px auto;
+  max-width: min(680px, 92vw);
+  line-height: 1.45;
+  position: relative;
+}
+
+.hero-quote::before, .hero-quote::after {
+  content: '✦';
+  color: var(--gold-primary);
+  font-size: 0.85rem;
+  margin: 0 8px;
+  vertical-align: middle;
+}
+
+.hero-cta-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   SEÇÕES EDITORIAIS DA HOME
+   ========================================================================== */
+.editorial-section {
+  padding: 70px 0;
+  border-bottom: 1px solid rgba(201, 154, 69, 0.15);
+}
+
+.section-head-editorial {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.section-kicker {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-primary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.section-heading {
+  font-family: var(--font-title);
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  color: var(--gold-highlight);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+
+.section-desc-lead {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  color: var(--ink-muted);
+  max-width: 700px;
+  margin: 12px auto 0 auto;
+}
+
+/* Grid Editorial de Destaques */
+.editorial-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.editorial-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  backdrop-filter: blur(6px);
+  position: relative;
+  overflow: hidden;
+}
+
+.editorial-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold-primary), transparent);
+  opacity: 0.6;
+}
+
+.editorial-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold-primary);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(201, 154, 69, 0.2);
+}
+
+.card-emblem-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-emblem-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-gold);
+  border-radius: 6px;
+  background: rgba(35, 24, 15, 0.9);
+  color: var(--gold-highlight);
+  font-size: 1.2rem;
+}
+
+.card-title-editorial {
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+  color: var(--gold-highlight);
+}
+
+.card-text-body {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  flex: 1;
+}
+
+.card-footer-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid rgba(201, 154, 69, 0.15);
+}
+
+.card-link-subtle {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--gold-primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s ease, gap 0.2s ease;
+}
+
+.card-link-subtle:hover {
+  color: var(--gold-highlight);
+  gap: 10px;
+}
+
+/* Rodapé do Portal */
+.portal-footer {
+  background: #080605;
+  border-top: 1px solid var(--border-gold);
+  padding: 40px 20px 30px 20px;
+  text-align: center;
+  color: #7a6e62;
+  font-size: 0.82rem;
+}
+
+.footer-brand-title {
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  color: var(--gold-primary);
+  margin-bottom: 8px;
+}
+
+.footer-quote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: #9e8e7a;
+  margin-bottom: 18px;
+}
+
+
+/* Responsividade Mobile Refinada */
+@media (max-width: 600px) {
+  .hero-cinematic {
+    padding: 40px 15px;
+    min-height: auto;
+  }
+  .hero-main-title {
+    font-size: 2rem;
+    letter-spacing: 2px;
+    word-break: break-word;
+  }
+  .hero-subtitle {
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .hero-quote {
+    font-size: 0.95rem;
+    padding: 0 5px;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .hero-cta-group {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+  .hero-cta-group .portal-btn {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+    font-size: 0.82rem;
+    padding: 10px 16px;
+  }
+  .editorial-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
