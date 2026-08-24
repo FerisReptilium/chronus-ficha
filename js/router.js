@@ -107,6 +107,8 @@ window.ChronusRouter = (function() {
       window.ChronusLocations?.load?.();
     } else if (cleanHash === '#/files') {
       window.ChronusDocuments?.load?.();
+    } else if (cleanHash === '#/soundtrack') {
+      window.ChronusSoundtrack?.load?.();
     }
 
     // Atualizar links ativos no Navbar
