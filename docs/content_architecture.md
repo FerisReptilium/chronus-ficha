@@ -3,7 +3,7 @@
 
 > **Documento:** Especificação Técnica de Backend, Armazenamento e Segurança  
 > **Sistema:** CHRONUS — Ecologia Sobrenatural  
-> **Versão da Arquitetura:** 3.0 (Gate Final de Segurança Aprovado)  
+> **Versão da Arquitetura:** 4.0 (Preflight Gate de Segurança Aprovado)  
 > **Status:** Pronto para Revisão (Nenhum SQL executado)
 
 ---
@@ -12,14 +12,15 @@
 
 1. **Segregação Física Total de Segredos (1-to-1 Extensions):**
    - RLS protege linhas, não colunas.
-   - Nenhuma anotação confidencial, identidade oculta, estatística ou fraqueza mecânica reside nas tabelas visíveis a jogadores (`npcs`, `locations`, `campaign_documents`).
-   - Todos os segredos residem em tabelas privadas (`npc_secrets`, `location_secrets`, `document_secrets`), cujo RLS restringe 100% das operações exclusivamente à role `'narrator'`.
+   - Nenhuma anotação confidencial, identidade oculta, verdade mística, ganchos de sessão ou fraquezas mecânicas residem nas tabelas visíveis a jogadores (`chronicle_chapters`, `campaign_sessions`, `npcs`, `locations`, `campaign_documents`).
+   - Todos os segredos residem em tabelas privadas (`chapter_secrets`, `session_secrets`, `npc_secrets`, `location_secrets`, `document_secrets`), cujo RLS restringe 100% das operações exclusivamente à role `'narrator'`.
+   - Tabelas de segredos **não possuem concessão (GRANT) para anônimos**.
 
-2. **Storage 100% Privado Governado por `portal_assets` (Default-Deny):**
+2. **Storage 100% Privado Governado por `can_read_portal_asset()` com Derivação de Pai:**
    - Todos os 4 novos buckets (`campaign-images`, `maps`, `documents`, `library`) são **estritamente PRIVADOS (`public = false`)**.
-   - O download ou visualização de qualquer arquivo via `storage.objects` exige a existência de um registro publicado correspondente em `public.portal_assets`.
-   - Se um arquivo estiver em `public/capa.jpg` mas seu registro em `portal_assets` possuir `published = false`, o download é **sumariamente bloqueado pelo PostgreSQL**.
-   - `getPublicUrl` é **proibido** para conteúdo protegido. O acesso aos arquivos ocorre via downloads autenticados (`.download()`) ou signed URLs temporárias (`createSignedUrl(path, 3600)`).
+   - O acesso a arquivos via `storage.objects` passa pela função `public.can_read_portal_asset(bucket_id, name)`.
+   - Se o asset estiver vinculado a uma entidade editorial (`content_type` e `content_id`), a função valida o status da entidade pai. Se a entidade pai estiver como rascunho (`published = false`) ou for de visibilidade restrita (`visibility = 'narrator'`), o download do arquivo é **automaticamente bloqueado pelo PostgreSQL**, mesmo que o asset possua `visibility = 'public'`.
+   - Assets órfãos sem correspondência em `portal_assets` sofrem **Default-Deny** (acesso bloqueado a anônimos e jogadores).
    - O bucket legado `portraits` permanece 100% inalterado.
 
 3. **RLS Bilateral e Blindagem em Junction Tables:**
@@ -44,134 +45,56 @@
 
 ---
 
-## 2. Diagrama Entidade-Relacionamento e Storage
+## 2. Matriz de Grants e RLS das Tabelas
 
-```text
-======================= STORAGE BUCKETS (PRIVADOS) =======================
-  [ campaign-images ]   --> Validado contra public.portal_assets
-  [ maps ]              --> Validado contra public.portal_assets
-  [ documents ]         --> Validado contra public.portal_assets
-  [ library ]           --> Validado contra public.portal_assets
-  [ portraits (legado)] --> {user_id}/portrait (inalterado)
-
-======================== MODELO RELACIONAL DE DADOS =======================
-
-+-----------------------+           +-----------------------+
-|     portal_assets     |           |  chronicle_chapters   |
-+-----------------------+           +-----------------------+
-| id (PK, UUID)         |           | id (PK, UUID)         |
-| bucket_id (TEXT)      |           | chapter_number (NULL) |
-| object_path (TEXT, UQ)|           | title (TEXT)          |
-| content_type (TEXT)   |           | slug (TEXT, UNIQUE)   |
-| content_id (UUID, FK) |           | summary (TEXT)        |
-| visibility (ENUM)     |           | content (TEXT)        |
-| published (BOOLEAN)   |           | cover_image_path      |
-| published_at (TZ)     |           | visibility (ENUM)     |
-+-----------------------+           | sort_order (INT)      |
-                                    | published (BOOLEAN)   |
-                                    | published_at (TZ)     |
-                                    +-----------+-----------+
-                                                |
-    +-------------------------------------------+-----------------------------------+
-    |                                                                               |
-    |                                   +-----------------------+                   |
-    |                                   |   campaign_sessions   |                   |
-    |                                   +-----------------------+                   |
-    |                                   | id (PK, UUID)         |                   |
-    |                                   | session_number (INT)  |                   |
-    |                                   | title (TEXT)          |                   |
-    |                                   | slug (TEXT, UNIQUE)   |                   |
-    |                                   | session_date (DATE)   |                   |
-    |                                   | in_game_date (TEXT)   |                   |
-    |                                   | summary (TEXT)        |                   |
-    |                                   | events_log (TEXT)     |                   |
-    |                                   | clues_uncovered (TEXT)|                   |
-    |                                   | status (ENUM)         |                   |
-    |                                   | visibility (ENUM)     |                   |
-    |                                   +-----------+-----------+                   |
-    |                                               |                               |
-    +-------+-------+                   +-------+---+---+                           |
-    |               |                   |       |       |                           |
-+---+---+       +---+---+           +---+---+ +-+---+ +-+---+                       |
-|chap_  |       |chap_  |           |sess_  | |sess_ | |sess_ |                       |
-|npcs   |       |locs   |           |npcs   | |locs  | |docs  |                       |
-+---+---+       +---+---+           +---+---+ +-+---+ +-+---+                       |
-    |               |                   |       |       |                           |
-    |               |       +-----------+       |       |                           |
-    |               |       |                   |       |                           |
-+---+---------------+---+   |   +---------------+---+   |   +-------------------+   |   +-------------------+
-|         npcs          |   |   |     locations     |   |   |campaign_documents |   |   |     soundtrack    |
-+-----------------------+   |   +-------------------+   |   +-------------------+   |   +-------------------+
-| id (PK, UUID)         |   |   | id (PK, UUID)     |   |   | id (PK, UUID)     |   |   | id (PK, UUID)     |
-| name (TEXT)           |<--+   | name (TEXT)       |<--+   | title (TEXT)      |   |   | title (TEXT)      |
-| slug (TEXT, UNIQUE)   |       | slug (TEXT, UNIQUE)       | slug (TEXT, UNIQUE)|   |   | youtube_url (TEXT)|
-| portrait_path (TEXT)  |       | type (ENUM)       |       | type (ENUM)       |   |   | category (ENUM)   |
-| role_occupation (TEXT)|       | district_region   |       | narrative_date    |   |   | visibility (ENUM) |
-| faction (TEXT)        |       | public_description|       | transcription     |   |   | active (BOOLEAN)  |
-| public_description    |       | image_path / map  |       | image_path / file |   |   | published (BOOL)  |
-| known_personality     |       | visibility (ENUM) |       | visibility (ENUM) |   |   +-------------------+
-| status (ENUM)         |       +---------+---------+       +---------+---------+   |
-| relationship_to_group |                 |                           |             |   +-------------------+
-| visibility (ENUM)     |                 | 1:1                       | 1:1         +-->|   library_items   |
-+-----------+-----------+                 v                           v                 +-------------------+
-            | 1:1               +-------------------+       +-------------------+       | id (PK, UUID)     |
-            v                   | location_secrets  |       |  document_secrets |       | title (TEXT)      |
-+-----------------------+       | (NARRATOR ONLY)   |       |  (NARRATOR ONLY)  |       | slug (TEXT, UNIQUE)|
-|      npc_secrets      |       +-------------------+       +-------------------+       | file_path (TEXT)  |
-|    (NARRATOR ONLY)    |       | location_id (PK)  |       | document_id (PK)  |       | visibility (ENUM) |
-+-----------------------+       | narrator_notes    |       | narrator_notes    |       | published (BOOL)  |
-| npc_id (PK, FK)       |       | hidden_features   |       | hidden_meaning    |       +-------------------+
-| true_identity (TEXT)  |       | supernatural_truth|       | solution_translat.|
-| true_faction (TEXT)   |       +-------------------+       +-------------------+
-| agenda (TEXT)         |
-| secrets (TEXT)        |
-| narrator_notes (TEXT) |
-+-----------------------+
-```
+| Tabela | anon SELECT | authenticated SELECT | RLS Habilitado | Tipo de Acesso |
+| :--- | :---: | :---: | :---: | :--- |
+| `chronicle_chapters` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `chapter_secrets` | ❌ **Negado** | ✅ Concedido | ✅ SIM | **Exclusivo Narrador** (RLS) |
+| `campaign_sessions` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `session_secrets` | ❌ **Negado** | ✅ Concedido | ✅ SIM | **Exclusivo Narrador** (RLS) |
+| `npcs` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `npc_secrets` | ❌ **Negado** | ✅ Concedido | ✅ SIM | **Exclusivo Narrador** (RLS) |
+| `locations` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `location_secrets` | ❌ **Negado** | ✅ Concedido | ✅ SIM | **Exclusivo Narrador** (RLS) |
+| `campaign_documents` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `document_secrets` | ❌ **Negado** | ✅ Concedido | ✅ SIM | **Exclusivo Narrador** (RLS) |
+| `soundtrack` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `library_items` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `portal_assets` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado por visibilidade & publicação |
+| `session_npcs` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (Sessão ∧ NPC) |
+| `session_locations` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (Sessão ∧ Local) |
+| `session_documents` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (Sessão ∧ Doc) |
+| `chapter_npcs` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (Capítulo ∧ NPC) |
+| `chapter_locations`| ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (Capítulo ∧ Local) |
+| `npc_locations` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (NPC ∧ Local) |
+| `npc_documents` | ✅ Permitido | ✅ Permitido | ✅ SIM | Filtrado bilateralmente (NPC ∧ Doc) |
 
 ---
 
 ## 3. Matriz de Segurança Conceitual e Provas de Consulta
 
-### 3.1. Simulação: Usuário ANÔNIMO (Não Autenticado)
-1. `SELECT * FROM chronicle_chapters;`
-   - ✅ Retorna capítulos com `visibility = 'public' AND published = true AND published_at <= now()`.
-   - ❌ Linhas com `visibility = 'players'` ou `'narrator'` ou `published = false` **não aparecem no result set**.
-2. `SELECT * FROM npcs WHERE visibility = 'narrator';`
-   - ❌ Retorna **0 linhas** (bloqueado por RLS).
-3. `SELECT * FROM npc_secrets;`
-   - ❌ Retorna **0 linhas** (bloqueado por RLS).
-4. `storage.from('documents').download('public/arquivo_rascunho.pdf')` (com `portal_assets.published = false`)
-   - ❌ Retorna **HTTP 403 Forbidden** (bloqueado pelo RLS de storage).
-5. `storage.from('documents').download('public/arquivo_publicado.pdf')` (com `portal_assets.published = true`)
-   - ✅ Download **autorizado**.
-6. `SELECT * FROM session_npcs;`
-   - ✅ Retorna somente pares onde a Sessão É pública E o NPC É público. Relações com NPCs secretos são omitidas.
+### 3.1. Sessão `players` + `session_secrets`
+- **Jogador (`role = 'player'`):**
+  - Consulta `SELECT * FROM campaign_sessions;` $	o$ ✅ Retorna a sessão.
+  - Consulta `SELECT * FROM session_secrets WHERE session_id = '...';` $	o$ ❌ **0 linhas** (bloqueado por RLS).
+- **Narrador (`role = 'narrator'`):**
+  - Consulta com join em `session_secrets` $	o$ ✅ Retorna sessão + anotações, ganchos e consequências ocultas.
 
-### 3.2. Simulação: Usuário JOGADOR (`role = 'player'`)
-1. `SELECT * FROM campaign_sessions;`
-   - ✅ Retorna sessões com `visibility IN ('public', 'players')` e `published = true`.
-   - ❌ Não retorna sessões de rascunho ou exclusivas do Narrador.
-2. `SELECT * FROM npc_secrets;`
-   - ❌ Retorna **0 linhas** (bloqueado por RLS).
-3. `storage.from('maps').download('players/distrito_sul.jpg')` (publicado)
-   - ✅ Download autenticado autorizado com sucesso.
-4. `storage.from('maps').download('narrator/bunker_oculto.jpg')`
-   - ❌ Retorna **HTTP 403 Forbidden**.
-5. `storage.from('maps').download('arquivo_sem_registro.jpg')`
-   - ❌ Retorna **HTTP 403 Forbidden** (Default-deny por ausência em `portal_assets`).
-6. `SELECT * FROM session_npcs;`
-   - ✅ Retorna apenas conexões entre Sessões (public/players) e NPCs (public/players). Se a sessão tiver um NPC `narrator`, a linha da junction table **não é retornada**.
+### 3.2. Conteúdo `narrator` + Asset com Drift de Marcação (`visibility = 'public'`)
+- **Cenário:** O registro em `portal_assets` aponta para `content_type = 'npc'` e `content_id = '<uuid>'`, mas o NPC está com `visibility = 'narrator'`.
+- **Anônimo / Jogador:** A função `can_read_portal_asset()` consulta a tabela `npcs` pelo `content_id`. Como a consulta ao NPC falha na condição de visibilidade do leitor, a função retorna `false`.
+- **Resultado:** ❌ **HTTP 403 Forbidden** (Impossível baixar o arquivo).
 
-### 3.3. Simulação: NARRADOR (`role = 'narrator'`)
-1. `SELECT * FROM chronicle_chapters;`
-   - ✅ Retorna todos os capítulos (public, players, narrator, drafts com `published = false`).
-2. `SELECT * FROM npcs JOIN npc_secrets ON npcs.id = npc_secrets.npc_id;`
-   - ✅ Retorna o NPC completo com anotações, agenda, lealdades e segredos.
-3. `storage.from('documents').download('narrator/evidencia_secreta.pdf')`
-   - ✅ Acesso total a qualquer arquivo em qualquer prefixo (`public/`, `players/`, `narrator/`), inclusive rascunhos.
-4. `INSERT / UPDATE / DELETE` em qualquer tabela ou bucket:
-   - ✅ 100% autorizado.
+### 3.3. Asset apontando para `content_id` Inexistente ou Incoerente
+- **Cenário:** `content_id` é um UUID que não existe na tabela pai ou combinação de tipos inválida.
+- **Anônimo / Jogador:** A subquery da função `can_read_portal_asset()` retorna `false`.
+- **Resultado:** ❌ **Default-Deny** (Acesso bloqueado por padrão).
+
+### 3.4. Asset Independente (`content_id IS NULL`), `public` e Publicado
+- **Cenário:** Capa oficial do portal ou logotipo cadastrado como asset independente com `visibility = 'public'` e `published = true`.
+- **Anônimo:** `can_read_portal_asset()` valida diretamente a linha de `portal_assets`.
+- **Resultado:** ✅ **Download Autorizado**.
 
 ---
 
