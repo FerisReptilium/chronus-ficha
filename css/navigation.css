@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CHRONUS — NAVBAR & MENU RESPONSIVO
+   CHRONUS — NAVBAR & MENU RESPONSIVO (BLINDADO CONTRA OVERFLOW)
    ========================================================================== */
 
 .portal-nav-bar {
@@ -7,32 +7,41 @@
   top: 0;
   left: 0;
   right: 0;
+  width: 100%;
+  max-width: 100vw;
   z-index: 1000;
-  background: rgba(16, 12, 9, 0.95);
+  background: rgba(16, 12, 9, 0.96);
   border-bottom: 1px solid var(--border-gold);
   backdrop-filter: blur(12px);
-  padding: 10px 0;
+  padding: 8px 0;
   box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  box-sizing: border-box;
 }
 
 .nav-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: clamp(8px, 1.2vw, 20px);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 clamp(10px, 1.5vw, 20px);
+  box-sizing: border-box;
 }
 
+/* Brand */
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   color: inherit;
+  flex-shrink: 0;
 }
 
 .nav-brand-sigil {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   background: linear-gradient(135deg, #3d2a19, #1a100a);
   border: 1px solid var(--border-gold-strong);
   border-radius: 50%;
@@ -41,6 +50,8 @@
   justify-content: center;
   color: var(--gold-highlight);
   box-shadow: 0 0 10px rgba(201, 154, 69, 0.3);
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .nav-brand-titles {
@@ -50,38 +61,43 @@
 
 .nav-brand-main {
   font-family: var(--font-title);
-  font-size: 1.15rem;
+  font-size: clamp(1.05rem, 1.15vw, 1.2rem);
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   color: var(--gold-highlight);
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .nav-brand-sub {
   font-family: var(--font-sans);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--ink-muted);
+  white-space: nowrap;
 }
 
 /* Links Desktop */
 .nav-links-desktop {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: clamp(2px, 0.3vw, 5px);
   list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 1;
 }
 
 .nav-link {
   font-family: var(--font-title);
-  font-size: 0.78rem;
+  font-size: clamp(0.7rem, 0.74vw, 0.78rem);
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: #c9b9a3;
   text-decoration: none;
-  padding: 8px 12px;
+  padding: 6px clamp(5px, 0.45vw, 9px);
   border-radius: 4px;
   border: 1px solid transparent;
   transition: all 0.2s ease;
@@ -105,21 +121,32 @@
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.nav-user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-profile-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(30, 22, 16, 0.9);
   border: 1px solid var(--border-gold);
   border-radius: 20px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   text-decoration: none;
   color: var(--ink-main);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   transition: border-color 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-profile-pill:hover {
@@ -127,13 +154,23 @@
   background: rgba(45, 32, 22, 0.95);
 }
 
+.nav-profile-pill .user-name {
+  display: inline-block;
+  max-width: clamp(75px, 8vw, 130px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 .role-tag {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.5px;
   padding: 2px 6px;
   border-radius: 10px;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .role-player {
@@ -152,8 +189,9 @@
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.4);
   color: #fca5a5;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -161,6 +199,7 @@
   cursor: pointer;
   font-size: 0.75rem;
   transition: background 0.2s ease;
+  flex-shrink: 0;
 }
 
 .nav-btn-icon:hover {
@@ -173,10 +212,11 @@
   background: rgba(35, 24, 15, 0.8);
   border: 1px solid var(--border-gold);
   color: var(--gold-highlight);
-  font-size: 1.3rem;
-  padding: 6px 10px;
+  font-size: 1.2rem;
+  padding: 5px 9px;
   border-radius: 4px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* Drawer Mobile */
@@ -184,17 +224,18 @@
   position: fixed;
   top: 0;
   right: -320px;
-  width: 300px;
+  width: 290px;
   height: 100vh;
   background: #140e0a;
   border-left: 1px solid var(--border-gold);
   z-index: 2000;
   display: flex;
   flex-direction: column;
-  padding: 24px 20px;
+  padding: 24px 18px;
   box-shadow: -10px 0 30px rgba(0,0,0,0.9);
   transition: right 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .mobile-nav-drawer.is-open {
@@ -216,11 +257,13 @@
   flex-direction: column;
   gap: 8px;
   margin-bottom: 30px;
+  padding: 0;
 }
 
 .mobile-nav-links .nav-link {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   padding: 10px 14px;
+  display: block;
 }
 
 .mobile-nav-overlay {
@@ -236,7 +279,14 @@
   display: block;
 }
 
-@media (max-width: 980px) {
+/* Responsividade Progressiva do Header */
+@media (max-width: 1366px) {
+  .nav-brand-sub {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
   .nav-links-desktop {
     display: none !important;
   }
@@ -245,35 +295,24 @@
   }
 }
 
-
-/* Ajustes Mobile Compactos para o Header */
 @media (max-width: 600px) {
   .nav-container {
-    padding: 0 12px;
-    gap: 8px;
-  }
-  .nav-brand {
-    gap: 8px;
+    padding: 0 10px;
+    gap: 6px;
   }
   .nav-brand-sigil {
-    width: 28px;
-    height: 28px;
-    font-size: 0.8rem;
+    width: 26px;
+    height: 26px;
+    font-size: 0.75rem;
   }
   .nav-brand-main {
     font-size: 0.95rem;
-    letter-spacing: 1px;
-  }
-  .nav-brand-sub {
-    font-size: 0.55rem;
-    letter-spacing: 1px;
-  }
-  .nav-auth-btn {
-    padding: 6px 10px;
-    font-size: 0.72rem;
   }
   .nav-profile-pill {
-    padding: 4px 8px;
+    padding: 3px 8px;
     font-size: 0.72rem;
+  }
+  .nav-profile-pill .user-name {
+    max-width: 70px;
   }
 }

@@ -424,3 +424,150 @@ body.in-sheet-mode .portal-nav-bar {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==========================================================================
+   TOOLBAR DA FICHA RESPONSIVA (.appbar) — SEM SOBREPOSIÇÃO
+   ========================================================================== */
+.appbar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px 18px !important;
+  min-height: auto !important;
+  padding: 10px clamp(12px, 2vw, 24px) !important;
+  box-sizing: border-box !important;
+  background: linear-gradient(180deg, rgba(32, 20, 11, 0.98), rgba(18, 12, 8, 0.98)) !important;
+  border-bottom: 1px solid var(--border-gold) !important;
+}
+
+.appbar .brand-mini {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.appbar .tabs {
+  order: 2;
+  margin: 0 auto;
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.appbar .actions {
+  order: 3;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  max-width: 100% !important;
+}
+
+.appbar .cloud-user {
+  font-size: 11px;
+  color: var(--ink-muted);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appbar .save-indicator {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold-highlight);
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(201, 154, 69, 0.35);
+  white-space: nowrap;
+}
+
+.appbar .action-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 5px 11px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  color: #eedcc3 !important;
+  background: rgba(45, 30, 18, 0.85) !important;
+  border: 1px solid rgba(201, 154, 69, 0.45) !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+}
+
+.appbar .action-btn:hover {
+  background: rgba(65, 45, 28, 0.95) !important;
+  border-color: var(--gold-primary) !important;
+  color: var(--gold-highlight) !important;
+}
+
+.appbar .action-btn.danger {
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  background: rgba(60, 20, 20, 0.6) !important;
+  color: #fca5a5 !important;
+}
+
+.appbar .action-btn.danger:hover {
+  background: rgba(90, 25, 25, 0.85) !important;
+  border-color: #ef4444 !important;
+}
+
+@media (max-width: 1250px) {
+  .appbar {
+    justify-content: center !important;
+    gap: 10px 14px !important;
+  }
+  .appbar .brand-mini {
+    display: none !important;
+  }
+  .appbar .tabs {
+    order: 1 !important;
+    margin: 0 !important;
+  }
+  .appbar .actions {
+    order: 2 !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .appbar {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 8px 6px !important;
+  }
+  .appbar .actions {
+    justify-content: center !important;
+    gap: 5px !important;
+  }
+  .appbar .action-btn {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .appbar {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 8px 6px !important;
+  }
+  .appbar .actions {
+    justify-content: center !important;
+    gap: 4px !important;
+  }
+  .appbar .action-btn {
+    padding: 4px 7px !important;
+    font-size: 10px !important;
+  }
+}
