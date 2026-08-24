@@ -1,7 +1,9 @@
 /**
  * CHRONUS — Character Sheet Legacy Engine (v0.6.1)
  * Encapsulamento de alta fidelidade da Ficha Digital Oficial.
- * PRESERVAÇÃO TOTAL: Coordenadas (1449x2048), bindings, autosave, IndexedDB, Storage e RLS.
+ * ARQUITETURA CONSOLIDADA: Consome ChronusAuth como única autoridade de autenticação.
+ * ISOLAMENTO DE STORAGE: Chaves de cache e dirty separadas por user_id.
+ * PRESERVAÇÃO TOTAL: Coordenadas (1449x2048), bindings, marcadores, IndexedDB e renderização.
  */
 window.ChronusSheetEngine = (function() {
 
@@ -1023,7 +1025,7 @@ window.ChronusSheetEngine = (function() {
       if(recoveryCallback.requested && !passwordRecoveryAuthorized) {
         clearPasswordRecoveryUrl();
         showAuthGate('O link de recuperação não pôde ser validado. Solicite um novo link em “Esqueci minha senha”.',true);
-      } else { if (window.location.hash === '#/login') showAuthGate(); }
+      } else showAuthGate();
     }
   }
 
@@ -1085,6 +1087,101 @@ window.ChronusSheetEngine = (function() {
 
 
 
+  // =========================================================================
+  // INTEGRAÇÃO COM A ARQUITETURA DO PORTAL & STORAGE ESCOPADO
+  // =========================================================================
+  
+  function getActiveUserId() {
+    return cloudUser?.id || null;
+  }
+
+  function getScopedKey(keyType) {
+    const uid = getActiveUserId();
+    const cfg = window.CHRONUS_CONFIG;
+    if (keyType === 'storage') return cfg.getStorageKey(uid);
+    if (keyType === 'characterId') return cfg.getCharacterIdKey(uid);
+    if (keyType === 'dirty') return cfg.getDirtyKey(uid);
+    if (keyType === 'synced') return cfg.getSyncedKey(uid);
+    if (keyType === 'portraitDirty') return cfg.getPortraitDirtyKey(uid);
+    return cfg.LEGACY_STORAGE_KEY;
+  }
+
+  // Migração transparente de chaves legadas (chronus.sheet.v4) para escopo de usuário
+  function migrateLegacyStorageForUser(userId) {
+    if (!userId) return;
+    const cfg = window.CHRONUS_CONFIG;
+    const scopedKey = cfg.getStorageKey(userId);
+    const legacyData = localStorage.getItem(cfg.LEGACY_STORAGE_KEY);
+    const scopedData = localStorage.getItem(scopedKey);
+
+    if (legacyData && !scopedData) {
+      localStorage.setItem(scopedKey, legacyData);
+      localStorage.setItem(cfg.getDirtyKey(userId), '0');
+      console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
+    }
+  }
+
+  // pushStateToCloud com retorno explícito de resultado { ok: true/false }
+  async function pushStateToCloudConfirmed() {
+    if (!supabaseClient || !cloudUser || !cloudCharacterId || !cloudReady) {
+      return { ok: false, error: 'Engine da nuvem não inicializada ou usuário não logado' };
+    }
+    if (!navigator.onLine) {
+      setSaveStatus('Offline • salvo local', 'offline');
+      return { ok: false, error: 'Dispositivo offline' };
+    }
+
+    setSaveStatus('Sincronizando…', 'saving');
+    try {
+      const dirtyKey = getScopedKey('dirty');
+      const syncedKey = getScopedKey('synced');
+
+      const { data, error } = await supabaseClient
+        .from('characters')
+        .update({ name: cloudCharacterName(), data: clone(state) })
+        .eq('id', cloudCharacterId)
+        .eq('user_id', cloudUser.id)
+        .select('updated_at')
+        .single();
+
+      if (error) throw error;
+
+      localStorage.setItem(dirtyKey, '0');
+      localStorage.setItem(syncedKey, data?.updated_at || new Date().toISOString());
+      setSaveStatus('Salvo na nuvem ✓', 'cloud');
+      return { ok: true, updated_at: data?.updated_at };
+    } catch (e) {
+      console.error('CHRONUS: Erro ao sincronizar ficha na nuvem:', e);
+      const dirtyKey = getScopedKey('dirty');
+      localStorage.setItem(dirtyKey, '1');
+      setSaveStatus('Nuvem indisponível • salvo local', 'offline');
+      return { ok: false, error: e.message || e };
+    }
+  }
+
+  // Conectar listener ao ChronusAuth
+  if (window.ChronusAuth) {
+    window.ChronusAuth.onAuthChange(async (user, profile) => {
+      if (user) {
+        migrateLegacyStorageForUser(user.id);
+        if (profile?.role === 'narrator') {
+          await bootstrapNarrator(user, profile);
+        } else {
+          clearNarratorModes();
+          await bootstrapCloudForUser(user);
+        }
+      } else {
+        cloudUser = null;
+        cloudCharacterId = null;
+        cloudReady = false;
+        currentProfile = null;
+        narratorReadOnly = false;
+        clearNarratorModes();
+        updateAccountUi(null);
+      }
+    });
+  }
+
   return {
     applyNarratorViewMode: () => {
       try {
@@ -1100,8 +1197,12 @@ window.ChronusSheetEngine = (function() {
         if (typeof clearNarratorModes === 'function') clearNarratorModes();
       } catch (e) { console.error('Erro ao restaurar modo jogador na ficha:', e); }
     },
-    pushStateToCloud: async () => {
-      if (typeof pushStateToCloud === 'function') await pushStateToCloud();
-    }
+    pushStateToCloud: pushStateToCloudConfirmed,
+    isDirty: () => {
+      const dirtyKey = getScopedKey('dirty');
+      return localStorage.getItem(dirtyKey) === '1';
+    },
+    getState: () => clone(state),
+    loadState
   };
 })();

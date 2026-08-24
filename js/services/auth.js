@@ -1,15 +1,21 @@
 /**
- * CHRONUS — Authentication & User Profile Service
- * Gerencia sessão, papéis (player/narrator), login, logout e recuperação de senha.
+ * CHRONUS — Authentication & User Profile Service (Única Autoridade de Autenticação)
+ * Controla: Supabase Auth, Sessão, Perfis, Login, Logout Seguro com Confirmação e Recuperação de Senha.
  */
 window.ChronusAuth = (function() {
   let currentUser = null;
   let currentProfile = null;
   let passwordRecoveryAuthorized = false;
+  let isLoggingOut = false;
   const authListeners = [];
 
   function onAuthChange(cb) {
-    if (typeof cb === 'function') authListeners.push(cb);
+    if (typeof cb === 'function') {
+      authListeners.push(cb);
+      if (currentUser !== undefined) {
+        try { cb(currentUser, currentProfile); } catch (e) { console.error('Auth listener error:', e); }
+      }
+    }
   }
 
   function notifyAuthListeners(user, profile) {
@@ -72,11 +78,13 @@ window.ChronusAuth = (function() {
     const client = window.ChronusSupabase.getClient();
     if (!client) {
       updateNavAuthUi(null, null);
+      notifyAuthListeners(null, null);
       return;
     }
 
     const recoveryCallback = getPasswordRecoveryCallback();
 
+    // ÚNICO LISTENER GLOBAL DE AUTENTICAÇÃO
     client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         passwordRecoveryAuthorized = true;
@@ -119,10 +127,14 @@ window.ChronusAuth = (function() {
       } else {
         updateNavAuthUi(null, null);
         notifyAuthListeners(null, null);
+        if (window.location.hash === '#/login') {
+          showAuthModal();
+        }
       }
     } catch (e) {
       console.warn('CHRONUS: Erro ao checar sessão inicial:', e);
       updateNavAuthUi(null, null);
+      notifyAuthListeners(null, null);
     }
   }
 
@@ -203,39 +215,61 @@ window.ChronusAuth = (function() {
     if (error) throw error;
   }
 
+  /**
+   * FLUXO DE LOGOUT SEGURO COM CONFIRMAÇÃO DE SINCRONIZAÇÃO
+   * Se houver alterações pendentes (dirty), o logout SÓ PROSSEGUE se o Supabase confirmar sucesso.
+   * Em caso de falha de conexão, timeout ou erro 500, o logout é CANCELADO e os dados locais são preservados.
+   */
   async function handleLogout() {
-    if (!confirm('Deseja sair da sua conta CHRONUS neste dispositivo? Suas alterações salvas continuarão na nuvem.')) return;
+    if (isLoggingOut) return;
+    if (!confirm('Deseja sair da sua conta CHRONUS neste dispositivo?')) return;
+
+    isLoggingOut = true;
     const client = window.ChronusSupabase.getClient();
     const cfg = window.CHRONUS_CONFIG;
+    const userId = currentUser?.id;
 
-    if (currentProfile?.role !== 'narrator' && localStorage.getItem(cfg.CLOUD_DIRTY_KEY) === '1') {
-      if (!navigator.onLine) {
-        alert('Há alterações na ficha ainda não sincronizadas. Conecte-se à internet antes de sair para não perder dados.');
-        return;
+    try {
+      const isDirty = window.ChronusSheetEngine?.isDirty ? window.ChronusSheetEngine.isDirty() : false;
+      const dirtyKeyVal = userId ? localStorage.getItem(cfg.getDirtyKey(userId)) : null;
+
+      if (currentProfile?.role !== 'narrator' && (isDirty || dirtyKeyVal === '1')) {
+        // Tenta sincronização com confirmação estrita
+        if (window.ChronusSheetEngine?.pushStateToCloud) {
+          const syncResult = await window.ChronusSheetEngine.pushStateToCloud();
+          
+          if (!syncResult || !syncResult.ok) {
+            // BLOQUEIA O LOGOUT — PRESERVAÇÃO TOTAL DOS DADOS
+            alert('⚠️ AVISO DE SEGURANÇA: Não foi possível sincronizar suas alterações com o servidor (falha de rede ou nuvem indisponível).\n\nO logout foi CANCELADO para que seus dados locais não sejam perdidos. Tente novamente quando a conexão estiver restabelecida.');
+            isLoggingOut = false;
+            return false;
+          }
+        }
       }
-      if (window.ChronusSheetEngine?.pushStateToCloud) {
-        await window.ChronusSheetEngine.pushStateToCloud();
-      }
+
+      // Sucesso confirmado ou sem pendências -> Prossegue com o logout
+      if (client) await client.auth.signOut();
+
+      // Limpar apenas referências de sessão ativa, preservando o cache local individual do usuário
+      sessionStorage.removeItem(cfg.NARRATOR_VIEW_DATA_KEY);
+      sessionStorage.removeItem(cfg.NARRATOR_VIEW_META_KEY);
+
+      currentUser = null;
+      currentProfile = null;
+      updateNavAuthUi(null, null);
+      notifyAuthListeners(null, null);
+
+      window.location.hash = '#/home';
+      window.location.reload();
+      return true;
+    } catch (err) {
+      console.error('CHRONUS: Erro durante logout seguro:', err);
+      alert('Não foi possível concluir o logout com segurança: ' + (err.message || err));
+      isLoggingOut = false;
+      return false;
+    } finally {
+      isLoggingOut = false;
     }
-
-    if (client) await client.auth.signOut();
-    
-    currentUser = null;
-    currentProfile = null;
-    localStorage.removeItem(cfg.STORAGE_KEY);
-    cfg.LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
-    localStorage.removeItem(cfg.CLOUD_USER_KEY);
-    localStorage.removeItem(cfg.CLOUD_CHARACTER_KEY);
-    localStorage.removeItem(cfg.CLOUD_DIRTY_KEY);
-    localStorage.removeItem(cfg.CLOUD_SYNCED_KEY);
-    localStorage.removeItem(cfg.PORTRAIT_DIRTY_KEY);
-    sessionStorage.removeItem(cfg.NARRATOR_VIEW_DATA_KEY);
-    sessionStorage.removeItem(cfg.NARRATOR_VIEW_META_KEY);
-
-    updateNavAuthUi(null, null);
-    notifyAuthListeners(null, null);
-    window.location.hash = '#/home';
-    window.location.reload();
   }
 
   function showAuthModal(message = '', isError = false) {
