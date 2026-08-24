@@ -366,3 +366,21 @@
   border-color: rgba(156, 39, 176, 0.5);
   color: #ba68c8;
 }
+
+/* Scoped styles for Location cards */
+.location-address {
+  font-size: 0.84rem;
+  color: var(--gold-highlight);
+  margin-top: -4px;
+  margin-bottom: 12px;
+  word-break: break-word;
+}
+
+.location-region-badge {
+  border-color: rgba(201, 154, 69, 0.4);
+  color: #faeed4;
+}
+
+.location-public-desc {
+  margin-top: 8px;
+}

@@ -103,6 +103,8 @@ window.ChronusRouter = (function() {
       window.ChronusSessions?.load?.();
     } else if (cleanHash === '#/npcs') {
       window.ChronusNpcs?.load?.();
+    } else if (cleanHash === '#/maps') {
+      window.ChronusLocations?.load?.();
     }
 
     // Atualizar links ativos no Navbar

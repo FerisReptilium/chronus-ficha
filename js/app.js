@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.ChronusChronicle?.init?.();
   window.ChronusSessions?.init?.();
   window.ChronusNpcs?.init?.();
+  window.ChronusLocations?.init?.();
 
   // 4. Configurar Formulários de Autenticação
   setupAuthForms();
