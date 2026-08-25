@@ -1,12 +1,13 @@
 /**
  * CHRONUS — Sessions Module (Diário de Sessões)
- * Renderização e controle de listagem do diário de bordo da campanha.
+ * Renderização e controle de listagem do diário de bordo da campanha com suporte a capas assinadas.
  * 
  * DIRETRIZES DE SEGURANÇA:
  * 1. Consome exclusivamente window.ChronusContent.getSessions().
- * 2. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
- * 3. Formatação segura de datas (sem quebrar por valores inválidos).
- * 4. Protegido contra race conditions via requestId incremental.
+ * 2. Resolve assets de capa privados exclusivamente via window.ChronusAssets.getSignedUrl().
+ * 3. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
+ * 4. Formatação segura de datas (sem quebrar por valores inválidos).
+ * 5. Protegido contra race conditions via requestId incremental e validação de rota ativa.
  */
 window.ChronusSessions = (function() {
   'use strict';
@@ -19,6 +20,19 @@ window.ChronusSessions = (function() {
     'planned': { label: 'Planejada', class: 'status-planned' },
     'canceled': { label: 'Cancelada', class: 'status-canceled' }
   };
+
+  /**
+   * Valida se a requisição assíncrona ainda é a mais recente e se a rota ativa continua sendo Sessões.
+   * @private
+   * @param {number} requestId
+   * @returns {boolean}
+   */
+  function isRequestCurrent(requestId) {
+    return (
+      requestId === currentRequestId &&
+      window.ChronusRouter?.getCurrentRoute?.() === '#/sessions'
+    );
+  }
 
   function init() {
     window.ChronusAuth?.onAuthChange(() => {
@@ -40,17 +54,17 @@ window.ChronusSessions = (function() {
     try {
       const sessions = await window.ChronusContent.getSessions();
 
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
 
       if (!sessions || sessions.length === 0) {
         // Estado B: EMPTY
         renderEmpty(container);
       } else {
-        // Renderizar Lista de Sessões
-        renderSessions(container, sessions);
+        // Renderizar Lista de Sessões com Resolução Segura de Capas
+        await renderSessions(container, sessions, requestId);
       }
     } catch (err) {
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
       console.error('CHRONUS [SessionsModule]: Falha ao carregar sessões:', err);
       // Estado C: ERROR
       renderError(container);
@@ -132,14 +146,54 @@ window.ChronusSessions = (function() {
     return null;
   }
 
-  function renderSessions(container, sessions) {
+  async function renderSessions(container, sessions, requestId) {
+    // 1. Resolver Signed URLs para sessões com cover_image_path
+    const sessionsWithAssets = await Promise.all(sessions.map(async (session) => {
+      let signedUrl = null;
+      if (session.cover_image_path && typeof session.cover_image_path === 'string' && session.cover_image_path.trim()) {
+        try {
+          signedUrl = await window.ChronusAssets?.getSignedUrl?.('campaign-images', session.cover_image_path, { expiresIn: 3600 });
+        } catch (err) {
+          console.error('CHRONUS [SessionsModule]: Falha ao resolver asset de capa da sessão');
+          signedUrl = null;
+        }
+      }
+
+      if (!isRequestCurrent(requestId)) {
+        return { session, signedUrl: null, stale: true };
+      }
+
+      return { session, signedUrl, stale: false };
+    }));
+
+    // Guarda contra race condition pós-assinatura assíncrona
+    if (!isRequestCurrent(requestId)) return;
+
     container.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'editorial-cards-grid content-list-grid';
 
-    sessions.forEach(session => {
+    sessionsWithAssets.forEach(({ session, signedUrl, stale }) => {
+      if (stale) return;
+
       const card = document.createElement('article');
-      card.className = 'editorial-card content-card';
+      card.className = 'editorial-card content-card session-card';
+
+      // Se houver signed URL válida, renderizar container e imagem de capa
+      if (signedUrl && typeof signedUrl === 'string') {
+        const coverWrap = document.createElement('div');
+        coverWrap.className = 'session-cover-wrap';
+
+        const img = document.createElement('img');
+        img.className = 'session-cover-image';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = session.title ? `Capa de ${session.title}` : 'Capa da sessão';
+        img.src = signedUrl;
+
+        coverWrap.appendChild(img);
+        card.appendChild(coverWrap);
+      }
 
       const headerDiv = document.createElement('div');
 

@@ -469,3 +469,29 @@
 .editorial-card:hover .chronicle-cover-image {
   transform: scale(1.02);
 }
+
+/* Scoped styles for Session Cover Images */
+.session-cover-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(201, 154, 69, 0.18);
+}
+
+.session-cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.editorial-card:hover .session-cover-image {
+  transform: scale(1.02);
+}
