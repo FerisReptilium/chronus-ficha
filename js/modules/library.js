@@ -1,11 +1,14 @@
 /**
  * CHRONUS — Library Module (Biblioteca Oficial)
- * Renderização e controle de listagem de manuais e materiais oficiais da crônica.
+ * Renderização e controle de listagem de manuais e materiais oficiais da crônica com suporte a capas assinadas e abertura controlada de arquivos.
  * 
  * DIRETRIZES DE SEGURANÇA:
  * 1. Consome exclusivamente window.ChronusContent.getLibraryItems().
- * 2. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
- * 3. Protegido contra race conditions via requestId incremental.
+ * 2. Resolve capa (cover_path) via window.ChronusAssets.getSignedUrl('library', ..., { expiresIn: 3600 }).
+ * 3. Resolve arquivo (file_path) via window.ChronusAssets.getSignedUrl('library', ..., { expiresIn: 300 }) SOMENTE sob clique explícito.
+ * 4. file_path nunca é assinado na renderização inicial nem exposto no DOM/HTML.
+ * 5. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
+ * 6. Protegido contra race conditions via requestId incremental e validação de rota ativa.
  */
 window.ChronusLibrary = (function() {
   'use strict';
@@ -27,6 +30,19 @@ window.ChronusLibrary = (function() {
     'other': 'Outro'
   };
 
+  /**
+   * Valida se a requisição assíncrona ainda é a mais recente e se a rota ativa continua sendo Biblioteca Oficial.
+   * @private
+   * @param {number} requestId
+   * @returns {boolean}
+   */
+  function isRequestCurrent(requestId) {
+    return (
+      requestId === currentRequestId &&
+      window.ChronusRouter?.getCurrentRoute?.() === '#/library'
+    );
+  }
+
   function init() {
     window.ChronusAuth?.onAuthChange(() => {
       if (window.ChronusRouter?.getCurrentRoute() === '#/library') {
@@ -47,17 +63,17 @@ window.ChronusLibrary = (function() {
     try {
       const items = await window.ChronusContent.getLibraryItems();
 
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
 
       if (!items || items.length === 0) {
         // Estado B: EMPTY
         renderEmpty(container);
       } else {
-        // Renderizar Lista de Itens da Biblioteca
-        renderLibrary(container, items);
+        // Renderizar Lista de Itens da Biblioteca com Resolução Segura de Capas
+        await renderLibrary(container, items, requestId);
       }
     } catch (err) {
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
       console.error('CHRONUS [LibraryModule]: Falha ao carregar biblioteca:', err);
       // Estado C: ERROR
       renderError(container);
@@ -135,15 +151,56 @@ window.ChronusLibrary = (function() {
     return `${parseFloat(gb.toFixed(1))} GB`;
   }
 
-  function renderLibrary(container, items) {
+  async function renderLibrary(container, items, requestId) {
+    // 1. Resolver Signed URLs EXCLUSIVAMENTE para capas (cover_path)
+    const itemsWithAssets = await Promise.all(items.map(async (item) => {
+      let signedCoverUrl = null;
+      if (item.cover_path && typeof item.cover_path === 'string' && item.cover_path.trim()) {
+        try {
+          signedCoverUrl = await window.ChronusAssets?.getSignedUrl?.('library', item.cover_path, { expiresIn: 3600 });
+        } catch (err) {
+          console.error('CHRONUS [LibraryModule]: Falha ao resolver capa do item da biblioteca');
+          signedCoverUrl = null;
+        }
+      }
+
+      if (!isRequestCurrent(requestId)) {
+        return { item, signedCoverUrl: null, stale: true };
+      }
+
+      return { item, signedCoverUrl, stale: false };
+    }));
+
+    // Guarda contra race condition pós-assinatura assíncrona de capas
+    if (!isRequestCurrent(requestId)) return;
+
     container.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'editorial-cards-grid content-list-grid';
 
-    items.forEach(item => {
+    itemsWithAssets.forEach(({ item, signedCoverUrl, stale }) => {
+      if (stale) return;
+
       const card = document.createElement('article');
       card.className = 'editorial-card content-card library-card';
 
+      // 1. Capa Visual do Item (se houver signedCoverUrl válida)
+      if (signedCoverUrl && typeof signedCoverUrl === 'string') {
+        const coverWrap = document.createElement('div');
+        coverWrap.className = 'library-cover-wrap';
+
+        const img = document.createElement('img');
+        img.className = 'library-cover-image';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = item.title ? `Capa de ${item.title}` : 'Capa do item da biblioteca';
+        img.src = signedCoverUrl;
+
+        coverWrap.appendChild(img);
+        card.appendChild(coverWrap);
+      }
+
+      // 2. Cabeçalho Textual e Metadados
       const headerDiv = document.createElement('div');
 
       // Top row: Categoria
@@ -213,6 +270,110 @@ window.ChronusLibrary = (function() {
       }
 
       card.appendChild(headerDiv);
+
+      // 3. Ação de Abertura de Arquivo (se file_path existir)
+      if (item.file_path && typeof item.file_path === 'string' && item.file_path.trim()) {
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'library-card-actions';
+
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'portal-btn portal-btn-secondary library-open-button';
+        openBtn.textContent = 'Abrir arquivo';
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'library-action-msg';
+        msgDiv.setAttribute('role', 'status');
+        msgDiv.setAttribute('aria-live', 'polite');
+
+        openBtn.addEventListener('click', async () => {
+          msgDiv.textContent = '';
+          if (!isRequestCurrent(requestId)) return;
+
+          // Abrir popup síncrono no evento de clique para contornar bloqueadores
+          let popup = null;
+          try {
+            popup = window.open('about:blank', '_blank');
+            if (popup) {
+              popup.opener = null;
+            }
+          } catch (e) {
+            popup = null;
+          }
+
+          if (!popup) {
+            msgDiv.textContent = 'Não foi possível abrir uma nova aba. Verifique o bloqueio de pop-ups.';
+            return;
+          }
+
+          openBtn.disabled = true;
+          const originalText = openBtn.textContent;
+          openBtn.textContent = 'Abrindo...';
+
+          let signedFileUrl = null;
+          try {
+            signedFileUrl = await window.ChronusAssets?.getSignedUrl?.('library', item.file_path, { expiresIn: 300 });
+          } catch (err) {
+            console.error('CHRONUS [LibraryModule]: Falha ao assinar arquivo da biblioteca');
+            signedFileUrl = null;
+          }
+
+          // 1. Guarda de requisição stale / troca de rota
+          if (!isRequestCurrent(requestId)) {
+            if (popup && !popup.closed) {
+              try { popup.close(); } catch (e) {}
+            }
+            return;
+          }
+
+          // 2. Popup fechado manualmente antes da resolução (em rota ativa)
+          if (!popup || popup.closed) {
+            openBtn.disabled = false;
+            openBtn.textContent = originalText;
+            msgDiv.textContent = 'A nova aba foi fechada antes de o arquivo ser aberto.';
+            return;
+          }
+
+          if (signedFileUrl && typeof signedFileUrl === 'string') {
+            let navigationSucceeded = false;
+            try {
+              popup.location.replace(signedFileUrl);
+              navigationSucceeded = true;
+            } catch (e) {
+              try {
+                popup.location.href = signedFileUrl;
+                navigationSucceeded = true;
+              } catch (err2) {
+                navigationSucceeded = false;
+              }
+            }
+
+            if (navigationSucceeded) {
+              openBtn.disabled = false;
+              openBtn.textContent = originalText;
+            } else {
+              if (popup && !popup.closed) {
+                try { popup.close(); } catch (e) {}
+              }
+              openBtn.disabled = false;
+              openBtn.textContent = originalText;
+              msgDiv.textContent = 'Não foi possível abrir este arquivo.';
+            }
+          } else {
+            if (popup && !popup.closed) {
+              try { popup.close(); } catch (e) {}
+            }
+            openBtn.disabled = false;
+            openBtn.textContent = originalText;
+            msgDiv.textContent = 'Não foi possível abrir este arquivo.';
+          }
+        });
+
+        actionsDiv.appendChild(openBtn);
+        actionsDiv.appendChild(msgDiv);
+        card.appendChild(actionsDiv);
+      }
+
       grid.appendChild(card);
     });
 

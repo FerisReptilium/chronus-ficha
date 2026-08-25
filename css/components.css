@@ -621,3 +621,43 @@
   min-height: 1.2em;
   text-align: center;
 }
+
+/* Scoped styles for Library Covers and Actions */
+.library-cover-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  aspect-ratio: 3 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(201, 154, 69, 0.18);
+}
+
+.library-cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.library-card-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.library-open-button {
+  width: 100%;
+  text-align: center;
+}
+
+.library-action-msg {
+  font-size: 0.8rem;
+  color: #e57373;
+  min-height: 1.2em;
+  text-align: center;
+}
