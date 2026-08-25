@@ -661,3 +661,23 @@
   min-height: 1.2em;
   text-align: center;
 }
+
+/* Scoped styles for Soundtrack YouTube Actions */
+.soundtrack-card-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.soundtrack-youtube-button {
+  width: 100%;
+  text-align: center;
+}
+
+.soundtrack-action-msg {
+  font-size: 0.8rem;
+  color: #e57373;
+  min-height: 1.2em;
+  text-align: center;
+}
