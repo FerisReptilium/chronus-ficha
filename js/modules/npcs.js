@@ -1,11 +1,12 @@
 /**
  * CHRONUS — NPCs Module (Dossiê de NPCs)
- * Renderização e controle de listagem de contatos e figuras da crônica.
+ * Renderização e controle de listagem de contatos e figuras da crônica com suporte a retratos assinados.
  * 
  * DIRETRIZES DE SEGURANÇA:
  * 1. Consome exclusivamente window.ChronusContent.getNpcs().
- * 2. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
- * 3. Protegido contra race conditions via requestId incremental.
+ * 2. Resolve assets de retrato privados exclusivamente via window.ChronusAssets.getSignedUrl().
+ * 3. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
+ * 4. Protegido contra race conditions via requestId incremental e validação de rota ativa.
  */
 window.ChronusNpcs = (function() {
   'use strict';
@@ -19,6 +20,19 @@ window.ChronusNpcs = (function() {
     'unknown': { label: 'Desconhecido', class: 'status-unknown' },
     'transformed': { label: 'Transformado', class: 'status-transformed' }
   };
+
+  /**
+   * Valida se a requisição assíncrona ainda é a mais recente e se a rota ativa continua sendo NPCs.
+   * @private
+   * @param {number} requestId
+   * @returns {boolean}
+   */
+  function isRequestCurrent(requestId) {
+    return (
+      requestId === currentRequestId &&
+      window.ChronusRouter?.getCurrentRoute?.() === '#/npcs'
+    );
+  }
 
   function init() {
     window.ChronusAuth?.onAuthChange(() => {
@@ -40,17 +54,17 @@ window.ChronusNpcs = (function() {
     try {
       const npcs = await window.ChronusContent.getNpcs();
 
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
 
       if (!npcs || npcs.length === 0) {
         // Estado B: EMPTY
         renderEmpty(container);
       } else {
-        // Renderizar Lista de NPCs
-        renderNpcs(container, npcs);
+        // Renderizar Lista de NPCs com Resolução Segura de Retratos
+        await renderNpcs(container, npcs, requestId);
       }
     } catch (err) {
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
       console.error('CHRONUS [NpcsModule]: Falha ao carregar NPCs:', err);
       // Estado C: ERROR
       renderError(container);
@@ -112,14 +126,54 @@ window.ChronusNpcs = (function() {
     container.appendChild(box);
   }
 
-  function renderNpcs(container, npcs) {
+  async function renderNpcs(container, npcs, requestId) {
+    // 1. Resolver Signed URLs para NPCs com portrait_path
+    const npcsWithAssets = await Promise.all(npcs.map(async (npc) => {
+      let signedUrl = null;
+      if (npc.portrait_path && typeof npc.portrait_path === 'string' && npc.portrait_path.trim()) {
+        try {
+          signedUrl = await window.ChronusAssets?.getSignedUrl?.('campaign-images', npc.portrait_path, { expiresIn: 3600 });
+        } catch (err) {
+          console.error('CHRONUS [NpcsModule]: Falha ao resolver retrato do NPC');
+          signedUrl = null;
+        }
+      }
+
+      if (!isRequestCurrent(requestId)) {
+        return { npc, signedUrl: null, stale: true };
+      }
+
+      return { npc, signedUrl, stale: false };
+    }));
+
+    // Guarda contra race condition pós-assinatura assíncrona
+    if (!isRequestCurrent(requestId)) return;
+
     container.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'editorial-cards-grid content-list-grid';
 
-    npcs.forEach(npc => {
+    npcsWithAssets.forEach(({ npc, signedUrl, stale }) => {
+      if (stale) return;
+
       const card = document.createElement('article');
       card.className = 'editorial-card content-card npc-card';
+
+      // Se houver signed URL válida, renderizar container e imagem de retrato
+      if (signedUrl && typeof signedUrl === 'string') {
+        const portraitWrap = document.createElement('div');
+        portraitWrap.className = 'npc-portrait-wrap';
+
+        const img = document.createElement('img');
+        img.className = 'npc-portrait-image';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = npc.name ? `Retrato de ${npc.name}` : 'Retrato do NPC';
+        img.src = signedUrl;
+
+        portraitWrap.appendChild(img);
+        card.appendChild(portraitWrap);
+      }
 
       const headerDiv = document.createElement('div');
 
