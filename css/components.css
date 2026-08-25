@@ -521,3 +521,63 @@
 .editorial-card:hover .npc-portrait-image {
   transform: scale(1.02);
 }
+
+/* Scoped styles for Location Images and Maps */
+.location-image-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(201, 154, 69, 0.18);
+}
+
+.location-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.editorial-card:hover .location-image {
+  transform: scale(1.02);
+}
+
+.location-map-block {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.location-map-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #c99a45;
+  margin-bottom: 6px;
+  font-family: var(--font-cinzel, serif);
+}
+
+.location-map-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(201, 154, 69, 0.18);
+}
+
+.location-map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

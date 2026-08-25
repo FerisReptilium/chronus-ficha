@@ -1,11 +1,14 @@
 /**
  * CHRONUS — Locations Module (Atlas & Locais)
- * Renderização e controle de listagem do atlas de locais da crônica.
+ * Renderização e controle de listagem do atlas de locais da crônica com suporte a imagens e mapas assinados.
  * 
  * DIRETRIZES DE SEGURANÇA:
  * 1. Consome exclusivamente window.ChronusContent.getLocations().
- * 2. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
- * 3. Protegido contra race conditions via requestId incremental.
+ * 2. Resolve assets privados exclusivamente via window.ChronusAssets.getSignedUrl().
+ *    - image_path -> bucket 'campaign-images'
+ *    - map_image_path -> bucket 'maps'
+ * 3. Manipula o DOM de forma segura com document.createElement e textContent (sem XSS).
+ * 4. Protegido contra race conditions via requestId incremental e validação de rota ativa.
  */
 window.ChronusLocations = (function() {
   'use strict';
@@ -35,6 +38,19 @@ window.ChronusLocations = (function() {
     'other': 'Outro'
   };
 
+  /**
+   * Valida se a requisição assíncrona ainda é a mais recente e se a rota ativa continua sendo Atlas & Locais.
+   * @private
+   * @param {number} requestId
+   * @returns {boolean}
+   */
+  function isRequestCurrent(requestId) {
+    return (
+      requestId === currentRequestId &&
+      window.ChronusRouter?.getCurrentRoute?.() === '#/maps'
+    );
+  }
+
   function init() {
     window.ChronusAuth?.onAuthChange(() => {
       if (window.ChronusRouter?.getCurrentRoute() === '#/maps') {
@@ -55,17 +71,17 @@ window.ChronusLocations = (function() {
     try {
       const locations = await window.ChronusContent.getLocations();
 
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
 
       if (!locations || locations.length === 0) {
         // Estado B: EMPTY
         renderEmpty(container);
       } else {
-        // Renderizar Lista de Locais
-        renderLocations(container, locations);
+        // Renderizar Lista de Locais com Resolução Segura de Assets
+        await renderLocations(container, locations, requestId);
       }
     } catch (err) {
-      if (requestId !== currentRequestId) return;
+      if (!isRequestCurrent(requestId)) return;
       console.error('CHRONUS [LocationsModule]: Falha ao carregar locais:', err);
       // Estado C: ERROR
       renderError(container);
@@ -132,15 +148,73 @@ window.ChronusLocations = (function() {
     return TYPE_MAP[typeVal] || typeVal;
   }
 
-  function renderLocations(container, locations) {
+  async function renderLocations(container, locations, requestId) {
+    // 1. Resolver Signed URLs independentes para image_path e map_image_path
+    const locationsWithAssets = await Promise.all(locations.map(async (loc) => {
+      const [signedImageUrl, signedMapUrl] = await Promise.all([
+        // Resolução de image_path -> bucket 'campaign-images'
+        (async () => {
+          if (loc.image_path && typeof loc.image_path === 'string' && loc.image_path.trim()) {
+            try {
+              return await window.ChronusAssets?.getSignedUrl?.('campaign-images', loc.image_path, { expiresIn: 3600 });
+            } catch (err) {
+              console.error('CHRONUS [LocationsModule]: Falha ao resolver imagem do local');
+              return null;
+            }
+          }
+          return null;
+        })(),
+        // Resolução de map_image_path -> bucket 'maps'
+        (async () => {
+          if (loc.map_image_path && typeof loc.map_image_path === 'string' && loc.map_image_path.trim()) {
+            try {
+              return await window.ChronusAssets?.getSignedUrl?.('maps', loc.map_image_path, { expiresIn: 3600 });
+            } catch (err) {
+              console.error('CHRONUS [LocationsModule]: Falha ao resolver mapa do local');
+              return null;
+            }
+          }
+          return null;
+        })()
+      ]);
+
+      if (!isRequestCurrent(requestId)) {
+        return { loc, signedImageUrl: null, signedMapUrl: null, stale: true };
+      }
+
+      return { loc, signedImageUrl, signedMapUrl, stale: false };
+    }));
+
+    // Guarda contra race condition pós-assinatura assíncrona
+    if (!isRequestCurrent(requestId)) return;
+
     container.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'editorial-cards-grid content-list-grid';
 
-    locations.forEach(loc => {
+    locationsWithAssets.forEach(({ loc, signedImageUrl, signedMapUrl, stale }) => {
+      if (stale) return;
+
       const card = document.createElement('article');
       card.className = 'editorial-card content-card location-card';
 
+      // 1. Imagem Principal do Local (se houver signed URL válida)
+      if (signedImageUrl && typeof signedImageUrl === 'string') {
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'location-image-wrap';
+
+        const img = document.createElement('img');
+        img.className = 'location-image';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = loc.name ? `Imagem de ${loc.name}` : 'Imagem do local';
+        img.src = signedImageUrl;
+
+        imageWrap.appendChild(img);
+        card.appendChild(imageWrap);
+      }
+
+      // 2. Cabeçalho Textual e Metadados
       const headerDiv = document.createElement('div');
 
       // Top row: Tipo do Local + Região
@@ -192,6 +266,32 @@ window.ChronusLocations = (function() {
       }
 
       card.appendChild(headerDiv);
+
+      // 3. Bloco de Mapa (se houver signed URL de mapa válida)
+      if (signedMapUrl && typeof signedMapUrl === 'string') {
+        const mapBlock = document.createElement('div');
+        mapBlock.className = 'location-map-block';
+
+        const mapLabel = document.createElement('div');
+        mapLabel.className = 'location-map-label';
+        mapLabel.textContent = 'Mapa';
+
+        const mapWrap = document.createElement('div');
+        mapWrap.className = 'location-map-wrap';
+
+        const mapImg = document.createElement('img');
+        mapImg.className = 'location-map-image';
+        mapImg.loading = 'lazy';
+        mapImg.decoding = 'async';
+        mapImg.alt = loc.name ? `Mapa de ${loc.name}` : 'Mapa do local';
+        mapImg.src = signedMapUrl;
+
+        mapWrap.appendChild(mapImg);
+        mapBlock.appendChild(mapLabel);
+        mapBlock.appendChild(mapWrap);
+        card.appendChild(mapBlock);
+      }
+
       grid.appendChild(card);
     });
 
