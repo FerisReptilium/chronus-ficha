@@ -284,11 +284,19 @@ window.ChronusDocuments = (function() {
             signedFileUrl = null;
           }
 
-          // Guarda após resolução assíncrona
-          if (!isRequestCurrent(requestId) || !popup || popup.closed) {
+          // 1. Guarda de requisição stale / troca de rota
+          if (!isRequestCurrent(requestId)) {
             if (popup && !popup.closed) {
               try { popup.close(); } catch (e) {}
             }
+            return;
+          }
+
+          // 2. Popup fechado manualmente antes da resolução (em rota ativa)
+          if (!popup || popup.closed) {
+            openBtn.disabled = false;
+            openBtn.textContent = originalText;
+            msgDiv.textContent = 'A nova aba foi fechada antes de o documento ser aberto.';
             return;
           }
 
