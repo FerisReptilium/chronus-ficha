@@ -1,8 +1,8 @@
 /**
- * CHRONUS — Narrator Panel Module (v2C Fast-Track 1)
+ * CHRONUS — Narrator Panel Module (v2C Fast-Track 2)
  * Painel administrativo unificado do Narrador:
  * 1. Mesa de Jogadores (Fichas em tempo real somente leitura)
- * 2. Gestão Editorial (Shell visual e Form Engine unificado de CRUD para as 7 áreas)
+ * 2. Gestão Editorial (Shell visual, Form Engine, Publicação, Visibilidade e Gestão de Assets)
  */
 window.ChronusNarratorPanel = (function() {
   'use strict';
@@ -15,9 +15,9 @@ window.ChronusNarratorPanel = (function() {
   let currentSearchQuery = '';
   let currentFilter = 'all'; // 'all' | 'published' | 'draft'
 
-  // Estado Unificado do Form Engine (Fast-Track 1)
+  // Estado Unificado do Form Engine & Mutação
   let isEditing = false;
-  let activeFormEntity = null; // 'chapter' | 'session' | 'npc' | 'location' | 'document' | 'library' | 'soundtrack'
+  let activeFormEntity = null;
   let formMode = 'create'; // 'create' | 'edit'
   let editingRecordId = null;
   let formInitialValues = {};
@@ -25,6 +25,7 @@ window.ChronusNarratorPanel = (function() {
   let formIsSubmitting = false;
   let formIsSlugTouched = false;
   let feedbackMessage = null;
+  let isMutatingGlobal = false;
 
   // Definição das 7 Seções Editoriais
   const EDITORIAL_SECTIONS = [
@@ -36,6 +37,32 @@ window.ChronusNarratorPanel = (function() {
     { id: 'library', name: 'Biblioteca', icon: '📚', entity: 'library', desc: 'Manuais oficiais e livros de regras', emptyMsg: 'Nenhum item de biblioteca cadastrado.' },
     { id: 'soundtrack', name: 'Trilha Sonora', icon: '🎵', entity: 'soundtrack', desc: 'Temas musicais e ambientações da crônica', emptyMsg: 'Nenhuma trilha sonora cadastrada.' }
   ];
+
+  // Configuração Fechada de Slots de Assets (Fast-Track 2)
+  const ASSET_UI_CONFIG = Object.freeze({
+    chapter: [
+      { slot: 'cover', label: 'Capa do Capítulo', bucket: 'campaign-images', field: 'cover_image_path', accept: 'image/jpeg,image/png,image/webp', isImage: true }
+    ],
+    session: [
+      { slot: 'cover', label: 'Capa da Sessão', bucket: 'campaign-images', field: 'cover_image_path', accept: 'image/jpeg,image/png,image/webp', isImage: true }
+    ],
+    npc: [
+      { slot: 'portrait', label: 'Retrato do NPC', bucket: 'campaign-images', field: 'portrait_path', accept: 'image/jpeg,image/png,image/webp', isImage: true }
+    ],
+    location: [
+      { slot: 'image', label: 'Foto / Ilustração do Local', bucket: 'campaign-images', field: 'image_path', accept: 'image/jpeg,image/png,image/webp', isImage: true },
+      { slot: 'map', label: 'Mapa Tático / Cartografia', bucket: 'maps', field: 'map_image_path', accept: 'image/jpeg,image/png,image/webp', isImage: true }
+    ],
+    document: [
+      { slot: 'preview', label: 'Preview Visual / Fotografia', bucket: 'documents', field: 'image_path', accept: 'image/jpeg,image/png,image/webp', isImage: true },
+      { slot: 'file', label: 'Arquivo Digital (PDF/Imagem)', bucket: 'documents', field: 'file_path', accept: 'application/pdf,image/jpeg,image/png,image/webp', isImage: false }
+    ],
+    library: [
+      { slot: 'cover', label: 'Capa do Livro / Manual', bucket: 'library', field: 'cover_path', accept: 'image/jpeg,image/png,image/webp', isImage: true },
+      { slot: 'file', label: 'Arquivo do Livro (PDF Obrigatório)', bucket: 'library', field: 'file_path', accept: 'application/pdf', isImage: false }
+    ],
+    soundtrack: []
+  });
 
   // Configuração Fechada do Form Engine Unificado
   const EDITOR_FORM_CONFIG = Object.freeze({
@@ -49,8 +76,6 @@ window.ChronusNarratorPanel = (function() {
       updateMethod: 'updateChapter',
       hasSlug: true,
       slugSource: 'title',
-      coverField: 'cover_image_path',
-      coverBucket: 'campaign-images',
       fields: [
         { name: 'title', label: 'Título do Capítulo *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Sombras de Praga' },
         { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: sombras-de-praga' },
@@ -71,8 +96,6 @@ window.ChronusNarratorPanel = (function() {
       updateMethod: 'updateSession',
       hasSlug: true,
       slugSource: 'title',
-      coverField: 'cover_image_path',
-      coverBucket: 'campaign-images',
       fields: [
         { name: 'session_number', label: 'Número da Sessão *', type: 'number', required: true, min: 1, step: 1, gridFull: false, placeholder: 'Ex: 1' },
         { name: 'title', label: 'Título da Sessão *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Noite de Conspiração' },
@@ -101,8 +124,6 @@ window.ChronusNarratorPanel = (function() {
       updateMethod: 'updateNPC',
       hasSlug: true,
       slugSource: 'name',
-      coverField: 'portrait_path',
-      coverBucket: 'campaign-images',
       fields: [
         { name: 'name', label: 'Nome do NPC *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Viktor Kane' },
         { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: viktor-kane' },
@@ -134,8 +155,6 @@ window.ChronusNarratorPanel = (function() {
       updateMethod: 'updateLocation',
       hasSlug: true,
       slugSource: 'name',
-      coverField: 'image_path',
-      coverBucket: 'maps',
       fields: [
         { name: 'name', label: 'Nome do Local *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Refúgio Subterrâneo' },
         { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: refugio-subterraneo' },
@@ -167,8 +186,6 @@ window.ChronusNarratorPanel = (function() {
       updateMethod: 'updateDocument',
       hasSlug: true,
       slugSource: 'title',
-      coverField: 'image_path',
-      coverBucket: 'documents',
       fields: [
         { name: 'title', label: 'Título do Documento *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Carta Interceptada' },
         { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: carta-interceptada' },
@@ -200,8 +217,6 @@ window.ChronusNarratorPanel = (function() {
       updateMethod: 'updateLibraryItem',
       hasSlug: true,
       slugSource: 'title',
-      coverField: 'cover_path',
-      coverBucket: 'library',
       fields: [
         { name: 'title', label: 'Título do Livro / Manual *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Mago: A Ascensão — Livro Básico' },
         { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: mago-ascensao-basico' },
@@ -229,8 +244,6 @@ window.ChronusNarratorPanel = (function() {
       createMethod: 'createSoundtrack',
       updateMethod: 'updateSoundtrack',
       hasSlug: false,
-      coverField: null,
-      coverBucket: null,
       fields: [
         { name: 'title', label: 'Título da Trilha Sonora *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Tema de Tensão Oculta' },
         { name: 'youtube_url', label: 'Link do YouTube *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
@@ -272,11 +285,11 @@ window.ChronusNarratorPanel = (function() {
       .toString()
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // remove acentos
-      .replace(/[^a-z0-9\s-]/g, '')     // remove caracteres especiais
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
       .trim()
-      .replace(/[\s_]+/g, '-')         // espaços e underscores viram traço
-      .replace(/-+/g, '-');            // múltiplos traços viram um só
+      .replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-');
   }
 
   /**
@@ -382,7 +395,7 @@ window.ChronusNarratorPanel = (function() {
   function switchMainTab(tab) {
     if (activeMainTab === tab) return;
     activeMainTab = tab;
-    currentCmsRequestId++; // Invalida qualquer request assíncrono pendente
+    currentCmsRequestId++;
     isEditing = false;
     formIsDirty = false;
 
@@ -410,7 +423,6 @@ window.ChronusNarratorPanel = (function() {
     try {
       const client = window.ChronusSupabase.getClient();
 
-      // 1. Buscar todos os jogadores registrados
       const { data: players, error: playersErr } = await client
         .from('profiles')
         .select('id, display_name, email, role')
@@ -419,7 +431,6 @@ window.ChronusNarratorPanel = (function() {
 
       if (playersErr) throw playersErr;
 
-      // 2. Buscar as fichas mais recentes desses jogadores
       const playerIds = (players || []).map(p => p.id);
       let characters = [];
       if (playerIds.length > 0) {
@@ -556,7 +567,6 @@ window.ChronusNarratorPanel = (function() {
 
     document.getElementById('btn-narrator-refresh')?.addEventListener('click', () => renderPlayerTable(pane));
 
-    // Bind botões "Abrir Ficha"
     pane.querySelectorAll('.btn-open-readonly-sheet').forEach(btn => {
       btn.addEventListener('click', () => {
         const playerId = btn.getAttribute('data-player-id');
@@ -580,7 +590,6 @@ window.ChronusNarratorPanel = (function() {
       });
     });
 
-    // Carregar retratos para cada card
     players.forEach(p => loadPlayerPortrait(p.id));
   }
 
@@ -595,9 +604,7 @@ window.ChronusNarratorPanel = (function() {
         const url = URL.createObjectURL(data);
         container.innerHTML = `<img src="${url}" alt="Retrato" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
       }
-    } catch (e) {
-      // Retrato opcional
-    }
+    } catch (e) {}
   }
 
   /* ==========================================================================
@@ -613,17 +620,15 @@ window.ChronusNarratorPanel = (function() {
 
     pane.innerHTML = '';
 
-    // Cabeçalho da Gestão Editorial
     const headerWrapper = createEl('div', 'editorial-shell-header');
     const headerInfo = createEl('div');
     const title = createEl('h2', 'narrator-main-title', 'Gestão Editorial da Crônica');
-    const subtitle = createEl('p', 'narrator-subtitle-desc', 'Visão administrativa e acervo da campanha. O acesso é exclusivo do Narrador para inspeção e edição de conteúdos.');
+    const subtitle = createEl('p', 'narrator-subtitle-desc', 'Visão administrativa e acervo da campanha. O acesso é exclusivo do Narrador para inspeção, edição e controle de publicação.');
     headerInfo.appendChild(title);
     headerInfo.appendChild(subtitle);
     headerWrapper.appendChild(headerInfo);
     pane.appendChild(headerWrapper);
 
-    // Feedback Toast se houver
     if (feedbackMessage) {
       const toast = createEl('div', 'editorial-feedback-toast', feedbackMessage);
       headerWrapper.appendChild(toast);
@@ -636,7 +641,6 @@ window.ChronusNarratorPanel = (function() {
       }, 5000);
     }
 
-    // Barra de Navegação das 7 Áreas + Dashboard
     const navBar = createEl('nav', 'editorial-nav-bar');
     navBar.setAttribute('role', 'tablist');
     navBar.setAttribute('aria-label', 'Navegação de Áreas Editoriais');
@@ -667,12 +671,10 @@ window.ChronusNarratorPanel = (function() {
 
     pane.appendChild(navBar);
 
-    // Contêiner dinâmico da Seção Ativa
     const contentArea = createEl('div', 'editorial-content-area');
     contentArea.id = 'editorial-content-container';
     pane.appendChild(contentArea);
 
-    // Carregar a visualização ativa
     if (activeEditorialSection === 'dashboard') {
       renderEditorialDashboard(contentArea);
     } else {
@@ -713,7 +715,6 @@ window.ChronusNarratorPanel = (function() {
     container.appendChild(loadingEl);
 
     try {
-      // Buscar dados de todas as seções via ChronusContent em paralelo
       const [chapters, sessions, npcs, locations, documents, library, soundtrack] = await Promise.all([
         window.ChronusContent.getChapters({ limit: 100 }).catch(() => []),
         window.ChronusContent.getSessions({ limit: 100 }).catch(() => []),
@@ -724,12 +725,10 @@ window.ChronusNarratorPanel = (function() {
         window.ChronusContent.getSoundtrack({ limit: 100 }).catch(() => [])
       ]);
 
-      // Proteção Stale Render: Validar requestId e rota ativa
       if (requestId !== currentCmsRequestId || !window.location.hash.startsWith('#/narrator')) {
         return;
       }
 
-      // Atualizar cache em memória
       editorialCache = {
         chapter: chapters,
         session: sessions,
@@ -795,7 +794,6 @@ window.ChronusNarratorPanel = (function() {
         actionRow.appendChild(link);
         card.appendChild(actionRow);
 
-        // Click / Keypress para abrir a seção
         const openSection = () => switchEditorialSection(sec.id);
         card.addEventListener('click', openSection);
         card.addEventListener('keydown', (e) => {
@@ -830,7 +828,6 @@ window.ChronusNarratorPanel = (function() {
 
     container.innerHTML = '';
 
-    // Se estiver em modo de formulário nesta entidade, renderiza o editor unificado
     if (isEditing && activeFormEntity === sectionId) {
       renderEditorialForm(sectionId, container);
       return;
@@ -838,10 +835,8 @@ window.ChronusNarratorPanel = (function() {
 
     const formConfig = EDITOR_FORM_CONFIG[sectionId];
 
-    // Barra de Ferramentas / Toolbar (Busca, Filtros e Ação "+ Novo")
     const toolbar = createEl('div', 'editorial-toolbar');
 
-    // Botão "+ Novo" (se permitido na configuração da entidade)
     if (formConfig && formConfig.allowCreate && formConfig.newBtnLabel) {
       const btnNew = createEl('button', 'portal-btn portal-btn-gold btn-new-editorial', formConfig.newBtnLabel);
       btnNew.type = 'button';
@@ -851,7 +846,6 @@ window.ChronusNarratorPanel = (function() {
       toolbar.appendChild(btnNew);
     }
 
-    // Campo de busca local
     const searchWrapper = createEl('div', 'editorial-search-wrapper');
     const searchInput = createEl('input', 'editorial-search-input');
     searchInput.type = 'text';
@@ -865,7 +859,6 @@ window.ChronusNarratorPanel = (function() {
     searchWrapper.appendChild(searchInput);
     toolbar.appendChild(searchWrapper);
 
-    // Filtros de Publicação
     const filterPills = createEl('div', 'editorial-filter-pills');
     const filters = [
       { id: 'all', label: 'Todos' },
@@ -886,7 +879,6 @@ window.ChronusNarratorPanel = (function() {
     toolbar.appendChild(filterPills);
     container.appendChild(toolbar);
 
-    // Contêiner da lista de itens
     const listWrapper = createEl('div', 'editorial-items-container');
     listWrapper.id = 'editorial-items-list';
 
@@ -897,7 +889,6 @@ window.ChronusNarratorPanel = (function() {
     container.appendChild(listWrapper);
 
     try {
-      // Buscar dados via ChronusContent
       let items = [];
       if (sectionId === 'chapter') items = await window.ChronusContent.getChapters({ limit: 100 });
       else if (sectionId === 'session') items = await window.ChronusContent.getSessions({ limit: 100 });
@@ -907,7 +898,6 @@ window.ChronusNarratorPanel = (function() {
       else if (sectionId === 'library') items = await window.ChronusContent.getLibraryItems({ limit: 100 });
       else if (sectionId === 'soundtrack') items = await window.ChronusContent.getSoundtrack({ limit: 100 });
 
-      // Stale Render Guard
       if (requestId !== currentCmsRequestId || !window.location.hash.startsWith('#/narrator')) {
         return;
       }
@@ -940,7 +930,6 @@ window.ChronusNarratorPanel = (function() {
     formIsSubmitting = false;
     formIsSlugTouched = (mode === 'edit');
 
-    // Inicialização segura dos valores do formulário
     formInitialValues = {};
     config.fields.forEach(f => {
       if (mode === 'edit' && item) {
@@ -955,21 +944,16 @@ window.ChronusNarratorPanel = (function() {
       }
     });
 
-    // Armazena caminho de capa existente se houver
-    if (mode === 'edit' && item && config.coverField) {
-      formInitialValues._coverPath = item[config.coverField] || null;
-    }
-
     const container = document.getElementById('editorial-content-container');
     if (container) {
-      renderEditorialForm(entityKey, container);
+      renderEditorialForm(entityKey, container, item);
     }
   }
 
   /**
-   * Renderiza o Formulário Unificado do CMS (Safe DOM).
+   * Renderiza o Formulário Unificado do CMS com Gestão de Assets (Safe DOM).
    */
-  function renderEditorialForm(entityKey, container) {
+  function renderEditorialForm(entityKey, container, currentItem = null) {
     const config = EDITOR_FORM_CONFIG[entityKey];
     if (!config) return;
 
@@ -987,22 +971,6 @@ window.ChronusNarratorPanel = (function() {
     formHeader.appendChild(formTitle);
     formHeader.appendChild(formDesc);
     formCard.appendChild(formHeader);
-
-    // Preview de Capa/Asset Read-Only se existir no Edit
-    if (formMode === 'edit' && formInitialValues._coverPath && config.coverBucket) {
-      const coverBox = createEl('div', 'form-cover-preview-box');
-      const coverThumb = createEl('img', 'form-cover-thumb');
-      coverThumb.alt = `Capa atual de ${config.singular}`;
-      coverBox.appendChild(coverThumb);
-
-      const coverNotice = createEl('p', 'form-cover-notice', 'Capa atual — o gerenciamento de imagem será liberado em etapa posterior.');
-      coverBox.appendChild(coverNotice);
-      formCard.appendChild(coverBox);
-
-      window.ChronusAssets?.getSignedUrl(config.coverBucket, formInitialValues._coverPath)
-        .then(url => { if (url) coverThumb.src = url; })
-        .catch(() => {});
-    }
 
     // Banner de Erros do Formulário
     const errorBanner = createEl('div', 'editorial-error-banner');
@@ -1083,7 +1051,7 @@ window.ChronusNarratorPanel = (function() {
 
         const locations = editorialCache.location || [];
         locations.forEach(l => {
-          if (formMode === 'edit' && editingRecordId === l.id) return; // Não vincula o local a si mesmo
+          if (formMode === 'edit' && editingRecordId === l.id) return;
           const optEl = createEl('option', null, `${l.name} (${l.type || 'Local'})`);
           optEl.value = l.id;
           if (String(l.id) === String(formInitialValues[f.name])) {
@@ -1107,7 +1075,6 @@ window.ChronusNarratorPanel = (function() {
       grid.appendChild(grp);
       fieldElements[f.name] = inputEl;
 
-      // Eventos de Dirty State e Auto-Slug
       inputEl.addEventListener('input', () => {
         formIsDirty = true;
         if (config.hasSlug && f.name === config.slugSource && formMode === 'create' && !formIsSlugTouched) {
@@ -1143,15 +1110,39 @@ window.ChronusNarratorPanel = (function() {
     form.appendChild(actionsRow);
 
     formCard.appendChild(form);
+
+    // =========================================================================
+    // SEÇÃO DE GERENCIAMENTO DE ASSETS (Fast-Track 2)
+    // =========================================================================
+    const assetSlots = ASSET_UI_CONFIG[entityKey] || [];
+    if (formMode === 'edit' && editingRecordId && assetSlots.length > 0) {
+      const assetSection = createEl('div', 'editorial-assets-manager');
+      const assetSecTitle = createEl('h4', 'editorial-assets-title', '📁 Gerenciamento de Arquivos e Assets');
+      const assetSecDesc = createEl('p', 'editorial-assets-desc', 'Envie ou substitua arquivos do registro através do armazenamento seguro do Chronus.');
+      assetSection.appendChild(assetSecTitle);
+      assetSection.appendChild(assetSecDesc);
+
+      const slotsGrid = createEl('div', 'editorial-slots-grid');
+
+      // Buscar item mais atualizado em cache
+      const itemRecord = (editorialCache[entityKey] || []).find(it => it.id === editingRecordId) || currentItem || {};
+
+      assetSlots.forEach(slotDef => {
+        const slotCard = renderAssetSlotCard(entityKey, slotDef, itemRecord);
+        slotsGrid.appendChild(slotCard);
+      });
+
+      assetSection.appendChild(slotsGrid);
+      formCard.appendChild(assetSection);
+    }
+
     container.appendChild(formCard);
 
-    // Foco no primeiro campo
     const firstFieldName = config.fields[0]?.name;
     if (firstFieldName && fieldElements[firstFieldName]) {
       setTimeout(() => fieldElements[firstFieldName].focus(), 50);
     }
 
-    // Handler de Cancelar
     btnCancel.addEventListener('click', () => {
       if (formIsDirty && !window.confirm('Deseja descartar as alterações não salvas?')) {
         return;
@@ -1162,16 +1153,14 @@ window.ChronusNarratorPanel = (function() {
       renderEditorialSection(entityKey, container);
     });
 
-    // Handler de Submit Unificado
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      if (formIsSubmitting) return; // Proteção contra Double Submit
+      if (formIsSubmitting) return;
 
       errorBanner.hidden = true;
       errorBanner.textContent = '';
 
-      // Validação defensiva client-side
       const collectedValues = {};
       let validationError = null;
       let fieldToFocus = null;
@@ -1219,7 +1208,6 @@ window.ChronusNarratorPanel = (function() {
         return;
       }
 
-      // Bloqueio de Double Submit
       formIsSubmitting = true;
       btnSave.disabled = true;
       btnSave.textContent = 'Salvando…';
@@ -1228,7 +1216,6 @@ window.ChronusNarratorPanel = (function() {
         let result;
 
         if (formMode === 'create') {
-          // PAYLOAD CREATE: Fixa visibility='narrator' e published=false
           const payload = {
             ...collectedValues,
             visibility: 'narrator',
@@ -1236,11 +1223,9 @@ window.ChronusNarratorPanel = (function() {
           };
           result = await window.ChronusEditorial[config.createMethod](payload);
         } else {
-          // PATCH UPDATE: Envia somente campos editáveis (NUNCA envia id, timestamps ou publication)
           result = await window.ChronusEditorial[config.updateMethod](editingRecordId, collectedValues);
         }
 
-        // Stale Guard
         if (!window.location.hash.startsWith('#/narrator')) {
           formIsSubmitting = false;
           return;
@@ -1255,13 +1240,11 @@ window.ChronusNarratorPanel = (function() {
             ? `✓ ${config.singular} criado com sucesso como rascunho.`
             : `✓ ${config.singular} atualizado com sucesso.`;
 
-          // Recarrega o painel da Gestão Editorial
           const pane = document.getElementById('narrator-pane-editorial');
           if (pane) {
             renderEditorialShell(pane);
           }
         } else {
-          // Tratamento de Erro Padronizado
           formIsSubmitting = false;
           btnSave.disabled = false;
           btnSave.textContent = `💾 Salvar ${config.singular}`;
@@ -1276,6 +1259,126 @@ window.ChronusNarratorPanel = (function() {
         showFormError(errorBanner, null, `Ocorreu um erro inesperado ao salvar ${config.singular.toLowerCase()}.`);
       }
     });
+  }
+
+  /**
+   * Renderiza um card de upload / substituição de asset individual (Safe DOM).
+   */
+  function renderAssetSlotCard(entityKey, slotDef, itemRecord) {
+    const card = createEl('div', 'asset-slot-card');
+    card.id = `asset-slot-${slotDef.slot}`;
+
+    const head = createEl('div', 'asset-slot-head');
+    const title = createEl('span', 'asset-slot-title', slotDef.label);
+    head.appendChild(title);
+    card.appendChild(head);
+
+    const body = createEl('div', 'asset-slot-body');
+    const currentPath = itemRecord ? itemRecord[slotDef.field] : null;
+
+    const previewArea = createEl('div', 'asset-slot-preview-area');
+    const thumbImg = createEl('img', 'asset-slot-thumb');
+    thumbImg.hidden = true;
+    thumbImg.alt = slotDef.label;
+    previewArea.appendChild(thumbImg);
+
+    const statusPill = createEl('span', `asset-status-pill ${currentPath ? 'has-file' : 'no-file'}`);
+    if (currentPath) {
+      statusPill.textContent = slotDef.isImage ? '✓ Imagem configurada' : '✓ Arquivo anexado';
+      if (slotDef.isImage) {
+        window.ChronusAssets?.getSignedUrl(slotDef.bucket, currentPath)
+          .then(url => {
+            if (url) {
+              thumbImg.src = url;
+              thumbImg.hidden = false;
+            }
+          })
+          .catch(() => {});
+      }
+    } else {
+      statusPill.textContent = '○ Nenhum arquivo anexado';
+    }
+    previewArea.appendChild(statusPill);
+    body.appendChild(previewArea);
+
+    const actionsArea = createEl('div', 'asset-slot-actions');
+
+    const fileInput = createEl('input', 'asset-file-input');
+    fileInput.type = 'file';
+    fileInput.accept = slotDef.accept;
+    fileInput.hidden = true;
+
+    const btnUpload = createEl('button', 'portal-btn portal-btn-secondary btn-asset-action', currentPath ? '🔄 Substituir Arquivo' : '📤 Enviar Arquivo');
+    btnUpload.type = 'button';
+
+    btnUpload.addEventListener('click', () => {
+      if (btnUpload.disabled) return;
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Validação defensiva client-side
+      const mime = (file.type || '').toLowerCase().trim();
+      if (mime === 'image/svg+xml') {
+        alert('Arquivos SVG não são permitidos por motivos de segurança.');
+        fileInput.value = '';
+        return;
+      }
+
+      btnUpload.disabled = true;
+      btnUpload.textContent = 'Enviando…';
+
+      try {
+        let res;
+        const hasExisting = Boolean(itemRecord && itemRecord[slotDef.field]);
+
+        if (hasExisting) {
+          res = await window.ChronusEditorial.replaceContentAsset(entityKey, slotDef.slot, itemRecord.id, file);
+        } else {
+          res = await window.ChronusEditorial.uploadContentAsset(entityKey, slotDef.slot, itemRecord.id, file);
+        }
+
+        if (res && res.ok) {
+          if (itemRecord) {
+            itemRecord[slotDef.field] = res.data.object_path;
+          }
+          feedbackMessage = `✓ ${slotDef.label} salvo com sucesso.`;
+          // Atualiza o slot visualmente
+          statusPill.className = 'asset-status-pill has-file';
+          statusPill.textContent = slotDef.isImage ? '✓ Imagem configurada' : '✓ Arquivo anexado';
+          btnUpload.textContent = '🔄 Substituir Arquivo';
+          btnUpload.disabled = false;
+
+          if (slotDef.isImage && res.data.object_path) {
+            const newUrl = await window.ChronusAssets.getSignedUrl(slotDef.bucket, res.data.object_path);
+            if (newUrl) {
+              thumbImg.src = newUrl;
+              thumbImg.hidden = false;
+            }
+          }
+        } else {
+          btnUpload.disabled = false;
+          btnUpload.textContent = hasExisting ? '🔄 Substituir Arquivo' : '📤 Enviar Arquivo';
+          const errMsg = res?.message || 'Falha ao enviar o arquivo.';
+          alert(errMsg);
+        }
+      } catch (err) {
+        btnUpload.disabled = false;
+        btnUpload.textContent = '📤 Enviar Arquivo';
+        alert('Ocorreu um erro durante o upload do arquivo.');
+      }
+      fileInput.value = '';
+    });
+
+    actionsArea.appendChild(fileInput);
+    actionsArea.appendChild(btnUpload);
+    body.appendChild(actionsArea);
+    card.appendChild(body);
+
+    return card;
   }
 
   function showFormError(errorBanner, fieldToFocus, message) {
@@ -1363,10 +1466,11 @@ window.ChronusNarratorPanel = (function() {
   }
 
   /**
-   * Constrói o card individual de um item editorial (Safe DOM).
+   * Constrói o card individual de um item editorial com Controles de Publicação e Visibilidade (Fast-Track 2).
    */
   function renderItemCard(sectionId, item) {
     const card = createEl('article', 'editorial-item-card');
+    card.id = `card-${sectionId}-${item.id}`;
     const formConfig = EDITOR_FORM_CONFIG[sectionId];
 
     // Cabeçalho do Card
@@ -1383,7 +1487,6 @@ window.ChronusNarratorPanel = (function() {
     mediaContainer.appendChild(imgEl);
     header.appendChild(mediaContainer);
 
-    // Carregamento de imagem segura via ChronusAssets
     resolveItemImage(sectionId, item, imgEl, fallbackIcon);
 
     // Informações principais (Título e Subtítulo)
@@ -1409,13 +1512,13 @@ window.ChronusNarratorPanel = (function() {
     }
     card.appendChild(body);
 
-    // Rodapé do Card com Badges Padronizados e Ações
+    // Rodapé do Card com Badges Padronizados e Controles
     const footer = createEl('div', 'editorial-item-footer');
     const badgesRow = createEl('div', 'editorial-item-badges');
 
     // 1. Badge de Publicação
     const isPublished = Boolean(item.published === true || item.published_at);
-    const pubBadge = createEl('span', `editorial-badge ${isPublished ? 'badge-published' : 'badge-draft'}`, isPublished ? '● Publicado' : '○ Rascunho');
+    const pubBadge = createEl('span', `editorial-badge badge-pub-status ${isPublished ? 'badge-published' : 'badge-draft'}`, isPublished ? '● Publicado' : '○ Rascunho');
     badgesRow.appendChild(pubBadge);
 
     // 2. Badge de Visibilidade
@@ -1429,7 +1532,7 @@ window.ChronusNarratorPanel = (function() {
       visClass = 'badge-vis-players';
       visLabel = '👥 Jogadores';
     }
-    const visBadge = createEl('span', `editorial-badge ${visClass}`, visLabel);
+    const visBadge = createEl('span', `editorial-badge badge-vis-status ${visClass}`, visLabel);
     badgesRow.appendChild(visBadge);
 
     // 3. Badge de Ordem
@@ -1455,17 +1558,128 @@ window.ChronusNarratorPanel = (function() {
 
     footer.appendChild(badgesRow);
 
-    // BOTÃO EDITAR (Disponível em todas as entidades com allowUpdate = true)
+    // =========================================================================
+    // CONTROLES DE PUBLICAÇÃO, VISIBILIDADE E EDIÇÃO (Fast-Track 2)
+    // =========================================================================
+    const controlsRow = createEl('div', 'editorial-item-controls');
+
+    // 1. Dropdown de Visibilidade
+    const visSelectWrapper = createEl('div', 'vis-select-wrapper');
+    const visSelect = createEl('select', 'editorial-visibility-select');
+    visSelect.setAttribute('aria-label', `Alterar visibilidade de ${mainTitleText}`);
+
+    const optNarrator = createEl('option', null, '🔒 Narrador');
+    optNarrator.value = 'narrator';
+    const optPlayers = createEl('option', null, '👥 Jogadores');
+    optPlayers.value = 'players';
+    const optPublic = createEl('option', null, '🌐 Público');
+    optPublic.value = 'public';
+
+    visSelect.appendChild(optNarrator);
+    visSelect.appendChild(optPlayers);
+    visSelect.appendChild(optPublic);
+    visSelect.value = vis;
+
+    visSelect.addEventListener('change', async (e) => {
+      if (isMutatingGlobal) {
+        visSelect.value = item.visibility || 'narrator';
+        return;
+      }
+
+      const newVis = e.target.value;
+      const oldVis = item.visibility || 'narrator';
+
+      // Confirmação de exposição
+      if (newVis === 'players' && oldVis === 'narrator') {
+        if (!window.confirm('Deseja disponibilizar este conteúdo para os Jogadores?')) {
+          visSelect.value = oldVis;
+          return;
+        }
+      } else if (newVis === 'public') {
+        if (!window.confirm('Atenção: Este conteúdo ficará visível publicamente para qualquer visitante.')) {
+          visSelect.value = oldVis;
+          return;
+        }
+      }
+
+      isMutatingGlobal = true;
+      visSelect.disabled = true;
+
+      try {
+        const res = await window.ChronusEditorial.setVisibility(sectionId, item.id, newVis);
+        if (res && res.ok) {
+          item.visibility = newVis;
+          // Atualiza badge
+          visBadge.className = `editorial-badge badge-vis-status ${newVis === 'public' ? 'badge-vis-public' : newVis === 'players' ? 'badge-vis-players' : 'badge-vis-narrator'}`;
+          visBadge.textContent = newVis === 'public' ? '🌐 Público' : newVis === 'players' ? '👥 Jogadores' : '🔒 Narrador';
+        } else {
+          visSelect.value = oldVis;
+          alert(res?.message || 'Falha ao alterar a visibilidade.');
+        }
+      } catch (err) {
+        visSelect.value = oldVis;
+        alert('Erro ao comunicar com o servidor.');
+      } finally {
+        isMutatingGlobal = false;
+        visSelect.disabled = false;
+      }
+    });
+
+    visSelectWrapper.appendChild(visSelect);
+    controlsRow.appendChild(visSelectWrapper);
+
+    // 2. Botão Publicar / Despublicar
+    const btnPubToggle = createEl('button', `portal-btn ${isPublished ? 'portal-btn-secondary' : 'portal-btn-gold'} btn-publication-toggle`);
+    btnPubToggle.type = 'button';
+    btnPubToggle.textContent = isPublished ? '○ Despublicar' : '● Publicar';
+    btnPubToggle.setAttribute('aria-label', `${isPublished ? 'Despublicar' : 'Publicar'} ${mainTitleText}`);
+
+    btnPubToggle.addEventListener('click', async () => {
+      if (isMutatingGlobal) return;
+
+      const targetPub = !Boolean(item.published);
+      isMutatingGlobal = true;
+      btnPubToggle.disabled = true;
+      btnPubToggle.textContent = 'Processando…';
+
+      try {
+        const res = await window.ChronusEditorial.setPublication(sectionId, item.id, { published: targetPub });
+        if (res && res.ok) {
+          item.published = targetPub;
+          item.published_at = targetPub ? new Date().toISOString() : null;
+
+          // Atualiza badge de publicação
+          pubBadge.className = `editorial-badge badge-pub-status ${targetPub ? 'badge-published' : 'badge-draft'}`;
+          pubBadge.textContent = targetPub ? '● Publicado' : '○ Rascunho';
+
+          // Atualiza botão
+          btnPubToggle.className = `portal-btn ${targetPub ? 'portal-btn-secondary' : 'portal-btn-gold'} btn-publication-toggle`;
+          btnPubToggle.textContent = targetPub ? '○ Despublicar' : '● Publicar';
+        } else {
+          alert(res?.message || 'Falha ao alterar o estado de publicação.');
+          btnPubToggle.textContent = item.published ? '○ Despublicar' : '● Publicar';
+        }
+      } catch (err) {
+        alert('Erro ao atualizar a publicação.');
+        btnPubToggle.textContent = item.published ? '○ Despublicar' : '● Publicar';
+      } finally {
+        isMutatingGlobal = false;
+        btnPubToggle.disabled = false;
+      }
+    });
+
+    controlsRow.appendChild(btnPubToggle);
+
+    // 3. Botão Editar
     if (formConfig && formConfig.allowUpdate) {
-      const cardActions = createEl('div', 'editorial-card-actions');
       const btnEdit = createEl('button', 'portal-btn portal-btn-secondary btn-edit-editorial', '✏️ Editar');
       btnEdit.type = 'button';
       btnEdit.setAttribute('aria-label', `Editar ${mainTitleText}`);
       btnEdit.addEventListener('click', () => openEditorialForm(sectionId, 'edit', item));
-      cardActions.appendChild(btnEdit);
-      footer.appendChild(cardActions);
+      controlsRow.appendChild(btnEdit);
     }
 
+    footer.appendChild(controlsRow);
     card.appendChild(footer);
 
     return card;
@@ -1515,7 +1729,7 @@ window.ChronusNarratorPanel = (function() {
 
   /**
    * Resolve a URL assinada de imagem usando ChronusAssets de forma segura.
-   * REGRA DE SEGURANÇA: Documentos e Biblioteca NUNCA assinam file_path.
+   * REGRA DE SEGURANÇA: Documentos e Biblioteca NUNCA assinam file_path automaticamente.
    */
   async function resolveItemImage(sectionId, item, imgEl, fallbackIcon) {
     let bucket = null;
@@ -1531,14 +1745,14 @@ window.ChronusNarratorPanel = (function() {
       bucket = 'campaign-images';
       path = item.portrait_path;
     } else if (sectionId === 'location' && (item.image_path || item.map_image_path)) {
-      bucket = 'maps';
+      bucket = item.image_path ? 'campaign-images' : 'maps';
       path = item.image_path || item.map_image_path;
     } else if (sectionId === 'document' && item.image_path) {
       bucket = 'documents';
-      path = item.image_path; // Apenas o preview gráfico, NUNCA file_path
+      path = item.image_path;
     } else if (sectionId === 'library' && item.cover_path) {
       bucket = 'library';
-      path = item.cover_path; // Apenas a capa, NUNCA file_path
+      path = item.cover_path;
     }
 
     if (!bucket || !path) return;
@@ -1550,9 +1764,7 @@ window.ChronusNarratorPanel = (function() {
         imgEl.hidden = false;
         if (fallbackIcon) fallbackIcon.hidden = true;
       }
-    } catch (e) {
-      // Falha silenciosa: o fallbackIcon continua visível
-    }
+    } catch (e) {}
   }
 
   return {
