@@ -918,9 +918,25 @@ window.ChronusNarratorPanel = (function() {
   /**
    * Abre o editor unificado em modo 'create' ou 'edit' para qualquer uma das 7 entidades.
    */
-  function openEditorialForm(entityKey, mode, item = null) {
+  async function openEditorialForm(entityKey, mode, item = null) {
     const config = EDITOR_FORM_CONFIG[entityKey];
     if (!config) return;
+
+    // Carrega previamente as coleções usadas por campos de relacionamento.
+    // Isso impede que um vínculo existente seja convertido em null apenas porque
+    // a seção relacionada ainda não foi visitada nesta sessão do painel.
+    try {
+      if ((entityKey === 'npc' || entityKey === 'document') && !editorialCache.session) {
+        editorialCache.session = await window.ChronusContent.getSessions({ limit: 100 });
+      }
+      if (entityKey === 'location' && !editorialCache.location) {
+        editorialCache.location = await window.ChronusContent.getLocations({ limit: 100 });
+      }
+    } catch (err) {
+      console.error('CHRONUS: Falha ao carregar relacionamentos do formulário:', err);
+      alert('Não foi possível carregar os relacionamentos necessários. Tente novamente.');
+      return;
+    }
 
     activeFormEntity = entityKey;
     formMode = mode;
@@ -1039,6 +1055,14 @@ window.ChronusNarratorPanel = (function() {
           }
           inputEl.appendChild(optEl);
         });
+
+        const currentSessionId = formInitialValues[f.name];
+        if (currentSessionId && !sessions.some(s => String(s.id) === String(currentSessionId))) {
+          const currentOpt = createEl('option', null, 'Sessão vinculada atualmente');
+          currentOpt.value = currentSessionId;
+          currentOpt.selected = true;
+          inputEl.appendChild(currentOpt);
+        }
       } else if (f.type === 'fk_location') {
         inputEl = createEl('select', 'form-control');
         inputEl.id = fieldId;
@@ -1059,6 +1083,14 @@ window.ChronusNarratorPanel = (function() {
           }
           inputEl.appendChild(optEl);
         });
+
+        const currentLocationId = formInitialValues[f.name];
+        if (currentLocationId && !locations.some(l => String(l.id) === String(currentLocationId))) {
+          const currentOpt = createEl('option', null, 'Local vinculado atualmente');
+          currentOpt.value = currentLocationId;
+          currentOpt.selected = true;
+          inputEl.appendChild(currentOpt);
+        }
       } else {
         inputEl = createEl('input', 'form-control');
         inputEl.type = f.type || 'text';
@@ -1637,7 +1669,7 @@ window.ChronusNarratorPanel = (function() {
     btnPubToggle.addEventListener('click', async () => {
       if (isMutatingGlobal) return;
 
-      const targetPub = !Boolean(item.published);
+      const targetPub = !Boolean(item.published === true || item.published_at);
       isMutatingGlobal = true;
       btnPubToggle.disabled = true;
       btnPubToggle.textContent = 'Processando…';

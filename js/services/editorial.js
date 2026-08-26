@@ -845,18 +845,23 @@ window.ChronusEditorial = (function() {
     let oldAssetCleanupPending = false;
     if (oldPath && typeof oldPath === 'string' && oldPath !== newAssetData.object_path) {
       try {
-        // Remover portal_assets antigo
-        const { error: paDelErr } = await client
-          .from('portal_assets')
-          .delete()
-          .match({ bucket_id: slotConfig.bucket, object_path: oldPath });
-        if (paDelErr) oldAssetCleanupPending = true;
-
-        // Remover arquivo do Storage antigo
+        // Remove primeiro o objeto físico. Se isso falhar, mantém portal_assets
+        // como trilha recuperável para uma tentativa posterior de limpeza.
         const { error: stDelErr } = await client.storage
           .from(slotConfig.bucket)
           .remove([oldPath]);
-        if (stDelErr) oldAssetCleanupPending = true;
+
+        if (stDelErr) {
+          oldAssetCleanupPending = true;
+        } else {
+          // O objeto já foi removido; agora limpa o registro de catálogo.
+          // Se esta etapa falhar, o registro órfão continua identificável.
+          const { error: paDelErr } = await client
+            .from('portal_assets')
+            .delete()
+            .match({ bucket_id: slotConfig.bucket, object_path: oldPath });
+          if (paDelErr) oldAssetCleanupPending = true;
+        }
       } catch (e) {
         oldAssetCleanupPending = true;
       }

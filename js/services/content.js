@@ -52,7 +52,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('chronicle_chapters')
-      .select('id, chapter_number, title, subtitle, slug, summary, cover_image_path, sort_order, published_at')
+      .select('id, chapter_number, title, subtitle, slug, summary, content, cover_image_path, visibility, sort_order, published, published_at')
       .order('sort_order', { ascending: true })
       .order('chapter_number', { ascending: true, nullsFirst: false })
       .limit(limit);
@@ -77,7 +77,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('campaign_sessions')
-      .select('id, session_number, title, slug, session_date, in_game_date, summary, status, cover_image_path, sort_order, published_at')
+      .select('id, session_number, title, slug, session_date, in_game_date, summary, events_log, clues_uncovered, status, cover_image_path, visibility, sort_order, published, published_at')
       .order('sort_order', { ascending: true })
       .order('session_number', { ascending: true })
       .limit(limit);
@@ -102,7 +102,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('npcs')
-      .select('id, name, slug, portrait_path, role_occupation, faction, apparent_age, public_description, known_personality, status, relationship_to_group, sort_order, published_at')
+      .select('id, name, slug, portrait_path, role_occupation, faction, apparent_age, public_description, known_personality, status, relationship_to_group, first_appearance_session_id, last_appearance_session_id, visibility, sort_order, published, published_at')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true })
       .limit(limit);
@@ -127,7 +127,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('locations')
-      .select('id, name, slug, type, district_region, narrative_address, public_description, image_path, map_image_path, parent_location_id, sort_order, published_at')
+      .select('id, name, slug, type, district_region, narrative_address, public_description, image_path, map_image_path, parent_location_id, visibility, sort_order, published, published_at')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true })
       .limit(limit);
@@ -152,7 +152,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('campaign_documents')
-      .select('id, title, slug, type, narrative_date, public_description, image_path, file_path, found_in_session_id, sort_order, published_at')
+      .select('id, title, slug, type, narrative_date, public_description, transcription, image_path, file_path, found_in_session_id, visibility, sort_order, published, published_at')
       .order('sort_order', { ascending: true })
       .order('title', { ascending: true })
       .limit(limit);
@@ -177,7 +177,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('soundtrack')
-      .select('id, title, youtube_url, category, description, sort_order, active, published_at')
+      .select('id, title, youtube_url, category, description, visibility, sort_order, active, published, published_at')
       .order('sort_order', { ascending: true })
       .order('title', { ascending: true })
       .limit(limit);
@@ -202,7 +202,7 @@ window.ChronusContent = (function() {
 
     const { data, error } = await client
       .from('library_items')
-      .select('id, title, slug, category, version, description, cover_path, file_path, file_size_bytes, page_count, sort_order, published_at')
+      .select('id, title, slug, category, version, description, cover_path, file_path, file_size_bytes, page_count, visibility, sort_order, published, published_at')
       .order('sort_order', { ascending: true })
       .order('title', { ascending: true })
       .limit(limit);
