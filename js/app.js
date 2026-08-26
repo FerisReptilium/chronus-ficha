@@ -42,7 +42,8 @@ async function loadV11Extensions() {
     'js/modules/library_v11.js',
     'js/modules/secrets_v11.js',
     'js/modules/relations_v11.js',
-    'js/modules/schedule_v11.js'
+    'js/modules/schedule_v11.js',
+    'js/modules/responsive_v11.js'
   ];
 
   for (const src of scripts) {
