@@ -36,9 +36,13 @@ async function loadV11Extensions() {
   const scripts = [
     'js/services/editorial_v11.js',
     'js/services/secrets_v11.js',
+    'js/services/relations_v11.js',
+    'js/services/schedule_v11.js',
     'js/modules/narrator_v11.js',
     'js/modules/library_v11.js',
-    'js/modules/secrets_v11.js'
+    'js/modules/secrets_v11.js',
+    'js/modules/relations_v11.js',
+    'js/modules/schedule_v11.js'
   ];
 
   for (const src of scripts) {
