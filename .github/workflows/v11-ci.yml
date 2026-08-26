@@ -36,6 +36,7 @@ jobs:
           node --check js/modules/secrets_v11.js
           node --check js/modules/relations_v11.js
           node --check js/modules/schedule_v11.js
+          node --check js/modules/responsive_v11.js
 
       - name: Secure DELETE regression
         run: node tests/v11_delete.test.js
