@@ -2,7 +2,7 @@
  * CHRONUS — Editorial Mutation Service
  * Autoridade centralizada para operações de escrita (INSERT, UPDATE), controle editorial
  * e orquestração segura de assets (Storage + portal_assets + compensações) do Narrador.
- * 
+ *
  * DIRETRIZES DE SEGURANÇA:
  * 1. Singleton: Consome window.ChronusSupabase e window.ChronusAuth.
  * 2. Defesa em Profundidade: Validação frontend de papel 'narrator', tipos, constraints e allowlists fechadas.
@@ -556,7 +556,7 @@ window.ChronusEditorial = (function() {
 
   function handleDbError(err) {
     if (!err) return formatError('DATABASE_ERROR', 'Erro desconhecido no banco de dados.');
-    
+
     // PostgreSQL Unique Violation (23505)
     if (err.code === '23505') {
       return formatError('CONFLICT', 'Conflito de unicidade: slug, número de sessão ou identificador já existente.');
