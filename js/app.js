@@ -5,6 +5,10 @@
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('CHRONUS: Inicializando portal...');
 
+  // 0. Extensões incrementais da v1.1.
+  // Falha de carregamento não derruba a v1.0: o portal continua em modo estável.
+  await loadV11Extensions();
+
   // 1. Inicializar Supabase & Auth
   window.ChronusSupabase.init();
   await window.ChronusAuth.init();
@@ -27,6 +31,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('CHRONUS: Portal pronto.');
 });
+
+async function loadV11Extensions() {
+  const scripts = [
+    'js/services/editorial_v11.js',
+    'js/services/secrets_v11.js',
+    'js/services/relations_v11.js',
+    'js/services/schedule_v11.js',
+    'js/modules/narrator_v11.js',
+    'js/modules/library_v11.js',
+    'js/modules/secrets_v11.js',
+    'js/modules/relations_v11.js',
+    'js/modules/schedule_v11.js',
+    'js/modules/responsive_v11.js'
+  ];
+
+  for (const src of scripts) {
+    try {
+      await loadScriptOnce(src);
+    } catch (error) {
+      console.error(`CHRONUS v1.1: não foi possível carregar ${src}.`, error);
+      break;
+    }
+  }
+}
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-chronus-extension="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === 'true') {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Falha ao carregar ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.defer = true;
+    script.dataset.chronusExtension = src;
+    script.addEventListener('load', () => {
+      script.dataset.loaded = 'true';
+      resolve();
+    }, { once: true });
+    script.addEventListener('error', () => reject(new Error(`Falha ao carregar ${src}`)), { once: true });
+    document.head.appendChild(script);
+  });
+}
 
 function setupAuthForms() {
   const loginForm = document.getElementById('authForm');
