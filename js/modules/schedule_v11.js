@@ -8,6 +8,16 @@
   let observer = null;
   let busy = false;
 
+  const LOADERS = Object.freeze({
+    chapter: () => window.ChronusContent.getChapters({ limit: 250 }),
+    session: () => window.ChronusContent.getSessions({ limit: 250 }),
+    npc: () => window.ChronusContent.getNpcs({ limit: 250 }),
+    location: () => window.ChronusContent.getLocations({ limit: 250 }),
+    document: () => window.ChronusContent.getDocuments({ limit: 250 }),
+    library: () => window.ChronusContent.getLibraryItems({ limit: 250 }),
+    soundtrack: () => window.ChronusContent.getSoundtrack({ limit: 250 })
+  });
+
   function isNarrator() {
     return window.location.hash.startsWith('#/narrator')
       && window.ChronusAuth?.getProfile?.()?.role === 'narrator';
@@ -18,10 +28,15 @@
     return match ? { entity: match[1], id: match[2] } : null;
   }
 
-  function findItem(entity, id) {
-    const cache = window.ChronusNarratorPanelV11Cache?.get?.(entity);
-    if (Array.isArray(cache)) return cache.find(item => item.id === id) || null;
-    return null;
+  async function loadItem(entity, id) {
+    const loader = LOADERS[entity];
+    if (!loader) return null;
+    try {
+      const rows = await loader();
+      return (rows || []).find(row => row.id === id) || null;
+    } catch (_) {
+      return null;
+    }
   }
 
   function ensureStyle() {
@@ -43,13 +58,6 @@
     document.head.appendChild(style);
   }
 
-  function cardPublishedAt(card) {
-    const raw = card.dataset.publishedAtV11;
-    if (!raw) return null;
-    const ms = Date.parse(raw);
-    return Number.isFinite(ms) ? ms : null;
-  }
-
   function closeModal() {
     document.querySelector('.v11-schedule-modal')?.remove();
   }
@@ -60,11 +68,40 @@
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  async function openSchedule(identity, title, currentIso) {
+  function toLocalInputValue(iso) {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function cancelSchedule(identity, title) {
+    if (busy) return;
+    if (!window.confirm(`Cancelar o agendamento de “${title}” e voltar o registro para rascunho?`)) return;
+    busy = true;
+    try {
+      const result = await window.ChronusScheduleV11.cancelSchedule(identity.entity, identity.id);
+      if (!result?.ok) {
+        window.alert(result?.message || 'Não foi possível cancelar o agendamento.');
+        return;
+      }
+      closeModal();
+      window.alert('Agendamento cancelado. O conteúdo voltou para rascunho.');
+      await window.ChronusNarratorPanel?.load?.();
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function openSchedule(identity, title) {
     if (!window.ChronusScheduleV11) {
       window.alert('Serviço de agendamento indisponível. Atualize a página.');
       return;
     }
+
+    const currentItem = await loadItem(identity.entity, identity.id);
+    const currentIso = currentItem?.published_at || null;
+    const scheduled = Boolean(currentItem?.published === true && currentIso && Date.parse(currentIso) > Date.now());
+
     ensureStyle();
     const modal = document.createElement('div');
     modal.className = 'v11-schedule-modal';
@@ -76,32 +113,36 @@
     h3.textContent = `⏰ Agendar publicação — ${title}`;
     const note = document.createElement('p');
     note.className = 'v11-schedule-note';
-    note.textContent = 'O conteúdo ficará marcado como publicado, mas continuará invisível para jogadores e público até o horário escolhido. A liberação é controlada pelo Supabase/RLS e não depende do navegador permanecer aberto.';
+    note.textContent = scheduled
+      ? `Este conteúdo está agendado para ${new Date(currentIso).toLocaleString('pt-BR')}. Você pode alterar a data ou cancelar o agendamento.`
+      : 'O conteúdo continuará invisível para jogadores e público até o horário escolhido. A liberação é controlada pelo Supabase/RLS e não depende do navegador permanecer aberto.';
     const input = document.createElement('input');
     input.type = 'datetime-local';
     input.required = true;
-    if (currentIso && Date.parse(currentIso) > Date.now()) {
-      const d = new Date(currentIso);
-      const pad = n => String(n).padStart(2, '0');
-      input.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    } else {
-      input.value = defaultLocalDateTime();
-    }
+    input.value = scheduled ? toLocalInputValue(currentIso) : defaultLocalDateTime();
     const error = document.createElement('div');
     error.className = 'v11-schedule-error';
     error.hidden = true;
     const actions = document.createElement('div');
     actions.className = 'v11-schedule-actions';
-    const cancel = document.createElement('button');
-    cancel.type = 'button';
-    cancel.className = 'portal-btn portal-btn-secondary';
-    cancel.textContent = 'Fechar';
-    cancel.addEventListener('click', closeModal);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'portal-btn portal-btn-secondary';
+    close.textContent = 'Fechar';
+    close.addEventListener('click', closeModal);
+    if (scheduled) {
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'portal-btn portal-btn-secondary';
+      cancel.textContent = '✕ Cancelar Agenda';
+      cancel.addEventListener('click', () => cancelSchedule(identity, title));
+      actions.appendChild(cancel);
+    }
     const save = document.createElement('button');
     save.type = 'button';
     save.className = 'portal-btn portal-btn-gold';
-    save.textContent = '⏰ Agendar';
-    actions.append(cancel, save);
+    save.textContent = scheduled ? '⏰ Reagendar' : '⏰ Agendar';
+    actions.append(close, save);
     card.append(h3, note, input, error, actions);
     modal.appendChild(card);
     modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
@@ -110,20 +151,15 @@
     save.addEventListener('click', async () => {
       if (busy) return;
       const localValue = input.value;
-      if (!localValue) {
-        error.textContent = 'Informe data e hora.';
-        error.hidden = false;
-        return;
-      }
       const date = new Date(localValue);
-      if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now() + 30000) {
-        error.textContent = 'Escolha uma data futura.';
+      if (!localValue || !Number.isFinite(date.getTime()) || date.getTime() <= Date.now() + 30000) {
+        error.textContent = 'Escolha uma data e hora futuras.';
         error.hidden = false;
         return;
       }
       busy = true;
       save.disabled = true;
-      cancel.disabled = true;
+      close.disabled = true;
       save.textContent = 'Agendando…';
       try {
         const result = await window.ChronusScheduleV11.schedulePublication(identity.entity, identity.id, date.toISOString());
@@ -139,27 +175,23 @@
         busy = false;
         if (document.body.contains(save)) {
           save.disabled = false;
-          cancel.disabled = false;
-          save.textContent = '⏰ Agendar';
+          close.disabled = false;
+          save.textContent = scheduled ? '⏰ Reagendar' : '⏰ Agendar';
         }
       }
     });
   }
 
-  async function cancelSchedule(identity, title) {
-    if (busy) return;
-    if (!window.confirm(`Cancelar o agendamento de “${title}” e voltar o registro para rascunho?`)) return;
-    busy = true;
-    try {
-      const result = await window.ChronusScheduleV11.cancelSchedule(identity.entity, identity.id);
-      if (!result?.ok) {
-        window.alert(result?.message || 'Não foi possível cancelar o agendamento.');
-        return;
-      }
-      window.alert('Agendamento cancelado. O conteúdo voltou para rascunho.');
-      await window.ChronusNarratorPanel?.load?.();
-    } finally {
-      busy = false;
+  async function decorateScheduledCard(card, identity) {
+    const item = await loadItem(identity.entity, identity.id);
+    if (!document.body.contains(card)) return;
+    const iso = item?.published_at || null;
+    const scheduled = Boolean(item?.published === true && iso && Date.parse(iso) > Date.now());
+    if (!scheduled) return;
+    const badge = card.querySelector('.badge-pub-status');
+    if (badge) {
+      badge.className = 'editorial-badge badge-pub-status badge-scheduled-v11';
+      badge.textContent = `⏰ Agendado: ${new Date(iso).toLocaleString('pt-BR')}`;
     }
   }
 
@@ -170,32 +202,17 @@
       const identity = parseCard(card);
       if (!identity) return;
       const controls = card.querySelector('.editorial-item-controls');
-      const badges = card.querySelector('.editorial-item-badges');
       if (!controls) return;
       card.dataset.v11ScheduleEnhanced = 'true';
       const title = (card.querySelector('.editorial-item-title')?.textContent || 'Sem título').trim();
-
-      const item = findItem(identity.entity, identity.id);
-      const publishedAt = item?.published_at || null;
-      card.dataset.publishedAtV11 = publishedAt || '';
-      const scheduled = Boolean(item?.published === true && publishedAt && Date.parse(publishedAt) > Date.now());
-
-      if (scheduled && badges) {
-        const pubBadge = badges.querySelector('.badge-pub-status');
-        if (pubBadge) {
-          pubBadge.className = 'editorial-badge badge-pub-status badge-scheduled-v11';
-          pubBadge.textContent = `⏰ Agendado: ${new Date(publishedAt).toLocaleString('pt-BR')}`;
-        }
-      }
-
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'portal-btn portal-btn-secondary btn-schedule-editorial';
-      button.textContent = scheduled ? '✕ Cancelar Agenda' : '⏰ Agendar';
-      button.setAttribute('aria-label', scheduled ? `Cancelar agendamento de ${title}` : `Agendar publicação de ${title}`);
-      if (scheduled) button.addEventListener('click', () => cancelSchedule(identity, title));
-      else button.addEventListener('click', () => openSchedule(identity, title, publishedAt));
+      button.textContent = '⏰ Agendar';
+      button.setAttribute('aria-label', `Agendar publicação de ${title}`);
+      button.addEventListener('click', () => openSchedule(identity, title));
       controls.appendChild(button);
+      decorateScheduledCard(card, identity);
     });
   }
 
