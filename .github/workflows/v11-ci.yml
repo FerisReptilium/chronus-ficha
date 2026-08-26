@@ -1,0 +1,34 @@
+name: CHRONUS v1.1 CI
+
+on:
+  push:
+    branches:
+      - editorial-v1.1
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  v11-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JavaScript syntax checks
+        run: |
+          node --check js/app.js
+          node --check js/services/editorial.js
+          node --check js/services/editorial_v11.js
+          node --check js/modules/narrator_panel.js
+          node --check js/modules/narrator_v11.js
+
+      - name: Secure DELETE regression
+        run: node tests/v11_delete.test.js
