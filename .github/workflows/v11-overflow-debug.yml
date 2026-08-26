@@ -1,0 +1,61 @@
+name: CHRONUS v1.1 overflow debug
+
+on:
+  push:
+    branches: [editorial-v1.1]
+
+permissions:
+  contents: read
+
+jobs:
+  debug-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start portal
+        run: |
+          python3 -m http.server 8080 >/tmp/http.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/ >/dev/null && exit 0; sleep 1; done
+          exit 1
+      - name: Diagnose overflow
+        env:
+          QA_EMAIL: chronus-v11-qa-a2f4a3215eba45618c35bce7a0b2fbe5@example.invalid
+        run: |
+          export QA_PASS="QaV11-$(openssl rand -hex 20)"
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const assert=require('assert');
+          (async()=>{
+            const b=await chromium.launch({headless:true});
+            const p=await b.newPage({viewport:{width:390,height:844}});
+            await p.goto('http://127.0.0.1:8080/#/home',{waitUntil:'domcontentloaded'});
+            await p.waitForFunction(()=>ChronusSupabase?.getClient?.()&&ChronusAuth);
+            const boot=await p.evaluate(async ({e,pw})=>{
+              const c=ChronusSupabase.getClient(); const s=await c.auth.signUp({email:e,password:pw});
+              if(s.error)return {ok:false,error:s.error.message};
+              for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,5000));const q=await c.rpc('qa_v11_self_promote');if(!q.error&&q.data===true){await c.auth.signOut();return {ok:true}};if(!/JWT issued at future/i.test(q.error?.message||''))return {ok:false,error:q.error?.message||'denied'}}
+              return {ok:false,error:'clock skew'};
+            },{e:process.env.QA_EMAIL,pw:process.env.QA_PASS});
+            assert(boot.ok,JSON.stringify(boot));
+            await p.goto('http://127.0.0.1:8080/#/login',{waitUntil:'domcontentloaded'});
+            await p.waitForSelector('#authEmail',{state:'visible'});await p.fill('#authEmail',process.env.QA_EMAIL);await p.fill('#authPassword',process.env.QA_PASS);await p.click('#authLoginButton');
+            await p.waitForFunction(()=>ChronusAuth?.getProfile?.()?.role==='narrator');await p.waitForFunction(()=>location.hash==='#/narrator');await p.waitForTimeout(1200);
+            const report=await p.evaluate(()=>{
+              const vw=document.documentElement.clientWidth;
+              const all=[...document.querySelectorAll('body *')];
+              const bad=all.map(el=>{const r=el.getBoundingClientRect();const cs=getComputedStyle(el);return {tag:el.tagName,id:el.id,cls:String(el.className||'').slice(0,180),left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width),scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,position:cs.position,display:cs.display,overflowX:cs.overflowX,whiteSpace:cs.whiteSpace,minWidth:cs.minWidth,maxWidth:cs.maxWidth}}).filter(x=>x.right>vw+2||x.left<-2||x.scrollWidth>x.clientWidth+2).sort((a,b)=>Math.max(b.right-vw,b.scrollWidth-b.clientWidth)-Math.max(a.right-vw,a.scrollWidth-a.clientWidth)).slice(0,30);
+              return {vw,docScrollWidth:document.documentElement.scrollWidth,bodyScrollWidth:document.body.scrollWidth,bad};
+            });
+            console.log('OVERFLOW_REPORT='+JSON.stringify(report,null,2));
+            await b.close();
+            if(report.docScrollWidth>report.vw+2)process.exit(2);
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
