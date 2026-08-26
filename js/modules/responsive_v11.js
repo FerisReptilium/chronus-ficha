@@ -5,6 +5,26 @@
   const style=document.createElement('style');
   style.id='chronus-v11-responsive-style';
   style.textContent=`
+    /*
+     * navigation.css hid the drawer with right:-320px. Although visually hidden,
+     * Chromium still counted 31px of that fixed element in document overflow on
+     * a 390px viewport. Keep the closed drawer inside the viewport and hide it
+     * with visibility/opacity instead; opening remains explicit via .is-open.
+     */
+    .mobile-nav-drawer {
+      right: 0 !important;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease !important;
+    }
+    .mobile-nav-drawer.is-open {
+      right: 0 !important;
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     @media (max-width: 768px) {
       #view-narrator .portal-container,
       #narrator-panel-container,
