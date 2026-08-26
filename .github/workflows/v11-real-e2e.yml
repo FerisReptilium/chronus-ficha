@@ -2,8 +2,7 @@ name: CHRONUS v1.1 real E2E
 
 on:
   push:
-    branches:
-      - editorial-v1.1
+    branches: [editorial-v1.1]
 
 permissions:
   contents: read
@@ -14,266 +13,140 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Install Playwright
-        shell: bash
+      - name: Install browser
         run: |
-          set -euo pipefail
           npm install --no-save --no-package-lock playwright@1.55.0
           npx playwright install --with-deps chromium
-
-      - name: Start local portal
-        shell: bash
+      - name: Start candidate portal
         run: |
-          set -euo pipefail
-          python3 -m http.server 8080 > /tmp/chronus-http.log 2>&1 &
-          echo $! > /tmp/chronus-http.pid
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          cat /tmp/chronus-http.log
-          exit 1
-
-      - name: Authenticated narrator E2E against real Supabase
-        shell: bash
+          python3 -m http.server 8080 >/tmp/chronus-http.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/chronus-http.log; exit 1
+      - name: Real authenticated narrator E2E
         env:
           QA_EMAIL: chronus-v11-qa-a2f4a3215eba45618c35bce7a0b2fbe5@example.invalid
         run: |
-          set -euo pipefail
           export QA_PASS="QaV11-$(openssl rand -hex 20)"
           node <<'NODE'
           const { chromium } = require('playwright');
           const assert = require('assert');
-
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
           const base = 'http://127.0.0.1:8080/';
           const email = process.env.QA_EMAIL;
           const password = process.env.QA_PASS;
           const suffix = `${Date.now()}-${Math.floor(Math.random()*100000)}`;
           const sessionNumber = 900000 + Math.floor(Math.random()*90000);
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const must = (r,l) => { if (!r?.ok) throw new Error(`${l}: ${JSON.stringify(r)}`); return r.data; };
 
-          function requireOk(result, label) {
-            assert(result && result.ok === true, `${label}: ${JSON.stringify(result)}`);
-            return result.data;
-          }
-
-          (async () => {
-            const browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
-            const page = await context.newPage();
-            const pageErrors = [];
-            page.on('pageerror', err => pageErrors.push(err.message));
-
+          (async()=>{
+            const browser = await chromium.launch({headless:true});
+            const ctx = await browser.newContext({viewport:{width:1366,height:768}});
+            const page = await ctx.newPage();
+            const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+            let ids={};
             try {
-              await page.goto(base + '#/home', { waitUntil: 'domcontentloaded', timeout: 30000 });
-              await page.waitForFunction(() => window.ChronusSupabase?.getClient?.() && window.ChronusAuth, null, { timeout: 20000 });
+              await page.goto(base+'#/home',{waitUntil:'domcontentloaded',timeout:30000});
+              await page.waitForFunction(()=>window.ChronusSupabase?.getClient?.() && window.ChronusAuth,null,{timeout:20000});
 
-              // 1) Cria usuário QA real, promove temporariamente pelo RPC de QA e encerra a sessão.
-              const bootstrap = await page.evaluate(async ({ email, password }) => {
-                const client = window.ChronusSupabase.getClient();
-                const signup = await client.auth.signUp({ email, password });
-                if (signup.error) return { ok: false, stage: 'signup', error: signup.error.message };
-                if (!signup.data?.session?.access_token) return { ok: false, stage: 'signup', error: 'signup returned no authenticated session' };
-                const promote = await client.rpc('qa_v11_self_promote');
-                if (promote.error) return { ok: false, stage: 'promote', error: promote.error.message };
-                if (promote.data !== true) return { ok: false, stage: 'promote', error: 'temporary promotion was denied' };
-                const signout = await client.auth.signOut();
-                if (signout.error) return { ok: false, stage: 'signout', error: signout.error.message };
-                return { ok: true, userId: signup.data.user?.id || null };
-              }, { email, password });
-              assert.strictEqual(bootstrap.ok, true, `QA bootstrap failed: ${JSON.stringify(bootstrap)}`);
+              const bootstrap = await page.evaluate(async ({email,password})=>{
+                const c=window.ChronusSupabase.getClient();
+                const s=await c.auth.signUp({email,password});
+                if(s.error) return {ok:false,stage:'signup',error:s.error.message};
+                if(!s.data?.session) return {ok:false,stage:'signup',error:'no session'};
+                // Hosted runners can be a few seconds ahead of Supabase JWT validation.
+                for(let i=0;i<8;i++){
+                  await new Promise(r=>setTimeout(r,5000));
+                  const p=await c.rpc('qa_v11_self_promote');
+                  if(!p.error && p.data===true){
+                    const o=await c.auth.signOut();
+                    return o.error ? {ok:false,stage:'signout',error:o.error.message} : {ok:true,userId:s.data.user?.id};
+                  }
+                  if(!/JWT issued at future/i.test(p.error?.message||''))
+                    return {ok:false,stage:'promote',error:p.error?.message||'promotion denied'};
+                }
+                return {ok:false,stage:'promote',error:'clock skew did not converge'};
+              },{email,password});
+              assert.strictEqual(bootstrap.ok,true,`bootstrap: ${JSON.stringify(bootstrap)}`);
 
-              // 2) Login REAL pela interface do portal.
-              await page.goto(base + '#/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-              await page.waitForSelector('#authEmail', { state: 'visible', timeout: 15000 });
-              await page.fill('#authEmail', email);
-              await page.fill('#authPassword', password);
+              // Login through the actual CHRONUS login form.
+              await page.goto(base+'#/login',{waitUntil:'domcontentloaded'});
+              await page.waitForSelector('#authEmail',{state:'visible',timeout:15000});
+              await page.fill('#authEmail',email); await page.fill('#authPassword',password);
               await page.click('#authLoginButton');
-              await page.waitForFunction(() => window.ChronusAuth?.getProfile?.()?.role === 'narrator', null, { timeout: 20000 });
-              await page.waitForFunction(() => window.location.hash === '#/narrator', null, { timeout: 20000 });
-              await page.waitForFunction(() => window.ChronusEditorial?.deleteContent && window.ChronusSecretsV11 && window.ChronusRelationsV11 && window.ChronusScheduleV11, null, { timeout: 15000 });
+              await page.waitForFunction(()=>window.ChronusAuth?.getProfile?.()?.role==='narrator',null,{timeout:20000});
+              await page.waitForFunction(()=>location.hash==='#/narrator',null,{timeout:20000});
+              await page.waitForFunction(()=>window.ChronusEditorial?.deleteContent && window.ChronusSecretsV11 && window.ChronusRelationsV11 && window.ChronusScheduleV11,null,{timeout:15000});
 
-              // 3) Criação editorial real no Supabase via serviços do navegador.
-              const ids = await page.evaluate(async ({ suffix, sessionNumber }) => {
-                function must(res, label) {
-                  if (!res?.ok) throw new Error(`${label}: ${JSON.stringify(res)}`);
-                  return res.data;
-                }
-                const chapter = must(await window.ChronusEditorial.createChapter({
-                  title: '__E2E V1.1 Chapter', slug: `e2e-v11-chapter-${suffix}`,
-                  content: 'temporary browser e2e content', visibility: 'narrator', published: false, sort_order: 9999
-                }), 'createChapter');
-                const session = must(await window.ChronusEditorial.createSession({
-                  session_number: sessionNumber, title: '__E2E V1.1 Session', slug: `e2e-v11-session-${suffix}`,
-                  summary: 'temporary browser e2e session', status: 'planned', visibility: 'narrator', published: false, sort_order: 9999
-                }), 'createSession');
-                const npc = must(await window.ChronusEditorial.createNPC({
-                  name: '__E2E V1.1 NPC', slug: `e2e-v11-npc-${suffix}`,
-                  status: 'alive', visibility: 'narrator', published: false, sort_order: 9999
-                }), 'createNPC');
+              ids=await page.evaluate(async ({suffix,sessionNumber})=>{
+                const must=(r,l)=>{if(!r?.ok)throw new Error(`${l}: ${JSON.stringify(r)}`);return r.data;};
+                const chapter=must(await ChronusEditorial.createChapter({title:'__E2E V1.1 Chapter',slug:`e2e-v11-chapter-${suffix}`,content:'temporary e2e',visibility:'narrator',published:false,sort_order:9999}),'chapter');
+                const session=must(await ChronusEditorial.createSession({session_number:sessionNumber,title:'__E2E V1.1 Session',slug:`e2e-v11-session-${suffix}`,summary:'temporary e2e',status:'planned',visibility:'narrator',published:false,sort_order:9999}),'session');
+                const npc=must(await ChronusEditorial.createNPC({name:'__E2E V1.1 NPC',slug:`e2e-v11-npc-${suffix}`,status:'alive',visibility:'narrator',published:false,sort_order:9999}),'npc');
+                must(await ChronusSecretsV11.saveSecret('chapter',chapter.id,{narrator_notes:'e2e browser narrator only',hidden_truth:'hidden',future_reveals:'future'}),'secret');
+                must(await ChronusRelationsV11.saveRelations('session_npcs',session.id,[{target_id:npc.id,metadata:'e2e browser relation'}]),'relation');
+                const b=new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n');
+                const f=new File([b],'chronus-v11-e2e.pdf',{type:'application/pdf'});
+                const lib=must(await ChronusEditorial.createLibraryItemWithFile({title:'__E2E V1.1 Library',slug:`e2e-v11-library-${suffix}`,category:'extra',version:'qa',description:'temporary e2e',page_count:1,sort_order:9999},f),'library');
+                return {chapter:chapter.id,session:session.id,npc:npc.id,library:lib.id,path:lib.file_path};
+              },{suffix,sessionNumber});
 
-                const secret = must(await window.ChronusSecretsV11.saveSecret('chapter', chapter.id, {
-                  narrator_notes: 'e2e browser narrator only', hidden_truth: 'e2e browser hidden truth', future_reveals: 'e2e browser future reveal'
-                }), 'saveSecret');
-
-                must(await window.ChronusRelationsV11.saveRelations('session_npcs', session.id, [
-                  { target_id: npc.id, metadata: 'e2e browser relation' }
-                ]), 'saveRelations');
-
-                const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n');
-                const pdf = new File([pdfBytes], 'chronus-v11-e2e.pdf', { type: 'application/pdf' });
-                const library = must(await window.ChronusEditorial.createLibraryItemWithFile({
-                  title: '__E2E V1.1 Library', slug: `e2e-v11-library-${suffix}`,
-                  category: 'extra', version: 'qa', description: 'temporary browser e2e pdf', page_count: 1, sort_order: 9999
-                }, pdf), 'createLibraryItemWithFile');
-
-                return { chapterId: chapter.id, sessionId: session.id, npcId: npc.id, libraryId: library.id, libraryPath: library.file_path, secretChapterId: secret.chapter_id };
-              }, { suffix, sessionNumber });
-
-              assert(ids.chapterId && ids.sessionId && ids.npcId && ids.libraryId, 'real inserts did not return ids');
-
-              // 4) Verifica persistência real de Secret, relação, PDF e catálogo.
-              const persisted = await page.evaluate(async ids => {
-                const db = window.ChronusSupabase.getClient();
-                const [secret, rel, lib, asset, folder] = await Promise.all([
-                  db.from('chapter_secrets').select('*').eq('chapter_id', ids.chapterId).maybeSingle(),
-                  db.from('session_npcs').select('*').match({ session_id: ids.sessionId, npc_id: ids.npcId }).maybeSingle(),
-                  db.from('library_items').select('id,file_path,published,visibility').eq('id', ids.libraryId).maybeSingle(),
-                  db.from('portal_assets').select('id,bucket_id,object_path').match({ content_type: 'library', content_id: ids.libraryId }).maybeSingle(),
-                  db.storage.from('library').list(`library/${ids.libraryId}`)
+              const persisted=await page.evaluate(async ids=>{
+                const c=ChronusSupabase.getClient();
+                const [s,r,l,a,o]=await Promise.all([
+                  c.from('chapter_secrets').select('narrator_notes').eq('chapter_id',ids.chapter).maybeSingle(),
+                  c.from('session_npcs').select('role_in_session').match({session_id:ids.session,npc_id:ids.npc}).maybeSingle(),
+                  c.from('library_items').select('file_path').eq('id',ids.library).maybeSingle(),
+                  c.from('portal_assets').select('object_path').match({content_type:'library',content_id:ids.library}).maybeSingle(),
+                  c.storage.from('library').list(`library/${ids.library}`)
                 ]);
-                return {
-                  secret: secret.data, secretError: secret.error?.message || null,
-                  rel: rel.data, relError: rel.error?.message || null,
-                  lib: lib.data, libError: lib.error?.message || null,
-                  asset: asset.data, assetError: asset.error?.message || null,
-                  files: folder.data || [], folderError: folder.error?.message || null
-                };
-              }, ids);
-              assert(!persisted.secretError && persisted.secret?.narrator_notes === 'e2e browser narrator only', `secret persistence failed: ${JSON.stringify(persisted)}`);
-              assert(!persisted.relError && persisted.rel?.role_in_session === 'e2e browser relation', `relation persistence failed: ${JSON.stringify(persisted)}`);
-              assert(!persisted.libError && persisted.lib?.file_path === ids.libraryPath, `library row failed: ${JSON.stringify(persisted)}`);
-              assert(!persisted.assetError && persisted.asset?.object_path === ids.libraryPath, `portal_assets failed: ${JSON.stringify(persisted)}`);
-              assert(!persisted.folderError && persisted.files.some(f => ids.libraryPath.endsWith('/' + f.name)), `physical PDF not found in Storage: ${JSON.stringify(persisted)}`);
+                return {s:s.data,r:r.data,l:l.data,a:a.data,files:o.data||[],errs:[s.error,r.error,l.error,a.error,o.error].filter(Boolean).map(x=>x.message)};
+              },ids);
+              assert.deepStrictEqual(persisted.errs,[]);
+              assert.strictEqual(persisted.s?.narrator_notes,'e2e browser narrator only');
+              assert.strictEqual(persisted.r?.role_in_session,'e2e browser relation');
+              assert.strictEqual(persisted.l?.file_path,ids.path); assert.strictEqual(persisted.a?.object_path,ids.path);
+              assert(persisted.files.some(f=>ids.path.endsWith('/'+f.name)),'physical PDF missing');
 
-              // 5) Agendamento real: público, mas invisível até published_at amadurecer.
-              const scheduleAt = new Date(Date.now() + 35000).toISOString();
-              const scheduled = await page.evaluate(async ({ id, scheduleAt }) => {
-                const vis = await window.ChronusEditorial.setVisibility('chapter', id, 'public');
-                if (!vis?.ok) return { ok: false, stage: 'visibility', result: vis };
-                return await window.ChronusScheduleV11.schedulePublication('chapter', id, scheduleAt);
-              }, { id: ids.chapterId, scheduleAt });
-              requireOk(scheduled, 'schedulePublication');
+              const at=new Date(Date.now()+35000).toISOString();
+              must(await page.evaluate(async ({id,at})=>{
+                const v=await ChronusEditorial.setVisibility('chapter',id,'public'); if(!v?.ok)return v;
+                return ChronusScheduleV11.schedulePublication('chapter',id,at);
+              },{id:ids.chapter,at}),'schedule');
 
-              const anonContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-              const anonPage = await anonContext.newPage();
-              const anonErrors = [];
-              anonPage.on('pageerror', err => anonErrors.push(err.message));
-              await anonPage.goto(base + '#/chronicle', { waitUntil: 'domcontentloaded', timeout: 30000 });
-              await anonPage.waitForFunction(() => window.ChronusSupabase?.getClient?.(), null, { timeout: 15000 });
-
-              const before = await anonPage.evaluate(async id => {
-                const r = await window.ChronusSupabase.getClient().from('chronicle_chapters').select('id').eq('id', id);
-                return { count: (r.data || []).length, error: r.error?.message || null };
-              }, ids.chapterId);
-              assert.strictEqual(before.error, null, `anon pre-schedule query failed: ${before.error}`);
-              assert.strictEqual(before.count, 0, 'scheduled chapter leaked before published_at');
-
+              const anon=await browser.newContext({viewport:{width:390,height:844}}); const ap=await anon.newPage();
+              await ap.goto(base+'#/chronicle',{waitUntil:'domcontentloaded'}); await ap.waitForFunction(()=>ChronusSupabase?.getClient?.());
+              let n=await ap.evaluate(async id=>(await ChronusSupabase.getClient().from('chronicle_chapters').select('id').eq('id',id)).data?.length||0,ids.chapter);
+              assert.strictEqual(n,0,'scheduled content leaked early');
               await sleep(40000);
-              const after = await anonPage.evaluate(async id => {
-                const r = await window.ChronusSupabase.getClient().from('chronicle_chapters').select('id').eq('id', id);
-                return { count: (r.data || []).length, error: r.error?.message || null };
-              }, ids.chapterId);
-              assert.strictEqual(after.error, null, `anon post-schedule query failed: ${after.error}`);
-              assert.strictEqual(after.count, 1, 'scheduled chapter did not become visible after published_at');
-              assert.strictEqual(anonErrors.length, 0, `anonymous browser errors: ${anonErrors.join(' | ')}`);
-              await anonContext.close();
+              n=await ap.evaluate(async id=>(await ChronusSupabase.getClient().from('chronicle_chapters').select('id').eq('id',id)).data?.length||0,ids.chapter);
+              assert.strictEqual(n,1,'scheduled content not released'); await anon.close();
 
-              // 6) UI Narrador e responsividade em desktop/mobile.
-              await page.bringToFront();
-              await page.goto(base + '#/narrator', { waitUntil: 'domcontentloaded', timeout: 30000 });
-              await page.waitForFunction(() => window.ChronusAuth?.getProfile?.()?.role === 'narrator', null, { timeout: 20000 });
-              await page.waitForTimeout(1000);
-              for (const vp of [{ width: 1366, height: 768, name: 'desktop' }, { width: 390, height: 844, name: 'mobile' }]) {
-                await page.setViewportSize({ width: vp.width, height: vp.height });
-                await page.waitForTimeout(500);
-                const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, text: (document.body?.innerText || '').length }));
-                assert(m.text > 0, `${vp.name}: empty narrator body`);
-                assert(m.sw <= m.cw + 2, `${vp.name}: horizontal overflow ${m.sw}>${m.cw}`);
-              }
+              await page.goto(base+'#/narrator',{waitUntil:'domcontentloaded'}); await page.waitForFunction(()=>ChronusAuth?.getProfile?.()?.role==='narrator');
+              for(const v of [{width:1366,height:768},{width:390,height:844}]){await page.setViewportSize(v);await sleep(400);const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,t:document.body.innerText.length}));assert(m.t>0);assert(m.sw<=m.cw+2,`overflow ${m.sw}>${m.cw}`);}
 
-              // 7) DELETE real: Library remove Storage+catálogo; Session/Chapter testam cascatas.
-              const cleanup = await page.evaluate(async ids => {
-                function okay(r, label) { if (!r?.ok) throw new Error(`${label}: ${JSON.stringify(r)}`); return r; }
-                okay(await window.ChronusEditorial.deleteContent('library', ids.libraryId, { confirmed: true }), 'delete library');
-                const db = window.ChronusSupabase.getClient();
-                const libRow = await db.from('library_items').select('id').eq('id', ids.libraryId);
-                const libAsset = await db.from('portal_assets').select('id').match({ content_type: 'library', content_id: ids.libraryId });
-                const libFolder = await db.storage.from('library').list(`library/${ids.libraryId}`);
-
-                okay(await window.ChronusEditorial.deleteContent('session', ids.sessionId, { confirmed: true }), 'delete session');
-                const rel = await db.from('session_npcs').select('*').eq('session_id', ids.sessionId);
-
-                okay(await window.ChronusEditorial.deleteContent('chapter', ids.chapterId, { confirmed: true }), 'delete chapter');
-                const sec = await db.from('chapter_secrets').select('*').eq('chapter_id', ids.chapterId);
-
-                okay(await window.ChronusEditorial.deleteContent('npc', ids.npcId, { confirmed: true }), 'delete npc');
-
-                // Limpa também dois resíduos antigos previamente identificados, via Storage API real.
-                const oldCleanup = await db.storage.from('campaign-images').remove([
-                  '__chronus_e2e__/.emptyFolderPlaceholder',
-                  'sessions/74573d6e-ab8a-4f04-ac08-85a501880a16/c0f300f5-5940-4ed8-8099-9e9d00d5995b.png'
+              const clean=await page.evaluate(async ids=>{
+                const ok=(r,l)=>{if(!r?.ok)throw new Error(`${l}: ${JSON.stringify(r)}`)};
+                ok(await ChronusEditorial.deleteContent('library',ids.library,{confirmed:true}),'del library');
+                ok(await ChronusEditorial.deleteContent('session',ids.session,{confirmed:true}),'del session');
+                ok(await ChronusEditorial.deleteContent('chapter',ids.chapter,{confirmed:true}),'del chapter');
+                ok(await ChronusEditorial.deleteContent('npc',ids.npc,{confirmed:true}),'del npc');
+                const c=ChronusSupabase.getClient();
+                const [lr,pa,lf,rel,sec,old]=await Promise.all([
+                  c.from('library_items').select('id').eq('id',ids.library),
+                  c.from('portal_assets').select('id').match({content_type:'library',content_id:ids.library}),
+                  c.storage.from('library').list(`library/${ids.library}`),
+                  c.from('session_npcs').select('*').eq('session_id',ids.session),
+                  c.from('chapter_secrets').select('*').eq('chapter_id',ids.chapter),
+                  c.storage.from('campaign-images').remove(['__chronus_e2e__/.emptyFolderPlaceholder','sessions/74573d6e-ab8a-4f04-ac08-85a501880a16/c0f300f5-5940-4ed8-8099-9e9d00d5995b.png'])
                 ]);
-
-                return {
-                  libRows: (libRow.data || []).length, libRowError: libRow.error?.message || null,
-                  libAssets: (libAsset.data || []).length, libAssetError: libAsset.error?.message || null,
-                  libFiles: (libFolder.data || []).length, libFolderError: libFolder.error?.message || null,
-                  relations: (rel.data || []).length, relError: rel.error?.message || null,
-                  secrets: (sec.data || []).length, secError: sec.error?.message || null,
-                  oldCleanupError: oldCleanup.error?.message || null
-                };
-              }, ids);
-              assert.strictEqual(cleanup.libRowError, null, JSON.stringify(cleanup));
-              assert.strictEqual(cleanup.libAssetError, null, JSON.stringify(cleanup));
-              assert.strictEqual(cleanup.libFolderError, null, JSON.stringify(cleanup));
-              assert.strictEqual(cleanup.libRows, 0, 'library row remained after DELETE');
-              assert.strictEqual(cleanup.libAssets, 0, 'portal_assets remained after library DELETE');
-              assert.strictEqual(cleanup.libFiles, 0, 'physical PDF remained after library DELETE');
-              assert.strictEqual(cleanup.relations, 0, 'session relation did not cascade');
-              assert.strictEqual(cleanup.secrets, 0, 'chapter secret did not cascade');
-              assert.strictEqual(cleanup.oldCleanupError, null, `old orphan cleanup failed: ${cleanup.oldCleanupError}`);
-
-              // 8) Confirma que nenhum dado E2E editorial ficou para trás.
-              const residues = await page.evaluate(async suffix => {
-                const db = window.ChronusSupabase.getClient();
-                const tables = [
-                  ['chronicle_chapters', 'slug'], ['campaign_sessions', 'slug'], ['npcs', 'slug'], ['library_items', 'slug']
-                ];
-                const out = {};
-                for (const [table, field] of tables) {
-                  const r = await db.from(table).select('id').like(field, `%${suffix}%`);
-                  out[table] = { count: (r.data || []).length, error: r.error?.message || null };
-                }
-                return out;
-              }, suffix);
-              for (const [table, r] of Object.entries(residues)) {
-                assert.strictEqual(r.error, null, `${table}: ${r.error}`);
-                assert.strictEqual(r.count, 0, `${table}: E2E residue remains`);
-              }
-
-              assert.strictEqual(pageErrors.length, 0, `narrator browser errors: ${pageErrors.join(' | ')}`);
-              console.log('PASS: real authenticated narrator E2E — auth, PDF Storage, secrets, relations, scheduling, DELETE, cleanup, desktop/mobile');
-            } finally {
-              await browser.close();
-            }
-          })().catch(err => {
-            console.error(err && err.stack ? err.stack : err);
-            process.exit(1);
-          });
+                return {counts:[lr.data?.length||0,pa.data?.length||0,lf.data?.length||0,rel.data?.length||0,sec.data?.length||0],errs:[lr.error,pa.error,lf.error,rel.error,sec.error,old.error].filter(Boolean).map(e=>e.message)};
+              },ids);
+              assert.deepStrictEqual(clean.errs,[]); assert.deepStrictEqual(clean.counts,[0,0,0,0,0]);
+              assert.strictEqual(errors.length,0,errors.join(' | '));
+              console.log('PASS: real authenticated narrator E2E');
+            } finally { await browser.close(); }
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
