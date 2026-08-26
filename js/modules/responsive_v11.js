@@ -7,9 +7,8 @@
   style.textContent=`
     /*
      * navigation.css hid the drawer with right:-320px. Although visually hidden,
-     * Chromium still counted 31px of that fixed element in document overflow on
-     * a 390px viewport. Keep the closed drawer inside the viewport and hide it
-     * with visibility/opacity instead; opening remains explicit via .is-open.
+     * Chromium still counted part of that fixed element in document overflow.
+     * Keep the closed drawer inside the viewport and hide it semantically instead.
      */
     .mobile-nav-drawer {
       right: 0 !important;
@@ -23,6 +22,19 @@
       visibility: visible;
       opacity: 1;
       pointer-events: auto;
+    }
+
+    /*
+     * At the same breakpoint where the desktop navigation is replaced by the
+     * hamburger, remove the duplicated desktop auth badge from the header.
+     * Login/profile/logout remain available inside #mobile-nav-user-area.
+     * This prevents long authenticated display names/role badges from widening
+     * the mobile document while preserving all authentication actions.
+     */
+    @media (max-width: 1180px) {
+      #nav-user-area {
+        display: none !important;
+      }
     }
 
     @media (max-width: 768px) {
