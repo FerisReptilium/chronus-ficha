@@ -1,8 +1,8 @@
 /**
- * CHRONUS — Narrator Panel Module (v2C.4A)
+ * CHRONUS — Narrator Panel Module (v2C Fast-Track 1)
  * Painel administrativo unificado do Narrador:
  * 1. Mesa de Jogadores (Fichas em tempo real somente leitura)
- * 2. Gestão Editorial (Shell visual e CRUD seguro de capítulos)
+ * 2. Gestão Editorial (Shell visual e Form Engine unificado de CRUD para as 7 áreas)
  */
 window.ChronusNarratorPanel = (function() {
   'use strict';
@@ -15,15 +15,16 @@ window.ChronusNarratorPanel = (function() {
   let currentSearchQuery = '';
   let currentFilter = 'all'; // 'all' | 'published' | 'draft'
 
-  // Estado do Formulário de Crônica (Fase 2C.4A)
-  let isEditingChapter = false;
-  let chapterFormMode = 'create'; // 'create' | 'edit'
-  let chapterEditingId = null;
-  let chapterInitialValues = {};
-  let chapterIsDirty = false;
-  let chapterIsSubmitting = false;
-  let chapterIsSlugTouched = false;
-  let chapterFeedbackMessage = null;
+  // Estado Unificado do Form Engine (Fast-Track 1)
+  let isEditing = false;
+  let activeFormEntity = null; // 'chapter' | 'session' | 'npc' | 'location' | 'document' | 'library' | 'soundtrack'
+  let formMode = 'create'; // 'create' | 'edit'
+  let editingRecordId = null;
+  let formInitialValues = {};
+  let formIsDirty = false;
+  let formIsSubmitting = false;
+  let formIsSlugTouched = false;
+  let feedbackMessage = null;
 
   // Definição das 7 Seções Editoriais
   const EDITORIAL_SECTIONS = [
@@ -35,6 +36,222 @@ window.ChronusNarratorPanel = (function() {
     { id: 'library', name: 'Biblioteca', icon: '📚', entity: 'library', desc: 'Manuais oficiais e livros de regras', emptyMsg: 'Nenhum item de biblioteca cadastrado.' },
     { id: 'soundtrack', name: 'Trilha Sonora', icon: '🎵', entity: 'soundtrack', desc: 'Temas musicais e ambientações da crônica', emptyMsg: 'Nenhuma trilha sonora cadastrada.' }
   ];
+
+  // Configuração Fechada do Form Engine Unificado
+  const EDITOR_FORM_CONFIG = Object.freeze({
+    chapter: {
+      label: 'Capítulo da Crônica',
+      singular: 'Capítulo',
+      newBtnLabel: '+ Novo Capítulo',
+      allowCreate: true,
+      allowUpdate: true,
+      createMethod: 'createChapter',
+      updateMethod: 'updateChapter',
+      hasSlug: true,
+      slugSource: 'title',
+      coverField: 'cover_image_path',
+      coverBucket: 'campaign-images',
+      fields: [
+        { name: 'title', label: 'Título do Capítulo *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Sombras de Praga' },
+        { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: sombras-de-praga' },
+        { name: 'chapter_number', label: 'Número do Capítulo (Opcional)', type: 'number', required: false, gridFull: false, min: 1, step: 1, placeholder: 'Ex: 1' },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'subtitle', label: 'Subtítulo (Opcional)', type: 'text', required: false, gridFull: true, placeholder: 'Ex: Ato I — A Quebra do Sigilo' },
+        { name: 'summary', label: 'Resumo da Trama (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Breve síntese dos acontecimentos do capítulo…' },
+        { name: 'content', label: 'Conteúdo Narrativo Completo *', type: 'textarea', required: true, rows: 10, gridFull: true, placeholder: 'Texto integral do capítulo da crônica…' }
+      ]
+    },
+    session: {
+      label: 'Sessão de Campanha',
+      singular: 'Sessão',
+      newBtnLabel: '+ Nova Sessão',
+      allowCreate: true,
+      allowUpdate: true,
+      createMethod: 'createSession',
+      updateMethod: 'updateSession',
+      hasSlug: true,
+      slugSource: 'title',
+      coverField: 'cover_image_path',
+      coverBucket: 'campaign-images',
+      fields: [
+        { name: 'session_number', label: 'Número da Sessão *', type: 'number', required: true, min: 1, step: 1, gridFull: false, placeholder: 'Ex: 1' },
+        { name: 'title', label: 'Título da Sessão *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Noite de Conspiração' },
+        { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: noite-de-conspiracao' },
+        { name: 'status', label: 'Status da Sessão *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'planned', label: 'Planejada' },
+          { value: 'in_progress', label: 'Em Andamento' },
+          { value: 'completed', label: 'Concluída' },
+          { value: 'canceled', label: 'Cancelada' }
+        ], defaultValue: 'planned' },
+        { name: 'session_date', label: 'Data Real da Sessão (AAAA-MM-DD)', type: 'date', required: false, gridFull: false, placeholder: 'Ex: 2026-08-25' },
+        { name: 'in_game_date', label: 'Data no Jogo / Narrativa (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: 12 de Outubro de 1923' },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'summary', label: 'Resumo da Sessão *', type: 'textarea', required: true, rows: 3, gridFull: true, placeholder: 'Síntese narrativa do que ocorreu na sessão…' },
+        { name: 'events_log', label: 'Registro de Eventos / Log de Fatos (Opcional)', type: 'textarea', required: false, rows: 5, gridFull: true, placeholder: 'Cronologia detalhada dos acontecimentos da mesa…' },
+        { name: 'clues_uncovered', label: 'Pistas e Evidências Reveladas (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Pistas que os jogadores encontraram…' }
+      ]
+    },
+    npc: {
+      label: 'Dossiê de NPC',
+      singular: 'NPC',
+      newBtnLabel: '+ Novo NPC',
+      allowCreate: true,
+      allowUpdate: true,
+      createMethod: 'createNPC',
+      updateMethod: 'updateNPC',
+      hasSlug: true,
+      slugSource: 'name',
+      coverField: 'portrait_path',
+      coverBucket: 'campaign-images',
+      fields: [
+        { name: 'name', label: 'Nome do NPC *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Viktor Kane' },
+        { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: viktor-kane' },
+        { name: 'role_occupation', label: 'Ocupação / Papel no Cenário (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: Antiquário / Ocultista' },
+        { name: 'faction', label: 'Facção / Aliança (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: Ordem Hermética de Praga' },
+        { name: 'apparent_age', label: 'Idade Aparente (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: 45 anos' },
+        { name: 'status', label: 'Status do NPC *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'alive', label: 'Vivo' },
+          { value: 'dead', label: 'Morto' },
+          { value: 'missing', label: 'Desaparecido' },
+          { value: 'unknown', label: 'Desconhecido' },
+          { value: 'transformed', label: 'Transformado' }
+        ], defaultValue: 'alive' },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'first_appearance_session_id', label: '1ª Aparição (Sessão Opcional)', type: 'fk_session', required: false, gridFull: false },
+        { name: 'last_appearance_session_id', label: 'Última Aparição (Sessão Opcional)', type: 'fk_session', required: false, gridFull: false },
+        { name: 'public_description', label: 'Descrição Pública e Aparência (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Aparência física, vestimentas e primeira impressão…' },
+        { name: 'known_personality', label: 'Personalidade e Comportamento Conhecido (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Traços psicológicos e postura observada pelos jogadores…' },
+        { name: 'relationship_to_group', label: 'Relação com a Cabala / Grupo (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Aliado, contato comercial, informante, antagonista…' }
+      ]
+    },
+    location: {
+      label: 'Local do Atlas',
+      singular: 'Local',
+      newBtnLabel: '+ Novo Local',
+      allowCreate: true,
+      allowUpdate: true,
+      createMethod: 'createLocation',
+      updateMethod: 'updateLocation',
+      hasSlug: true,
+      slugSource: 'name',
+      coverField: 'image_path',
+      coverBucket: 'maps',
+      fields: [
+        { name: 'name', label: 'Nome do Local *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Refúgio Subterrâneo' },
+        { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: refugio-subterraneo' },
+        { name: 'type', label: 'Tipo de Local *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'city', label: 'Cidade' },
+          { value: 'district', label: 'Distrito / Bairro' },
+          { value: 'building', label: 'Edifício' },
+          { value: 'bunker', label: 'Bunker / Refúgio' },
+          { value: 'club', label: 'Clube / Ponto de Encontro' },
+          { value: 'facility', label: 'Instalação / Laboratório' },
+          { value: 'supernatural_domain', label: 'Domínio Sobrenatural' },
+          { value: 'battlemap', label: 'Battlemap / Tático' },
+          { value: 'other', label: 'Outro' }
+        ], defaultValue: 'building' },
+        { name: 'district_region', label: 'Distrito / Região (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: Cidade Velha / Stare Mesto' },
+        { name: 'narrative_address', label: 'Endereço Narrativo (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: Rua dos Alquimistas, nº 13' },
+        { name: 'parent_location_id', label: 'Local Pai / Região Superior (Opcional)', type: 'fk_location', required: false, gridFull: false },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'public_description', label: 'Descrição Pública do Local (Opcional)', type: 'textarea', required: false, rows: 4, gridFull: true, placeholder: 'Arquitetura, atmosfera, iluminação e detalhes visíveis…' }
+      ]
+    },
+    document: {
+      label: 'Documento / Evidência',
+      singular: 'Documento',
+      newBtnLabel: '+ Novo Documento',
+      allowCreate: true,
+      allowUpdate: true,
+      createMethod: 'createDocument',
+      updateMethod: 'updateDocument',
+      hasSlug: true,
+      slugSource: 'title',
+      coverField: 'image_path',
+      coverBucket: 'documents',
+      fields: [
+        { name: 'title', label: 'Título do Documento *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Carta Interceptada' },
+        { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: carta-interceptada' },
+        { name: 'type', label: 'Tipo de Documento *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'photograph', label: 'Fotografia' },
+          { value: 'letter', label: 'Carta / Correspondência' },
+          { value: 'report', label: 'Relatório' },
+          { value: 'newspaper_clipping', label: 'Recorte de Jornal' },
+          { value: 'official_record', label: 'Registro Oficial' },
+          { value: 'clue', label: 'Pista Material' },
+          { value: 'artifact', label: 'Artefato' },
+          { value: 'audio_log', label: 'Registro de Áudio' },
+          { value: 'other', label: 'Outro' }
+        ], defaultValue: 'report' },
+        { name: 'narrative_date', label: 'Data Narrativa / de Época (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: 14 de Novembro de 1923' },
+        { name: 'found_in_session_id', label: 'Encontrado na Sessão (Opcional)', type: 'fk_session', required: false, gridFull: false },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'public_description', label: 'Descrição Visual / Estado Físico (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Papel amarelado com manchas de cera e selo rompido…' },
+        { name: 'transcription', label: 'Transcrição do Conteúdo (Opcional)', type: 'textarea', required: false, rows: 6, gridFull: true, placeholder: 'Texto integral transcrito do documento…' }
+      ]
+    },
+    library: {
+      label: 'Item da Biblioteca',
+      singular: 'Item da Biblioteca',
+      newBtnLabel: null, // CREATE bloqueado nesta fase pois library_items.file_path é NOT NULL e requer upload
+      allowCreate: false,
+      allowUpdate: true,
+      createMethod: 'createLibraryItem',
+      updateMethod: 'updateLibraryItem',
+      hasSlug: true,
+      slugSource: 'title',
+      coverField: 'cover_path',
+      coverBucket: 'library',
+      fields: [
+        { name: 'title', label: 'Título do Livro / Manual *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Mago: A Ascensão — Livro Básico' },
+        { name: 'slug', label: 'Slug (Identificador URL) *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: mago-ascensao-basico' },
+        { name: 'category', label: 'Categoria da Biblioteca *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'system_book', label: 'Livro do Sistema' },
+          { value: 'pocket_manual', label: 'Manual de Bolso' },
+          { value: 'quick_guide', label: 'Guia Rápido' },
+          { value: 'character_sheet', label: 'Ficha de Personagem' },
+          { value: 'supplement', label: 'Suplemento' },
+          { value: 'extra', label: 'Material Extra' }
+        ], defaultValue: 'system_book' },
+        { name: 'version', label: 'Versão da Regra / Edição (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: 20th Anniversary Edition' },
+        { name: 'page_count', label: 'Número de Páginas (Opcional)', type: 'number', required: false, min: 1, step: 1, gridFull: false, placeholder: 'Ex: 580' },
+        { name: 'file_size_bytes', label: 'Tamanho em Bytes (Opcional)', type: 'number', required: false, min: 0, step: 1, gridFull: false, placeholder: 'Ex: 52428800' },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'description', label: 'Descrição / Detalhes do Tomo (Opcional)', type: 'textarea', required: false, rows: 4, gridFull: true, placeholder: 'Informações sobre a edição, sumário e uso em jogo…' }
+      ]
+    },
+    soundtrack: {
+      label: 'Trilha Sonora',
+      singular: 'Trilha Sonora',
+      newBtnLabel: '+ Nova Trilha',
+      allowCreate: true,
+      allowUpdate: true,
+      createMethod: 'createSoundtrack',
+      updateMethod: 'updateSoundtrack',
+      hasSlug: false,
+      coverField: null,
+      coverBucket: null,
+      fields: [
+        { name: 'title', label: 'Título da Trilha Sonora *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: Tema de Tensão Oculta' },
+        { name: 'youtube_url', label: 'Link do YouTube *', type: 'text', required: true, gridFull: false, placeholder: 'Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+        { name: 'category', label: 'Categoria Musical *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'theme', label: 'Tema Principal' },
+          { value: 'investigation', label: 'Investigação' },
+          { value: 'horror', label: 'Horror / Tensão' },
+          { value: 'combat', label: 'Combate' },
+          { value: 'suspense', label: 'Suspense' },
+          { value: 'epilogue', label: 'Epílogo / Encerramento' },
+          { value: 'ambient', label: 'Ambientação Geral' }
+        ], defaultValue: 'ambient' },
+        { name: 'active', label: 'Trilha Ativa na Campanha *', type: 'select', required: true, gridFull: false, options: [
+          { value: 'true', label: 'Sim (Ativa)' },
+          { value: 'false', label: 'Não (Inativa)' }
+        ], defaultValue: 'true' },
+        { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'description', label: 'Descrição / Cenário de Uso (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Quando tocar esta música durante a crônica…' }
+      ]
+    }
+  });
 
   /**
    * Helper seguro de criação de elementos DOM (Safe DOM).
@@ -136,11 +353,11 @@ window.ChronusNarratorPanel = (function() {
 
     // Eventos de troca de aba principal com proteção de Dirty State
     btnPlayers.addEventListener('click', () => {
-      if (checkUnsavedChapterChanges()) return;
+      if (checkUnsavedFormChanges()) return;
       switchMainTab('players');
     });
     btnEditorial.addEventListener('click', () => {
-      if (checkUnsavedChapterChanges()) return;
+      if (checkUnsavedFormChanges()) return;
       switchMainTab('editorial');
     });
 
@@ -152,9 +369,9 @@ window.ChronusNarratorPanel = (function() {
     }
   }
 
-  function checkUnsavedChapterChanges() {
-    if (isEditingChapter && chapterIsDirty) {
-      return !window.confirm('Existem alterações não salvas no capítulo. Deseja realmente descartá-las?');
+  function checkUnsavedFormChanges() {
+    if (isEditing && formIsDirty) {
+      return !window.confirm('Existem alterações não salvas no formulário. Deseja realmente descartá-las?');
     }
     return false;
   }
@@ -166,8 +383,8 @@ window.ChronusNarratorPanel = (function() {
     if (activeMainTab === tab) return;
     activeMainTab = tab;
     currentCmsRequestId++; // Invalida qualquer request assíncrono pendente
-    isEditingChapter = false;
-    chapterIsDirty = false;
+    isEditing = false;
+    formIsDirty = false;
 
     const container = document.getElementById('narrator-panel-container');
     if (container) {
@@ -384,7 +601,7 @@ window.ChronusNarratorPanel = (function() {
   }
 
   /* ==========================================================================
-     2. GESTÃO EDITORIAL (CMS SHELL & CRUD)
+     2. GESTÃO EDITORIAL (CMS SHELL & FORM ENGINE UNIFICADO)
      ========================================================================== */
 
   /**
@@ -400,22 +617,22 @@ window.ChronusNarratorPanel = (function() {
     const headerWrapper = createEl('div', 'editorial-shell-header');
     const headerInfo = createEl('div');
     const title = createEl('h2', 'narrator-main-title', 'Gestão Editorial da Crônica');
-    const subtitle = createEl('p', 'narrator-subtitle-desc', 'Visão administrativa e acervo da campanha. O acesso é exclusivo do Narrador para inspeção de conteúdos públicos, de jogadores e rascunhos.');
+    const subtitle = createEl('p', 'narrator-subtitle-desc', 'Visão administrativa e acervo da campanha. O acesso é exclusivo do Narrador para inspeção e edição de conteúdos.');
     headerInfo.appendChild(title);
     headerInfo.appendChild(subtitle);
     headerWrapper.appendChild(headerInfo);
     pane.appendChild(headerWrapper);
 
     // Feedback Toast se houver
-    if (chapterFeedbackMessage) {
-      const toast = createEl('div', 'editorial-feedback-toast', chapterFeedbackMessage);
+    if (feedbackMessage) {
+      const toast = createEl('div', 'editorial-feedback-toast', feedbackMessage);
       headerWrapper.appendChild(toast);
       setTimeout(() => {
         toast.hidden = true;
         if (toast.parentElement && typeof toast.parentElement.removeChild === 'function') {
           toast.parentElement.removeChild(toast);
         }
-        chapterFeedbackMessage = null;
+        feedbackMessage = null;
       }, 5000);
     }
 
@@ -430,7 +647,7 @@ window.ChronusNarratorPanel = (function() {
     btnDash.setAttribute('aria-selected', activeEditorialSection === 'dashboard' ? 'true' : 'false');
     btnDash.textContent = '📊 Visão Geral';
     btnDash.addEventListener('click', () => {
-      if (checkUnsavedChapterChanges()) return;
+      if (checkUnsavedFormChanges()) return;
       switchEditorialSection('dashboard');
     });
     navBar.appendChild(btnDash);
@@ -442,7 +659,7 @@ window.ChronusNarratorPanel = (function() {
       btn.setAttribute('aria-selected', activeEditorialSection === sec.id ? 'true' : 'false');
       btn.textContent = `${sec.icon} ${sec.name}`;
       btn.addEventListener('click', () => {
-        if (checkUnsavedChapterChanges()) return;
+        if (checkUnsavedFormChanges()) return;
         switchEditorialSection(sec.id);
       });
       navBar.appendChild(btn);
@@ -464,13 +681,14 @@ window.ChronusNarratorPanel = (function() {
   }
 
   /**
-   * Alterna a seção do CMS com proteção contra Stale Render.
+   * Alterna a seção do CMS com proteção contra Stale Render e Dirty State.
    */
   function switchEditorialSection(sectionId) {
-    if (activeEditorialSection === sectionId && !isEditingChapter) return;
+    if (activeEditorialSection === sectionId && !isEditing) return;
     activeEditorialSection = sectionId;
-    isEditingChapter = false;
-    chapterIsDirty = false;
+    isEditing = false;
+    activeFormEntity = null;
+    formIsDirty = false;
     currentSearchQuery = '';
     currentFilter = 'all';
 
@@ -612,22 +830,24 @@ window.ChronusNarratorPanel = (function() {
 
     container.innerHTML = '';
 
-    // Se estiver em modo de edição de capítulo na Crônica, renderiza o formulário
-    if (sectionId === 'chapter' && isEditingChapter) {
-      renderChapterForm(container);
+    // Se estiver em modo de formulário nesta entidade, renderiza o editor unificado
+    if (isEditing && activeFormEntity === sectionId) {
+      renderEditorialForm(sectionId, container);
       return;
     }
+
+    const formConfig = EDITOR_FORM_CONFIG[sectionId];
 
     // Barra de Ferramentas / Toolbar (Busca, Filtros e Ação "+ Novo")
     const toolbar = createEl('div', 'editorial-toolbar');
 
-    // Botão "+ Novo Capítulo" (EXCLUSIVO de Crônica na Fase 2C.4A)
-    if (sectionId === 'chapter') {
-      const btnNew = createEl('button', 'portal-btn portal-btn-gold btn-new-editorial', '+ Novo Capítulo');
+    // Botão "+ Novo" (se permitido na configuração da entidade)
+    if (formConfig && formConfig.allowCreate && formConfig.newBtnLabel) {
+      const btnNew = createEl('button', 'portal-btn portal-btn-gold btn-new-editorial', formConfig.newBtnLabel);
       btnNew.type = 'button';
-      btnNew.id = 'btn-new-chapter';
-      btnNew.setAttribute('aria-label', 'Criar novo capítulo');
-      btnNew.addEventListener('click', () => openChapterEditor('create'));
+      btnNew.id = `btn-new-${sectionId}`;
+      btnNew.setAttribute('aria-label', `Criar ${formConfig.singular.toLowerCase()}`);
+      btnNew.addEventListener('click', () => openEditorialForm(sectionId, 'create'));
       toolbar.appendChild(btnNew);
     }
 
@@ -706,208 +926,217 @@ window.ChronusNarratorPanel = (function() {
   }
 
   /**
-   * Abre o editor de Crônica em modo 'create' ou 'edit'.
+   * Abre o editor unificado em modo 'create' ou 'edit' para qualquer uma das 7 entidades.
    */
-  function openChapterEditor(mode, item = null) {
-    chapterFormMode = mode;
-    chapterEditingId = item ? item.id : null;
-    isEditingChapter = true;
-    chapterIsDirty = false;
-    chapterIsSubmitting = false;
-    chapterIsSlugTouched = (mode === 'edit'); // Na edição preserva slug existente
+  function openEditorialForm(entityKey, mode, item = null) {
+    const config = EDITOR_FORM_CONFIG[entityKey];
+    if (!config) return;
 
-    if (mode === 'edit' && item) {
-      chapterInitialValues = {
-        title: item.title || '',
-        slug: item.slug || '',
-        chapter_number: item.chapter_number !== null && item.chapter_number !== undefined ? String(item.chapter_number) : '',
-        subtitle: item.subtitle || '',
-        summary: item.summary || '',
-        content: item.content || '',
-        sort_order: item.sort_order !== null && item.sort_order !== undefined ? String(item.sort_order) : '0',
-        cover_image_path: item.cover_image_path || null
-      };
-    } else {
-      chapterInitialValues = {
-        title: '',
-        slug: '',
-        chapter_number: '',
-        subtitle: '',
-        summary: '',
-        content: '',
-        sort_order: '0',
-        cover_image_path: null
-      };
+    activeFormEntity = entityKey;
+    formMode = mode;
+    editingRecordId = item ? item.id : null;
+    isEditing = true;
+    formIsDirty = false;
+    formIsSubmitting = false;
+    formIsSlugTouched = (mode === 'edit');
+
+    // Inicialização segura dos valores do formulário
+    formInitialValues = {};
+    config.fields.forEach(f => {
+      if (mode === 'edit' && item) {
+        const val = item[f.name];
+        if (val !== null && val !== undefined) {
+          formInitialValues[f.name] = String(val);
+        } else {
+          formInitialValues[f.name] = '';
+        }
+      } else {
+        formInitialValues[f.name] = f.defaultValue !== undefined ? String(f.defaultValue) : '';
+      }
+    });
+
+    // Armazena caminho de capa existente se houver
+    if (mode === 'edit' && item && config.coverField) {
+      formInitialValues._coverPath = item[config.coverField] || null;
     }
 
     const container = document.getElementById('editorial-content-container');
     if (container) {
-      renderChapterForm(container);
+      renderEditorialForm(entityKey, container);
     }
   }
 
   /**
-   * Renderiza o Formulário de Criação/Edição de Capítulo (Safe DOM).
+   * Renderiza o Formulário Unificado do CMS (Safe DOM).
    */
-  function renderChapterForm(container) {
+  function renderEditorialForm(entityKey, container) {
+    const config = EDITOR_FORM_CONFIG[entityKey];
+    if (!config) return;
+
     container.innerHTML = '';
 
     const formCard = createEl('div', 'editorial-form-card');
 
     // Cabeçalho do Formulário
     const formHeader = createEl('div', 'editorial-form-header');
-    const formTitle = createEl('h3', 'editorial-form-title', chapterFormMode === 'create' ? 'Novo Capítulo da Crônica' : `Editar Capítulo: ${chapterInitialValues.title || 'Sem Título'}`);
-    const formDesc = createEl('p', 'editorial-form-desc', 'Rascunho de capítulo com acesso exclusivo do Narrador. O capítulo nasce despublicado e com visibilidade restrita ao Narrador.');
+    const titleText = formMode === 'create'
+      ? `Novo Registro: ${config.label}`
+      : `Editar ${config.singular}: ${formInitialValues.title || formInitialValues.name || 'Sem Título'}`;
+    const formTitle = createEl('h3', 'editorial-form-title', titleText);
+    const formDesc = createEl('p', 'editorial-form-desc', `Rascunho com acesso exclusivo do Narrador. O registro nasce despublicado e com visibilidade restrita.`);
     formHeader.appendChild(formTitle);
     formHeader.appendChild(formDesc);
     formCard.appendChild(formHeader);
 
-    // Preview de Capa Read-Only se existir
-    if (chapterFormMode === 'edit' && chapterInitialValues.cover_image_path) {
+    // Preview de Capa/Asset Read-Only se existir no Edit
+    if (formMode === 'edit' && formInitialValues._coverPath && config.coverBucket) {
       const coverBox = createEl('div', 'form-cover-preview-box');
       const coverThumb = createEl('img', 'form-cover-thumb');
-      coverThumb.alt = 'Capa atual do capítulo';
+      coverThumb.alt = `Capa atual de ${config.singular}`;
       coverBox.appendChild(coverThumb);
 
       const coverNotice = createEl('p', 'form-cover-notice', 'Capa atual — o gerenciamento de imagem será liberado em etapa posterior.');
       coverBox.appendChild(coverNotice);
       formCard.appendChild(coverBox);
 
-      window.ChronusAssets?.getSignedUrl('campaign-images', chapterInitialValues.cover_image_path)
+      window.ChronusAssets?.getSignedUrl(config.coverBucket, formInitialValues._coverPath)
         .then(url => { if (url) coverThumb.src = url; })
         .catch(() => {});
     }
 
     // Banner de Erros do Formulário
     const errorBanner = createEl('div', 'editorial-error-banner');
-    errorBanner.id = 'chapter-form-error';
+    errorBanner.id = 'editorial-form-error';
     errorBanner.hidden = true;
     formCard.appendChild(errorBanner);
 
     // Formulário
     const form = createEl('form', 'editorial-form');
-    form.id = 'chapter-editor-form';
+    form.id = 'editorial-unified-form';
     form.noValidate = true;
 
     // Grid de Campos
     const grid = createEl('div', 'editorial-form-grid');
+    const fieldElements = {};
 
-    // 1. TÍTULO (Obrigatório)
-    const grpTitle = createEl('div', 'form-group');
-    const lblTitle = createEl('label', 'form-label', 'Título do Capítulo *');
-    lblTitle.setAttribute('for', 'chapter-field-title');
-    const inputTitle = createEl('input', 'form-control');
-    inputTitle.type = 'text';
-    inputTitle.id = 'chapter-field-title';
-    inputTitle.name = 'title';
-    inputTitle.required = true;
-    inputTitle.value = chapterInitialValues.title;
-    inputTitle.placeholder = 'Ex: Sombras de Praga';
-    grpTitle.appendChild(lblTitle);
-    grpTitle.appendChild(inputTitle);
-    grid.appendChild(grpTitle);
+    config.fields.forEach(f => {
+      const grp = createEl('div', `form-group ${f.gridFull ? 'form-group-full' : ''}`);
+      const fieldId = `field-${entityKey}-${f.name}`;
 
-    // 2. SLUG (Obrigatório)
-    const grpSlug = createEl('div', 'form-group');
-    const lblSlug = createEl('label', 'form-label', 'Slug (Identificador URL) *');
-    lblSlug.setAttribute('for', 'chapter-field-slug');
-    const inputSlug = createEl('input', 'form-control');
-    inputSlug.type = 'text';
-    inputSlug.id = 'chapter-field-slug';
-    inputSlug.name = 'slug';
-    inputSlug.required = true;
-    inputSlug.value = chapterInitialValues.slug;
-    inputSlug.placeholder = 'Ex: sombras-de-praga';
-    grpSlug.appendChild(lblSlug);
-    grpSlug.appendChild(inputSlug);
-    grid.appendChild(grpSlug);
+      const lbl = createEl('label', 'form-label', f.label);
+      lbl.setAttribute('for', fieldId);
+      grp.appendChild(lbl);
 
-    // 3. NÚMERO DO CAPÍTULO (Opcional, Integer)
-    const grpNum = createEl('div', 'form-group');
-    const lblNum = createEl('label', 'form-label', 'Número do Capítulo (Opcional)');
-    lblNum.setAttribute('for', 'chapter-field-number');
-    const inputNum = createEl('input', 'form-control');
-    inputNum.type = 'number';
-    inputNum.id = 'chapter-field-number';
-    inputNum.name = 'chapter_number';
-    inputNum.min = '1';
-    inputNum.step = '1';
-    inputNum.value = chapterInitialValues.chapter_number;
-    inputNum.placeholder = 'Ex: 1';
-    grpNum.appendChild(lblNum);
-    grpNum.appendChild(inputNum);
-    grid.appendChild(grpNum);
+      let inputEl;
 
-    // 4. SORT ORDER (Obrigatório, Integer)
-    const grpOrder = createEl('div', 'form-group');
-    const lblOrder = createEl('label', 'form-label', 'Ordem de Exibição (sort_order) *');
-    lblOrder.setAttribute('for', 'chapter-field-order');
-    const inputOrder = createEl('input', 'form-control');
-    inputOrder.type = 'number';
-    inputOrder.id = 'chapter-field-order';
-    inputOrder.name = 'sort_order';
-    inputOrder.step = '1';
-    inputOrder.required = true;
-    inputOrder.value = chapterInitialValues.sort_order;
-    grpOrder.appendChild(lblOrder);
-    grpOrder.appendChild(inputOrder);
-    grid.appendChild(grpOrder);
+      if (f.type === 'textarea') {
+        inputEl = createEl('textarea', 'form-control');
+        inputEl.id = fieldId;
+        inputEl.name = f.name;
+        inputEl.rows = String(f.rows || 3);
+        inputEl.value = formInitialValues[f.name] || '';
+        if (f.placeholder) inputEl.placeholder = f.placeholder;
+        if (f.required) inputEl.required = true;
+      } else if (f.type === 'select') {
+        inputEl = createEl('select', 'form-control');
+        inputEl.id = fieldId;
+        inputEl.name = f.name;
+        inputEl.value = formInitialValues[f.name] || (f.options && f.options[0] ? f.options[0].value : '');
+        if (f.required) inputEl.required = true;
 
-    // 5. SUBTÍTULO (Opcional)
-    const grpSub = createEl('div', 'form-group form-group-full');
-    const lblSub = createEl('label', 'form-label', 'Subtítulo (Opcional)');
-    lblSub.setAttribute('for', 'chapter-field-subtitle');
-    const inputSub = createEl('input', 'form-control');
-    inputSub.type = 'text';
-    inputSub.id = 'chapter-field-subtitle';
-    inputSub.name = 'subtitle';
-    inputSub.value = chapterInitialValues.subtitle;
-    inputSub.placeholder = 'Ex: Ato I — A Quebra do Sigilo';
-    grpSub.appendChild(lblSub);
-    grpSub.appendChild(inputSub);
-    grid.appendChild(grpSub);
+        (f.options || []).forEach(opt => {
+          const optEl = createEl('option', null, opt.label);
+          optEl.value = opt.value;
+          if (String(opt.value) === String(formInitialValues[f.name])) {
+            optEl.selected = true;
+          }
+          inputEl.appendChild(optEl);
+        });
+      } else if (f.type === 'fk_session') {
+        inputEl = createEl('select', 'form-control');
+        inputEl.id = fieldId;
+        inputEl.name = f.name;
+        inputEl.value = formInitialValues[f.name] || '';
 
-    // 6. RESUMO / SUMMARY (Opcional, Textarea)
-    const grpSum = createEl('div', 'form-group form-group-full');
-    const lblSum = createEl('label', 'form-label', 'Resumo da Trama (Opcional)');
-    lblSum.setAttribute('for', 'chapter-field-summary');
-    const inputSum = createEl('textarea', 'form-control');
-    inputSum.id = 'chapter-field-summary';
-    inputSum.name = 'summary';
-    inputSum.rows = '3';
-    inputSum.value = chapterInitialValues.summary;
-    inputSum.placeholder = 'Breve síntese dos acontecimentos do capítulo…';
-    grpSum.appendChild(lblSum);
-    grpSum.appendChild(inputSum);
-    grid.appendChild(grpSum);
+        const emptyOpt = createEl('option', null, '-- Nenhuma Sessão (Opcional) --');
+        emptyOpt.value = '';
+        inputEl.appendChild(emptyOpt);
 
-    // 7. CONTEÚDO NARRATIVO / CONTENT (Obrigatório, Textarea)
-    const grpCont = createEl('div', 'form-group form-group-full');
-    const lblCont = createEl('label', 'form-label', 'Conteúdo Narrativo Completo *');
-    lblCont.setAttribute('for', 'chapter-field-content');
-    const inputCont = createEl('textarea', 'form-control');
-    inputCont.id = 'chapter-field-content';
-    inputCont.name = 'content';
-    inputCont.rows = '10';
-    inputCont.required = true;
-    inputCont.value = chapterInitialValues.content;
-    inputCont.placeholder = 'Texto integral do capítulo da crônica…';
-    grpCont.appendChild(lblCont);
-    grpCont.appendChild(inputCont);
-    grid.appendChild(grpCont);
+        const sessions = editorialCache.session || [];
+        sessions.forEach(s => {
+          const optEl = createEl('option', null, `Sessão #${s.session_number}: ${s.title}`);
+          optEl.value = s.id;
+          if (String(s.id) === String(formInitialValues[f.name])) {
+            optEl.selected = true;
+          }
+          inputEl.appendChild(optEl);
+        });
+      } else if (f.type === 'fk_location') {
+        inputEl = createEl('select', 'form-control');
+        inputEl.id = fieldId;
+        inputEl.name = f.name;
+        inputEl.value = formInitialValues[f.name] || '';
+
+        const emptyOpt = createEl('option', null, '-- Nenhum Local Pai (Opcional) --');
+        emptyOpt.value = '';
+        inputEl.appendChild(emptyOpt);
+
+        const locations = editorialCache.location || [];
+        locations.forEach(l => {
+          if (formMode === 'edit' && editingRecordId === l.id) return; // Não vincula o local a si mesmo
+          const optEl = createEl('option', null, `${l.name} (${l.type || 'Local'})`);
+          optEl.value = l.id;
+          if (String(l.id) === String(formInitialValues[f.name])) {
+            optEl.selected = true;
+          }
+          inputEl.appendChild(optEl);
+        });
+      } else {
+        inputEl = createEl('input', 'form-control');
+        inputEl.type = f.type || 'text';
+        inputEl.id = fieldId;
+        inputEl.name = f.name;
+        inputEl.value = formInitialValues[f.name] || '';
+        if (f.placeholder) inputEl.placeholder = f.placeholder;
+        if (f.min !== undefined) inputEl.min = String(f.min);
+        if (f.step !== undefined) inputEl.step = String(f.step);
+        if (f.required) inputEl.required = true;
+      }
+
+      grp.appendChild(inputEl);
+      grid.appendChild(grp);
+      fieldElements[f.name] = inputEl;
+
+      // Eventos de Dirty State e Auto-Slug
+      inputEl.addEventListener('input', () => {
+        formIsDirty = true;
+        if (config.hasSlug && f.name === config.slugSource && formMode === 'create' && !formIsSlugTouched) {
+          const slugInput = fieldElements.slug;
+          if (slugInput) {
+            slugInput.value = slugify(inputEl.value);
+          }
+        }
+        if (f.name === 'slug') {
+          formIsSlugTouched = true;
+        }
+      });
+      inputEl.addEventListener('change', () => {
+        formIsDirty = true;
+      });
+    });
 
     form.appendChild(grid);
 
     // Barra de Ações (Salvar e Cancelar)
     const actionsRow = createEl('div', 'form-actions-row');
 
-    const btnSave = createEl('button', 'portal-btn portal-btn-gold', '💾 Salvar Capítulo');
+    const btnSave = createEl('button', 'portal-btn portal-btn-gold', `💾 Salvar ${config.singular}`);
     btnSave.type = 'submit';
-    btnSave.id = 'btn-chapter-save';
+    btnSave.id = 'btn-editorial-save';
 
     const btnCancel = createEl('button', 'portal-btn portal-btn-secondary', 'Cancelar');
     btnCancel.type = 'button';
-    btnCancel.id = 'btn-chapter-cancel';
+    btnCancel.id = 'btn-editorial-cancel';
 
     actionsRow.appendChild(btnSave);
     actionsRow.appendChild(btnCancel);
@@ -916,132 +1145,115 @@ window.ChronusNarratorPanel = (function() {
     formCard.appendChild(form);
     container.appendChild(formCard);
 
-    // Auto-fill do Slug no Create enquanto untouched
-    inputTitle.addEventListener('input', () => {
-      chapterIsDirty = true;
-      if (chapterFormMode === 'create' && !chapterIsSlugTouched) {
-        inputSlug.value = slugify(inputTitle.value);
-      }
-    });
-
-    inputSlug.addEventListener('input', () => {
-      chapterIsDirty = true;
-      chapterIsSlugTouched = true;
-    });
-
-    // Rastreamento de Dirty State nos outros inputs
-    [inputNum, inputOrder, inputSub, inputSum, inputCont].forEach(inp => {
-      inp.addEventListener('input', () => {
-        chapterIsDirty = true;
-      });
-    });
-
-    // Foco inicial
-    setTimeout(() => inputTitle.focus(), 50);
+    // Foco no primeiro campo
+    const firstFieldName = config.fields[0]?.name;
+    if (firstFieldName && fieldElements[firstFieldName]) {
+      setTimeout(() => fieldElements[firstFieldName].focus(), 50);
+    }
 
     // Handler de Cancelar
     btnCancel.addEventListener('click', () => {
-      if (chapterIsDirty && !window.confirm('Deseja descartar as alterações não salvas?')) {
+      if (formIsDirty && !window.confirm('Deseja descartar as alterações não salvas?')) {
         return;
       }
-      isEditingChapter = false;
-      chapterIsDirty = false;
-      renderEditorialSection('chapter', container);
+      isEditing = false;
+      activeFormEntity = null;
+      formIsDirty = false;
+      renderEditorialSection(entityKey, container);
     });
 
-    // Handler de Submit
+    // Handler de Submit Unificado
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      if (chapterIsSubmitting) return; // Proteção contra Double Submit
+      if (formIsSubmitting) return; // Proteção contra Double Submit
 
       errorBanner.hidden = true;
       errorBanner.textContent = '';
 
       // Validação defensiva client-side
-      const titleVal = inputTitle.value.trim();
-      const slugVal = inputSlug.value.trim();
-      const contentVal = inputCont.value.trim();
-      const orderRaw = inputOrder.value.trim();
-      const numRaw = inputNum.value.trim();
-      const subVal = inputSub.value.trim();
-      const sumVal = inputSum.value.trim();
+      const collectedValues = {};
+      let validationError = null;
+      let fieldToFocus = null;
 
-      if (!titleVal) {
-        showFormError(errorBanner, inputTitle, 'O Título do capítulo é obrigatório.');
-        return;
-      }
-      if (!slugVal) {
-        showFormError(errorBanner, inputSlug, 'O Slug identificador é obrigatório.');
-        return;
-      }
-      if (!contentVal) {
-        showFormError(errorBanner, inputCont, 'O Conteúdo narrativo é obrigatório.');
-        return;
-      }
+      for (const f of config.fields) {
+        const inputEl = fieldElements[f.name];
+        const val = inputEl ? inputEl.value.trim() : '';
 
-      const sortOrderNum = Number(orderRaw);
-      if (!Number.isInteger(sortOrderNum)) {
-        showFormError(errorBanner, inputOrder, 'A ordem de exibição deve ser um número inteiro válido.');
-        return;
-      }
-
-      let chapterNumber = null;
-      if (numRaw !== '') {
-        const numVal = Number(numRaw);
-        if (!Number.isInteger(numVal) || numVal < 1) {
-          showFormError(errorBanner, inputNum, 'O número do capítulo deve ser um inteiro positivo.');
-          return;
+        if (f.required && !val) {
+          validationError = `${f.label.replace(' *', '')} é obrigatório.`;
+          fieldToFocus = inputEl;
+          break;
         }
-        chapterNumber = numVal;
+
+        if (f.type === 'number') {
+          if (val !== '') {
+            const num = Number(val);
+            if (!Number.isInteger(num)) {
+              validationError = `${f.label.replace(' *', '')} deve ser um número inteiro válido.`;
+              fieldToFocus = inputEl;
+              break;
+            }
+            if (f.min !== undefined && num < f.min) {
+              validationError = `${f.label.replace(' *', '')} deve ser no mínimo ${f.min}.`;
+              fieldToFocus = inputEl;
+              break;
+            }
+            collectedValues[f.name] = num;
+          } else {
+            collectedValues[f.name] = null;
+          }
+        } else if (f.name === 'active' && entityKey === 'soundtrack') {
+          collectedValues[f.name] = (val === 'true');
+        } else if (f.type === 'fk_session' || f.type === 'fk_location') {
+          collectedValues[f.name] = val ? val : null;
+        } else if (f.type === 'date') {
+          collectedValues[f.name] = val ? val : null;
+        } else {
+          collectedValues[f.name] = val ? val : null;
+        }
+      }
+
+      if (validationError) {
+        showFormError(errorBanner, fieldToFocus, validationError);
+        return;
       }
 
       // Bloqueio de Double Submit
-      chapterIsSubmitting = true;
+      formIsSubmitting = true;
       btnSave.disabled = true;
       btnSave.textContent = 'Salvando…';
 
       try {
         let result;
-        if (chapterFormMode === 'create') {
-          // PAYLOAD CREATE: Força visibility='narrator' e published=false
+
+        if (formMode === 'create') {
+          // PAYLOAD CREATE: Fixa visibility='narrator' e published=false
           const payload = {
-            title: titleVal,
-            slug: slugVal,
-            content: contentVal,
-            sort_order: sortOrderNum,
-            chapter_number: chapterNumber,
-            subtitle: subVal || null,
-            summary: sumVal || null,
+            ...collectedValues,
             visibility: 'narrator',
             published: false
           };
-          result = await window.ChronusEditorial.createChapter(payload);
+          result = await window.ChronusEditorial[config.createMethod](payload);
         } else {
-          // PATCH UPDATE: Altera somente campos editáveis (NUNCA envia id, visibility, published, timestamps)
-          const patch = {
-            title: titleVal,
-            slug: slugVal,
-            content: contentVal,
-            sort_order: sortOrderNum,
-            chapter_number: chapterNumber,
-            subtitle: subVal || null,
-            summary: sumVal || null
-          };
-          result = await window.ChronusEditorial.updateChapter(chapterEditingId, patch);
+          // PATCH UPDATE: Envia somente campos editáveis (NUNCA envia id, timestamps ou publication)
+          result = await window.ChronusEditorial[config.updateMethod](editingRecordId, collectedValues);
         }
 
         // Stale Guard
         if (!window.location.hash.startsWith('#/narrator')) {
-          chapterIsSubmitting = false;
+          formIsSubmitting = false;
           return;
         }
 
         if (result && result.ok) {
-          chapterIsSubmitting = false;
-          isEditingChapter = false;
-          chapterIsDirty = false;
-          chapterFeedbackMessage = chapterFormMode === 'create' ? '✓ Capítulo criado com sucesso como rascunho.' : '✓ Capítulo atualizado com sucesso.';
+          formIsSubmitting = false;
+          isEditing = false;
+          activeFormEntity = null;
+          formIsDirty = false;
+          feedbackMessage = formMode === 'create'
+            ? `✓ ${config.singular} criado com sucesso como rascunho.`
+            : `✓ ${config.singular} atualizado com sucesso.`;
 
           // Recarrega o painel da Gestão Editorial
           const pane = document.getElementById('narrator-pane-editorial');
@@ -1050,18 +1262,18 @@ window.ChronusNarratorPanel = (function() {
           }
         } else {
           // Tratamento de Erro Padronizado
-          chapterIsSubmitting = false;
+          formIsSubmitting = false;
           btnSave.disabled = false;
-          btnSave.textContent = '💾 Salvar Capítulo';
+          btnSave.textContent = `💾 Salvar ${config.singular}`;
 
-          const errorMsg = mapEditorialError(result?.code, result?.message);
+          const errorMsg = mapEditorialError(result?.code, result?.message, config.singular);
           showFormError(errorBanner, null, errorMsg);
         }
       } catch (err) {
-        chapterIsSubmitting = false;
+        formIsSubmitting = false;
         btnSave.disabled = false;
-        btnSave.textContent = '💾 Salvar Capítulo';
-        showFormError(errorBanner, null, 'Ocorreu um erro inesperado ao salvar o capítulo.');
+        btnSave.textContent = `💾 Salvar ${config.singular}`;
+        showFormError(errorBanner, null, `Ocorreu um erro inesperado ao salvar ${config.singular.toLowerCase()}.`);
       }
     });
   }
@@ -1078,20 +1290,20 @@ window.ChronusNarratorPanel = (function() {
     }
   }
 
-  function mapEditorialError(code, rawMsg) {
+  function mapEditorialError(code, rawMsg, singularLabel) {
     if (code === 'CONFLICT') {
-      return 'Já existe um capítulo com este slug ou identificador.';
+      return `Já existe um registro com este slug ou identificador.`;
     }
     if (code === 'INVALID_INPUT' || code === 'INVALID_FIELD') {
-      return 'Revise os campos informados.';
+      return `Revise os campos informados. Alguns dados estão inválidos.`;
     }
     if (code === 'NOT_NARRATOR') {
       return 'Sua sessão não possui permissão de Narrador.';
     }
     if (code === 'RLS_DENIED') {
-      return 'A operação foi bloqueada pelas regras de segurança.';
+      return 'A operação foi bloqueada pelas regras de segurança do servidor.';
     }
-    return rawMsg || 'Não foi possível salvar o capítulo.';
+    return rawMsg || `Não foi possível salvar o registro no banco de dados.`;
   }
 
   /**
@@ -1155,6 +1367,7 @@ window.ChronusNarratorPanel = (function() {
    */
   function renderItemCard(sectionId, item) {
     const card = createEl('article', 'editorial-item-card');
+    const formConfig = EDITOR_FORM_CONFIG[sectionId];
 
     // Cabeçalho do Card
     const header = createEl('div', 'editorial-item-header');
@@ -1242,13 +1455,13 @@ window.ChronusNarratorPanel = (function() {
 
     footer.appendChild(badgesRow);
 
-    // BOTÃO EDITAR (EXCLUSIVO de Crônica na Fase 2C.4A)
-    if (sectionId === 'chapter') {
+    // BOTÃO EDITAR (Disponível em todas as entidades com allowUpdate = true)
+    if (formConfig && formConfig.allowUpdate) {
       const cardActions = createEl('div', 'editorial-card-actions');
-      const btnEdit = createEl('button', 'portal-btn portal-btn-secondary btn-edit-chapter', '✏️ Editar');
+      const btnEdit = createEl('button', 'portal-btn portal-btn-secondary btn-edit-editorial', '✏️ Editar');
       btnEdit.type = 'button';
-      btnEdit.setAttribute('aria-label', `Editar capítulo ${mainTitleText}`);
-      btnEdit.addEventListener('click', () => openChapterEditor('edit', item));
+      btnEdit.setAttribute('aria-label', `Editar ${mainTitleText}`);
+      btnEdit.addEventListener('click', () => openEditorialForm(sectionId, 'edit', item));
       cardActions.appendChild(btnEdit);
       footer.appendChild(cardActions);
     }
