@@ -29,9 +29,13 @@ jobs:
           node --check js/services/editorial_v11.js
           node --check js/modules/narrator_panel.js
           node --check js/modules/narrator_v11.js
+          node --check js/modules/library_v11.js
 
       - name: Secure DELETE regression
         run: node tests/v11_delete.test.js
 
       - name: Composite Library CREATE regression
         run: node tests/v11_library.test.js
+
+      - name: Library CREATE UI regression
+        run: node tests/v11_library_ui.test.js
