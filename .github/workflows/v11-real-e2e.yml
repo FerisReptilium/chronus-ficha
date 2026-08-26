@@ -1,0 +1,181 @@
+name: CHRONUS v1.1 real E2E
+
+on:
+  push:
+    branches: [editorial-v1.1]
+
+permissions:
+  contents: read
+
+jobs:
+  real-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start candidate portal
+        run: |
+          python3 -m http.server 8080 >/tmp/chronus-http.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/chronus-http.log; exit 1
+      - name: Real authenticated narrator E2E
+        env:
+          QA_EMAIL: chronus-v11-qa-a2f4a3215eba45618c35bce7a0b2fbe5@example.invalid
+        run: |
+          export QA_PASS="QaV11-$(openssl rand -hex 20)"
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const base = 'http://127.0.0.1:8080/';
+          const email = process.env.QA_EMAIL;
+          const password = process.env.QA_PASS;
+          const suffix = `${Date.now()}-${Math.floor(Math.random()*100000)}`;
+          const sessionNumber = 900000 + Math.floor(Math.random()*90000);
+          const must = (r,l) => { if (!r?.ok) throw new Error(`${l}: ${JSON.stringify(r)}`); return r.data; };
+          const oldLibraryOrphans = [
+            'library/2ea332f9-1358-419a-9a4f-d50da0c83e1d/656b5374-7fbc-4286-b933-2bee1286ef74.pdf',
+            'library/12bab218-c483-4f12-b60a-a12f25e126ac/086df900-4486-4837-a563-fe59b94728ff.pdf'
+          ];
+          const oldCampaignOrphans = [
+            '__chronus_e2e__/.emptyFolderPlaceholder',
+            'sessions/74573d6e-ab8a-4f04-ac08-85a501880a16/c0f300f5-5940-4ed8-8099-9e9d00d5995b.png'
+          ];
+
+          (async()=>{
+            const browser = await chromium.launch({headless:true});
+            const ctx = await browser.newContext({viewport:{width:1366,height:768}});
+            const page = await ctx.newPage();
+            const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+            let ids={};
+            try {
+              await page.goto(base+'#/home',{waitUntil:'domcontentloaded',timeout:30000});
+              await page.waitForFunction(()=>window.ChronusSupabase?.getClient?.() && window.ChronusAuth,null,{timeout:20000});
+
+              const bootstrap = await page.evaluate(async ({email,password})=>{
+                const c=window.ChronusSupabase.getClient();
+                const s=await c.auth.signUp({email,password});
+                if(s.error) return {ok:false,stage:'signup',error:s.error.message};
+                if(!s.data?.session) return {ok:false,stage:'signup',error:'no session'};
+                for(let i=0;i<8;i++){
+                  await new Promise(r=>setTimeout(r,5000));
+                  const p=await c.rpc('qa_v11_self_promote');
+                  if(!p.error && p.data===true){
+                    const o=await c.auth.signOut();
+                    return o.error ? {ok:false,stage:'signout',error:o.error.message} : {ok:true,userId:s.data.user?.id};
+                  }
+                  if(!/JWT issued at future/i.test(p.error?.message||'')) return {ok:false,stage:'promote',error:p.error?.message||'promotion denied'};
+                }
+                return {ok:false,stage:'promote',error:'clock skew did not converge'};
+              },{email,password});
+              assert.strictEqual(bootstrap.ok,true,`bootstrap: ${JSON.stringify(bootstrap)}`);
+
+              await page.goto(base+'#/login',{waitUntil:'domcontentloaded'});
+              await page.waitForSelector('#authEmail',{state:'visible',timeout:15000});
+              await page.fill('#authEmail',email); await page.fill('#authPassword',password);
+              await page.click('#authLoginButton');
+              await page.waitForFunction(()=>window.ChronusAuth?.getProfile?.()?.role==='narrator',null,{timeout:20000});
+              await page.waitForFunction(()=>location.hash==='#/narrator',null,{timeout:20000});
+              await page.waitForFunction(()=>window.ChronusEditorial?.deleteContent && window.ChronusSecretsV11 && window.ChronusRelationsV11 && window.ChronusScheduleV11,null,{timeout:15000});
+
+              // Clean only known prior QA orphan objects through the Storage API.
+              const oldCleanup = await page.evaluate(async ({lib,campaign})=>{
+                const db=ChronusSupabase.getClient();
+                const a=await db.storage.from('library').remove(lib);
+                const b=await db.storage.from('campaign-images').remove(campaign);
+                return [a.error?.message||null,b.error?.message||null];
+              },{lib:oldLibraryOrphans,campaign:oldCampaignOrphans});
+              assert.deepStrictEqual(oldCleanup,[null,null],`old QA orphan cleanup failed: ${JSON.stringify(oldCleanup)}`);
+
+              ids=await page.evaluate(async ({suffix,sessionNumber})=>{
+                const must=(r,l)=>{if(!r?.ok)throw new Error(`${l}: ${JSON.stringify(r)}`);return r.data;};
+                const chapter=must(await ChronusEditorial.createChapter({title:'__E2E V1.1 Chapter',slug:`e2e-v11-chapter-${suffix}`,content:'temporary e2e',visibility:'narrator',published:false,sort_order:9999}),'chapter');
+                const session=must(await ChronusEditorial.createSession({session_number:sessionNumber,title:'__E2E V1.1 Session',slug:`e2e-v11-session-${suffix}`,summary:'temporary e2e',status:'planned',visibility:'narrator',published:false,sort_order:9999}),'session');
+                const npc=must(await ChronusEditorial.createNPC({name:'__E2E V1.1 NPC',slug:`e2e-v11-npc-${suffix}`,status:'alive',visibility:'narrator',published:false,sort_order:9999}),'npc');
+                must(await ChronusSecretsV11.saveSecret('chapter',chapter.id,{narrator_notes:'e2e browser narrator only',hidden_truth:'hidden',future_reveals:'future'}),'secret');
+                must(await ChronusRelationsV11.saveRelations('session_npcs',session.id,[{target_id:npc.id,metadata:'e2e browser relation'}]),'relation');
+                const bytes=new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n');
+                const pdf=new File([bytes],'chronus-v11-e2e.pdf',{type:'application/pdf'});
+                const lib=must(await ChronusEditorial.createLibraryItemWithFile({title:'__E2E V1.1 Library',slug:`e2e-v11-library-${suffix}`,category:'extra',version:'qa',description:'temporary e2e',page_count:1,sort_order:9999},pdf),'library');
+                return {chapter:chapter.id,session:session.id,npc:npc.id,library:lib.id,path:lib.file_path};
+              },{suffix,sessionNumber});
+
+              const persisted=await page.evaluate(async ids=>{
+                const c=ChronusSupabase.getClient();
+                const [s,r,l,a,o]=await Promise.all([
+                  c.from('chapter_secrets').select('narrator_notes').eq('chapter_id',ids.chapter).maybeSingle(),
+                  c.from('session_npcs').select('role_in_session').match({session_id:ids.session,npc_id:ids.npc}).maybeSingle(),
+                  c.from('library_items').select('file_path').eq('id',ids.library).maybeSingle(),
+                  c.from('portal_assets').select('object_path').match({content_type:'library',content_id:ids.library}).maybeSingle(),
+                  c.storage.from('library').list(`library/${ids.library}`)
+                ]);
+                return {s:s.data,r:r.data,l:l.data,a:a.data,files:o.data||[],errs:[s.error,r.error,l.error,a.error,o.error].filter(Boolean).map(x=>x.message)};
+              },ids);
+              assert.deepStrictEqual(persisted.errs,[]);
+              assert.strictEqual(persisted.s?.narrator_notes,'e2e browser narrator only');
+              assert.strictEqual(persisted.r?.role_in_session,'e2e browser relation');
+              assert.strictEqual(persisted.l?.file_path,ids.path); assert.strictEqual(persisted.a?.object_path,ids.path);
+              assert(persisted.files.some(f=>ids.path.endsWith('/'+f.name)),'physical PDF missing');
+
+              const at=new Date(Date.now()+35000).toISOString();
+              must(await page.evaluate(async ({id,at})=>{
+                const v=await ChronusEditorial.setVisibility('chapter',id,'public'); if(!v?.ok)return v;
+                return ChronusScheduleV11.schedulePublication('chapter',id,at);
+              },{id:ids.chapter,at}),'schedule');
+
+              const anon=await browser.newContext({viewport:{width:390,height:844}}); const ap=await anon.newPage();
+              await ap.goto(base+'#/chronicle',{waitUntil:'domcontentloaded'}); await ap.waitForFunction(()=>ChronusSupabase?.getClient?.());
+              let n=await ap.evaluate(async id=>(await ChronusSupabase.getClient().from('chronicle_chapters').select('id').eq('id',id)).data?.length||0,ids.chapter);
+              assert.strictEqual(n,0,'scheduled content leaked early');
+              await sleep(40000);
+              n=await ap.evaluate(async id=>(await ChronusSupabase.getClient().from('chronicle_chapters').select('id').eq('id',id)).data?.length||0,ids.chapter);
+              assert.strictEqual(n,1,'scheduled content not released'); await anon.close();
+
+              await page.goto(base+'#/narrator',{waitUntil:'domcontentloaded'}); await page.waitForFunction(()=>ChronusAuth?.getProfile?.()?.role==='narrator');
+              for(const v of [{width:1366,height:768,name:'desktop'},{width:390,height:844,name:'mobile'}]){
+                await page.setViewportSize({width:v.width,height:v.height}); await sleep(500);
+                const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,t:document.body.innerText.length}));
+                assert(m.t>0,`${v.name}: empty narrator body`); assert(m.sw<=m.cw+2,`${v.name}: overflow ${m.sw}>${m.cw}`);
+              }
+
+              const clean=await page.evaluate(async ids=>{
+                const ok=(r,l)=>{if(!r?.ok)throw new Error(`${l}: ${JSON.stringify(r)}`)};
+                ok(await ChronusEditorial.deleteContent('library',ids.library,{confirmed:true}),'del library');
+                ok(await ChronusEditorial.deleteContent('session',ids.session,{confirmed:true}),'del session');
+                ok(await ChronusEditorial.deleteContent('chapter',ids.chapter,{confirmed:true}),'del chapter');
+                ok(await ChronusEditorial.deleteContent('npc',ids.npc,{confirmed:true}),'del npc');
+                const c=ChronusSupabase.getClient();
+                const [lr,pa,lf,rel,sec]=await Promise.all([
+                  c.from('library_items').select('id').eq('id',ids.library),
+                  c.from('portal_assets').select('id').match({content_type:'library',content_id:ids.library}),
+                  c.storage.from('library').list(`library/${ids.library}`),
+                  c.from('session_npcs').select('*').eq('session_id',ids.session),
+                  c.from('chapter_secrets').select('*').eq('chapter_id',ids.chapter)
+                ]);
+                return {counts:[lr.data?.length||0,pa.data?.length||0,lf.data?.length||0,rel.data?.length||0,sec.data?.length||0],errs:[lr.error,pa.error,lf.error,rel.error,sec.error].filter(Boolean).map(e=>e.message)};
+              },ids);
+              assert.deepStrictEqual(clean.errs,[]); assert.deepStrictEqual(clean.counts,[0,0,0,0,0]);
+              assert.strictEqual(errors.length,0,errors.join(' | '));
+              console.log('PASS: real authenticated narrator E2E — auth, PDF, secrets, relations, scheduling, DELETE, cleanup, desktop/mobile');
+            } finally {
+              // Best-effort cleanup of the current run if an assertion failed before normal cleanup.
+              if(Object.keys(ids).length){
+                try{ await page.evaluate(async ids=>{
+                  const e=window.ChronusEditorial;
+                  if(!e?.deleteContent)return;
+                  for(const [type,id] of [['library',ids.library],['session',ids.session],['chapter',ids.chapter],['npc',ids.npc]]){
+                    if(id) try{await e.deleteContent(type,id,{confirmed:true})}catch(_){}
+                  }
+                },ids);}catch(_){}
+              }
+              await browser.close();
+            }
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
