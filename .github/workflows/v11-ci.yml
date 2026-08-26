@@ -28,10 +28,14 @@ jobs:
           node --check js/services/editorial.js
           node --check js/services/editorial_v11.js
           node --check js/services/secrets_v11.js
+          node --check js/services/relations_v11.js
+          node --check js/services/schedule_v11.js
           node --check js/modules/narrator_panel.js
           node --check js/modules/narrator_v11.js
           node --check js/modules/library_v11.js
           node --check js/modules/secrets_v11.js
+          node --check js/modules/relations_v11.js
+          node --check js/modules/schedule_v11.js
 
       - name: Secure DELETE regression
         run: node tests/v11_delete.test.js
@@ -44,3 +48,9 @@ jobs:
 
       - name: Narrator Secrets regression
         run: node tests/v11_secrets.test.js
+
+      - name: Relations regression
+        run: node tests/v11_relations.test.js
+
+      - name: Scheduled publication regression
+        run: node tests/v11_schedule.test.js
