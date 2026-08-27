@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - editorial-v1.3
+      - hotfix/v1.3.1-art-pack
   pull_request:
     branches:
       - main
@@ -99,6 +100,9 @@ jobs:
       - name: v1.3 final release readiness QA
         run: node tests/v13_release_qa.test.js
 
+      - name: v1.3.1 cinematic art pack QA
+        run: node tests/v131_art_pack.test.js
+
       - name: Static smoke server
         run: |
           python3 -m http.server 4173 >/tmp/chronus-http.log 2>&1 &
@@ -112,6 +116,14 @@ jobs:
             /js/router.js \
             /js/modules/sheet_engine.js \
             /assets/art/hero-berlin-1992.webp \
+            /assets/art/chronicle-cover.webp \
+            /assets/art/sessions-cover.webp \
+            /assets/art/npc-known.webp \
+            /assets/art/npc-unknown.webp \
+            /assets/art/npc-threat.webp \
+            /assets/art/locations-cover.webp \
+            /assets/art/documents-cover.webp \
+            /assets/art/library-cover.webp \
             /css/cinematic-v13.css \
             /css/cinematic-chronicle-page-v13.css \
             /css/cinematic-sessions-page-v13.css \
@@ -121,4 +133,4 @@ jobs:
             /css/cinematic-library-page-v13.css; do
             curl --fail --silent --show-error "http://127.0.0.1:4173${path}" >/dev/null
           done
-          echo "v1.3 static smoke: PASS"
+          echo "v1.3.1 static smoke: PASS"
