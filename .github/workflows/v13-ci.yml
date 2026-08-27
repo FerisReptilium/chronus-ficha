@@ -26,6 +26,7 @@ jobs:
         run: |
           node --check js/app.js
           node --check js/modules/home.js
+          node --check js/modules/home_motion.js
 
       - name: v1.1 regression suite
         run: |
@@ -62,3 +63,6 @@ jobs:
 
       - name: v1.3 restricted occult library Phase 2F
         run: node tests/v13_cinematic_library.test.js
+
+      - name: v1.3 Home visual audit and progressive motion Phase 3
+        run: node tests/v13_cinematic_motion.test.js
