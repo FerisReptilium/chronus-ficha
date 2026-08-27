@@ -187,7 +187,7 @@
   background:
     linear-gradient(90deg, #090706 0%, rgba(9,7,6,.30) 18%, rgba(8,6,5,.05) 42%, rgba(8,6,5,.30) 100%),
     linear-gradient(180deg, rgba(8,6,5,.05), rgba(8,6,5,.42)),
-    url('../assets/art/chronicle-scene-berlin-1992.webp') center / cover no-repeat,
+    url('../assets/art/hero-berlin-1992.webp') center / cover no-repeat,
     linear-gradient(135deg, #1a120d, #080605);
 }
 
