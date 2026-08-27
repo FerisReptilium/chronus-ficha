@@ -47,3 +47,6 @@ jobs:
 
       - name: v1.3 Chronicle cinematic scene Phase 2A
         run: node tests/v13_cinematic_chronicle.test.js
+
+      - name: v1.3 Sessions cinematic scene Phase 2B
+        run: node tests/v13_cinematic_sessions.test.js
