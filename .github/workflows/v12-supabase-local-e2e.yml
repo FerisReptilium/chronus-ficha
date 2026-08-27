@@ -25,16 +25,15 @@ jobs:
         run: |
           rm -rf .supabase-v12-local
           mkdir -p .supabase-v12-local/supabase/migrations
-          # supabase start applies migrations during bootstrap. Therefore the
-          # local-only v1.0 baseline MUST be migration zero, before 001.
           cp tests/fixtures/v12_local_v10_baseline.sql .supabase-v12-local/supabase/migrations/20260827000000_local_v10_baseline.sql
           cp supabase/migrations/001_portal_content.sql .supabase-v12-local/supabase/migrations/20260827000100_portal_content.sql
           cp supabase/migrations/002_v11_security_hardening.sql .supabase-v12-local/supabase/migrations/20260827000200_v11_security_hardening.sql
           cp supabase/migrations/003_v12_rls_helper_hardening.sql .supabase-v12-local/supabase/migrations/20260827000300_v12_rls_helper_hardening.sql
+          cp supabase/migrations/004_v12_rls_initplan_optimization.sql .supabase-v12-local/supabase/migrations/20260827000400_v12_rls_initplan_optimization.sql
           cd .supabase-v12-local
           supabase init
 
-      - name: Start disposable Supabase stack and apply baseline + migrations 001 -> 003
+      - name: Start disposable Supabase stack and apply baseline + migrations 001 -> 004
         working-directory: .supabase-v12-local
         run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
 
@@ -57,7 +56,7 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           select version, name
           from supabase_migrations.schema_migrations
-          where version in ('20260827000000','20260827000100','20260827000200','20260827000300')
+          where version in ('20260827000000','20260827000100','20260827000200','20260827000300','20260827000400')
           order by version;
           SQL
 
@@ -67,6 +66,29 @@ jobs:
           source supabase-local.env
           set +a
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/v12_local_supabase_e2e.sql
+
+      - name: Verify initplan policy shape
+        run: |
+          set -a
+          source supabase-local.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE v_bad integer;
+          BEGIN
+            SELECT count(*) INTO v_bad
+            FROM pg_policies
+            WHERE schemaname='public'
+              AND ((tablename='characters' AND policyname IN (
+                'characters_insert_own','characters_update_own','characters_delete_own','characters_select_own_or_narrator'
+              )) OR (tablename='profiles' AND policyname='profiles_select'))
+              AND (coalesce(qual,'') || ' ' || coalesce(with_check,'')) !~* 'select[[:space:]]+auth\.uid\(\)';
+            IF v_bad <> 0 THEN
+              RAISE EXCEPTION 'FAIL initplan optimized policy count: %', v_bad;
+            END IF;
+          END $$;
+          SELECT 'PASS: migration 004 policy shape' AS result;
+          SQL
 
       - name: Show relevant function and policy state
         run: |
@@ -85,9 +107,8 @@ jobs:
 
           select schemaname, tablename, policyname, cmd, qual, with_check
           from pg_policies
-          where schemaname in ('public','storage')
-            and (coalesce(qual,'') || ' ' || coalesce(with_check,'')) ~ '(is_chronus_narrator|is_chronus_player_or_narrator|can_read_portal_asset)'
-          order by schemaname, tablename, policyname;
+          where schemaname='public' and tablename in ('characters','profiles')
+          order by tablename, policyname;
           SQL
 
       - name: Stop disposable Supabase stack
