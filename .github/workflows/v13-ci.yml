@@ -32,6 +32,7 @@ jobs:
           node --check js/modules/npcs.js
           node --check js/modules/locations.js
           node --check js/modules/documents.js
+          node --check js/modules/library.js
 
       - name: v1.1 regression suite
         run: |
@@ -86,3 +87,6 @@ jobs:
 
       - name: v1.3 Files internal cinematic archive Phase 4E
         run: node tests/v13_cinematic_files_page.test.js
+
+      - name: v1.3 Library internal cinematic archive Phase 4F
+        run: node tests/v13_cinematic_library_page.test.js
