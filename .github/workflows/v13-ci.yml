@@ -50,3 +50,6 @@ jobs:
 
       - name: v1.3 Sessions cinematic scene Phase 2B
         run: node tests/v13_cinematic_sessions.test.js
+
+      - name: v1.3 NPC dossier cinematic scene Phase 2C
+        run: node tests/v13_cinematic_npcs.test.js
