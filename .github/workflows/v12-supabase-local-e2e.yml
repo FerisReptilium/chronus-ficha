@@ -25,13 +25,16 @@ jobs:
         run: |
           rm -rf .supabase-v12-local
           mkdir -p .supabase-v12-local/supabase/migrations
+          # supabase start applies migrations during bootstrap. Therefore the
+          # local-only v1.0 baseline MUST be migration zero, before 001.
+          cp tests/fixtures/v12_local_v10_baseline.sql .supabase-v12-local/supabase/migrations/20260827000000_local_v10_baseline.sql
           cp supabase/migrations/001_portal_content.sql .supabase-v12-local/supabase/migrations/20260827000100_portal_content.sql
           cp supabase/migrations/002_v11_security_hardening.sql .supabase-v12-local/supabase/migrations/20260827000200_v11_security_hardening.sql
           cp supabase/migrations/003_v12_rls_helper_hardening.sql .supabase-v12-local/supabase/migrations/20260827000300_v12_rls_helper_hardening.sql
           cd .supabase-v12-local
           supabase init
 
-      - name: Start disposable Supabase stack
+      - name: Start disposable Supabase stack and apply baseline + migrations 001 -> 003
         working-directory: .supabase-v12-local
         run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
 
@@ -46,21 +49,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Apply local pre-v1.1 baseline fixture
+      - name: Verify migration bootstrap order
         run: |
           set -a
           source supabase-local.env
           set +a
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/v12_local_v10_baseline.sql
-
-      - name: Rehearse migrations 001 -> 002 -> 003
-        run: |
-          set -a
-          source supabase-local.env
-          set +a
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/001_portal_content.sql
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/002_v11_security_hardening.sql
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/003_v12_rls_helper_hardening.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          select version, name
+          from supabase_migrations.schema_migrations
+          where version in ('20260827000000','20260827000100','20260827000200','20260827000300')
+          order by version;
+          SQL
 
       - name: Run local RLS and asset authorization integration tests
         run: |
