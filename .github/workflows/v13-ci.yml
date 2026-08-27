@@ -53,3 +53,6 @@ jobs:
 
       - name: v1.3 NPC dossier cinematic scene Phase 2C
         run: node tests/v13_cinematic_npcs.test.js
+
+      - name: v1.3 occult Berlin atlas Phase 2D
+        run: node tests/v13_cinematic_locations.test.js
