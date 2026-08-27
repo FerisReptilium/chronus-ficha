@@ -1,0 +1,46 @@
+name: CHRONUS v1.3 CI
+
+on:
+  push:
+    branches:
+      - editorial-v1.3
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  v13-cinematic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JavaScript syntax
+        run: |
+          node --check js/app.js
+          node --check js/modules/home.js
+
+      - name: v1.1 regression suite
+        run: |
+          node tests/v11_delete.test.js
+          node tests/v11_library.test.js
+          node tests/v11_library_ui.test.js
+          node tests/v11_secrets.test.js
+          node tests/v11_relations.test.js
+          node tests/v11_schedule.test.js
+
+      - name: v1.2 security/performance regressions
+        run: |
+          node tests/v12_rls_hardening.test.js
+          node tests/v12_rls_initplan.test.js
+          node tests/v12_permissive_policies.test.js
+
+      - name: v1.3 cinematic hero Phase 1
+        run: node tests/v13_cinematic_hero.test.js
