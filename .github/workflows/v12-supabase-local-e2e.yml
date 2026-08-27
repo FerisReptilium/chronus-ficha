@@ -39,9 +39,7 @@ jobs:
 
       - name: Capture local connection info
         working-directory: .supabase-v12-local
-        run: |
-          supabase status -o env > ../supabase-local.env
-          cat ../supabase-local.env | sed -E 's/(KEY|SECRET|PASSWORD)=.*/\1=***REDACTED***/g'
+        run: supabase status -o env > ../supabase-local.env
 
       - name: Install PostgreSQL client
         run: |
