@@ -27,6 +27,7 @@ jobs:
           node --check js/app.js
           node --check js/modules/home.js
           node --check js/modules/home_motion.js
+          node --check js/modules/chronicle.js
 
       - name: v1.1 regression suite
         run: |
@@ -66,3 +67,6 @@ jobs:
 
       - name: v1.3 Home visual audit and progressive motion Phase 3
         run: node tests/v13_cinematic_motion.test.js
+
+      - name: v1.3 Chronicle internal cinematic page Phase 4A
+        run: node tests/v13_cinematic_chronicle_page.test.js
