@@ -8,6 +8,7 @@ window.ChronusHome = (function() {
   const V13_SESSIONS_STYLESHEET = 'css/cinematic-sessions-v13.css';
   const V13_NPCS_STYLESHEET = 'css/cinematic-npcs-v13.css';
   const V13_LOCATIONS_STYLESHEET = 'css/cinematic-locations-v13.css';
+  const V13_FILES_STYLESHEET = 'css/cinematic-files-v13.css';
   const HERO_ART = 'assets/art/hero-berlin-1992.webp';
 
   function init() {
@@ -17,6 +18,7 @@ window.ChronusHome = (function() {
     setupSessionsScene();
     setupNpcsScene();
     setupLocationsScene();
+    setupFilesScene();
     setupHeroCta();
   }
 
@@ -35,6 +37,7 @@ window.ChronusHome = (function() {
     appendStylesheetOnce(V13_SESSIONS_STYLESHEET, 'chronus-v13-layer', 'sessions');
     appendStylesheetOnce(V13_NPCS_STYLESHEET, 'chronus-v13-layer', 'npcs');
     appendStylesheetOnce(V13_LOCATIONS_STYLESHEET, 'chronus-v13-layer', 'locations');
+    appendStylesheetOnce(V13_FILES_STYLESHEET, 'chronus-v13-layer', 'files');
   }
 
   function setupCinematicHero() {
@@ -210,6 +213,50 @@ window.ChronusHome = (function() {
     }
     const locationsCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(4)');
     promoteCardToScene(locationsCard, 'locations');
+  }
+
+  function setupFilesScene() {
+    const home = document.getElementById('view-home');
+    const locationsScene = home?.querySelector('.locations-scene-v13');
+    const editorial = home?.querySelector('.editorial-section');
+    if (!home || !locationsScene || !editorial) return;
+
+    if (!home.querySelector('.files-scene-v13')) {
+      const scene = document.createElement('section');
+      scene.className = 'files-scene-v13';
+      scene.setAttribute('aria-labelledby', 'files-scene-title');
+      scene.innerHTML = `
+        <div class="files-scene-head">
+          <div><div class="files-scene-index">05 · O que sobrou depois dos fatos</div><div class="files-scene-kicker">Evidências confiscadas</div><h2 class="files-scene-title" id="files-scene-title">Arquivos</h2></div>
+          <p class="files-scene-intro">Fotografias, cartas, recortes e relatórios não contam a verdade sozinhos. O arquivo reúne materiais recuperados pela mesa, preservando lacunas, censuras e contradições sem revelar informações que ainda pertencem ao Narrador.</p>
+        </div>
+        <div class="files-evidence-board">
+          <div class="files-board-surface" aria-label="Painel visual de evidências com documentos, fotografia, recorte de jornal e material censurado">
+            <div class="files-board-label"><span class="files-board-chip">Caso 05 · custódia ativa</span><span class="files-board-chip">Origem: campo</span><span class="files-board-chip">Integridade: parcial</span></div>
+            <span class="files-pin" aria-hidden="true"></span><span class="files-pin" aria-hidden="true"></span><span class="files-pin" aria-hidden="true"></span>
+            <article class="files-paper files-paper-report"><h3>Relatório de Ocorrência</h3><span class="files-paper-meta">Registro recuperado · cópia parcial</span><p>O depoente afirma ter ouvido <span class="files-redaction is-long" aria-label="trecho censurado"></span> antes da interrupção da energia.</p><p>A equipe registrou marcas no concreto próximas ao setor <span class="files-redaction is-short" aria-label="trecho censurado"></span>.</p><p>Encaminhar o material ao responsável por <span class="files-redaction" aria-label="trecho censurado"></span> antes de novo acesso.</p></article>
+            <article class="files-paper files-paper-letter"><h3>Carta não enviada</h3><span class="files-paper-meta">Data incerta · remetente preservado</span><p>“Se você encontrar esta página, não volte ao lugar onde nos vimos. Eles começaram a perguntar sobre a fotografia.”</p><p>“O nome que aparece no registro não é o mesmo que eu ouvi.”</p></article>
+            <figure class="files-evidence-photo" aria-label="Fotografia de evidência de Berlim noturna"></figure>
+            <article class="files-clipping"><strong>Ocorrências noturnas voltam a preocupar moradores</strong><p>Testemunhas descrevem falhas de energia e movimentação incomum em áreas antes isoladas. Autoridades tratam os relatos como coincidência.</p></article>
+            <div class="files-confiscated-stamp" aria-hidden="true">Confiscado · CHRONUS</div>
+          </div>
+          <aside class="files-case-panel" aria-label="Índice das evidências recuperadas">
+            <div class="files-case-head"><strong>Índice de evidências</strong><span>A leitura abaixo representa somente materiais já liberados aos personagens.</span></div>
+            <div class="files-evidence-list">
+              <article class="files-evidence-item"><span class="files-evidence-id">17-B</span><div><h3>Fotografia de campo</h3><p>Imagem deteriorada com origem não confirmada e detalhes ainda sob análise.</p></div><span class="files-evidence-status">Catalogada</span></article>
+              <article class="files-evidence-item"><span class="files-evidence-id">22-C</span><div><h3>Relatório incompleto</h3><p>Cópia com trechos ausentes, numeração irregular e referências incompatíveis.</p></div><span class="files-evidence-status is-sensitive">Censurado</span></article>
+              <article class="files-evidence-item"><span class="files-evidence-id">31-A</span><div><h3>Carta interceptada</h3><p>Documento pessoal recuperado; autenticidade e destinatário permanecem em investigação.</p></div><span class="files-evidence-status">Parcial</span></article>
+              <article class="files-evidence-item"><span class="files-evidence-id">44-D</span><div><h3>Recorte de jornal</h3><p>Notícia pública que ganha outro significado quando comparada às demais peças do caso.</p></div><span class="files-evidence-status">Público</span></article>
+            </div>
+            <div class="files-access-note">Trechos censurados existem para representar informação ainda não liberada à mesa. O painel não expõe segredos de Narrador.</div>
+            <div class="files-scene-footer"><span class="files-case-code">ARQ/BER/1992 · NÍVEL DE CAMPO</span><a class="files-scene-link" href="#/files" aria-label="Examinar os Arquivos da Crônica CHRONUS">Examinar Evidências <span aria-hidden="true">→</span></a></div>
+          </aside>
+        </div>`;
+      locationsScene.insertAdjacentElement('afterend', scene);
+    }
+
+    const filesCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(5)');
+    promoteCardToScene(filesCard, 'files');
   }
 
   function promoteCardToScene(card, sceneName) {
