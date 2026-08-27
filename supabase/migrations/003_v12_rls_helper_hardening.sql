@@ -316,7 +316,7 @@ BEGIN
        'is_chronus_player_or_narrator',
        'can_read_portal_asset'
      )
-     AND NOT (coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=']::text[]);
+     AND NOT ('search_path=""' = ANY(coalesce(p.proconfig, ARRAY[]::text[])));
 
   IF v_bad_search_path_count <> 0 THEN
     RAISE EXCEPTION 'CHRONUS v1.2 assertion failed: helper search_path is not pinned to empty';
