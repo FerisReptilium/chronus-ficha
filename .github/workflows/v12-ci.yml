@@ -46,3 +46,6 @@ jobs:
 
       - name: v1.2 RLS helper hardening regression
         run: node tests/v12_rls_hardening.test.js
+
+      - name: v1.2 RLS initplan optimization regression
+        run: node tests/v12_rls_initplan.test.js
