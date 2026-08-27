@@ -9,6 +9,7 @@ window.ChronusHome = (function() {
   const V13_NPCS_STYLESHEET = 'css/cinematic-npcs-v13.css';
   const V13_LOCATIONS_STYLESHEET = 'css/cinematic-locations-v13.css';
   const V13_FILES_STYLESHEET = 'css/cinematic-files-v13.css';
+  const V13_LIBRARY_STYLESHEET = 'css/cinematic-library-v13.css';
   const HERO_ART = 'assets/art/hero-berlin-1992.webp';
 
   function init() {
@@ -19,6 +20,7 @@ window.ChronusHome = (function() {
     setupNpcsScene();
     setupLocationsScene();
     setupFilesScene();
+    setupLibraryScene();
     setupHeroCta();
   }
 
@@ -38,6 +40,7 @@ window.ChronusHome = (function() {
     appendStylesheetOnce(V13_NPCS_STYLESHEET, 'chronus-v13-layer', 'npcs');
     appendStylesheetOnce(V13_LOCATIONS_STYLESHEET, 'chronus-v13-layer', 'locations');
     appendStylesheetOnce(V13_FILES_STYLESHEET, 'chronus-v13-layer', 'files');
+    appendStylesheetOnce(V13_LIBRARY_STYLESHEET, 'chronus-v13-layer', 'library');
   }
 
   function setupCinematicHero() {
@@ -257,6 +260,52 @@ window.ChronusHome = (function() {
 
     const filesCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(5)');
     promoteCardToScene(filesCard, 'files');
+  }
+
+  function setupLibraryScene() {
+    const home = document.getElementById('view-home');
+    const filesScene = home?.querySelector('.files-scene-v13');
+    const editorial = home?.querySelector('.editorial-section');
+    if (!home || !filesScene || !editorial) return;
+
+    if (!home.querySelector('.library-scene-v13')) {
+      const scene = document.createElement('section');
+      scene.className = 'library-scene-v13';
+      scene.setAttribute('aria-labelledby', 'library-scene-title');
+      scene.innerHTML = `
+        <div class="library-restricted-stamp" aria-hidden="true">Acervo restrito · CHRONUS</div>
+        <div class="library-scene-head">
+          <div><div class="library-scene-index">06 · Conhecimento preservado</div><div class="library-scene-kicker">Acervo de referência</div><h2 class="library-scene-title" id="library-scene-title">Biblioteca</h2></div>
+          <p class="library-scene-intro">Manuais, guias, documentos de apoio e volumes de consulta permanecem organizados em um acervo separado das evidências da investigação. Aqui está o conhecimento que pode ser estudado, revisitado e levado para a mesa sem confundir regra, referência e segredo narrativo.</p>
+        </div>
+        <div class="library-vault">
+          <div class="library-shelves" aria-label="Estante visual do acervo CHRONUS com manuais e documentos de referência">
+            <div class="library-vault-label"><span class="library-vault-chip">Coleção 06 · referência</span><span class="library-vault-chip">Formatos: PDF / documento</span><span class="library-vault-chip">Acesso conforme perfil</span></div>
+            <div class="library-book-grid">
+              <article class="library-volume"><div class="library-book-cover"><div><span class="library-book-type">Manual do sistema</span><div class="library-book-mark">✦</div><h3 class="library-book-title">CHRONUS<br>Ecologia Sobrenatural</h3></div><span class="library-book-edition">Volume principal de referência</span></div><div class="library-volume-meta"><span class="library-format">PDF</span><span class="library-access">Mesa</span></div></article>
+              <article class="library-volume"><div class="library-book-cover"><div><span class="library-book-type">Guia rápido</span><div class="library-book-mark">⌁</div><h3 class="library-book-title">Regras<br>de Campo</h3></div><span class="library-book-edition">Consulta durante a sessão</span></div><div class="library-volume-meta"><span class="library-format">PDF</span><span class="library-access">Jogadores</span></div></article>
+              <article class="library-volume"><div class="library-book-cover"><div><span class="library-book-type">Documento de apoio</span><div class="library-book-mark">◈</div><h3 class="library-book-title">Ecologia<br>Desperta</h3></div><span class="library-book-edition">Referência de ambientação</span></div><div class="library-volume-meta"><span class="library-format">PDF</span><span class="library-access">Mesa</span></div></article>
+              <article class="library-volume"><div class="library-book-cover"><div><span class="library-book-type">Acervo reservado</span><div class="library-book-mark">◇</div><h3 class="library-book-title">Notas do<br>Narrador</h3></div><span class="library-book-edition">Conteúdo condicionado a acesso</span></div><div class="library-volume-meta"><span class="library-format">Doc</span><span class="library-access is-restricted">Restrito</span></div></article>
+            </div>
+          </div>
+          <aside class="library-catalog-panel" aria-label="Catálogo de referência da Biblioteca CHRONUS">
+            <div class="library-catalog-head"><strong>Catálogo do acervo</strong><span>Tipos de material separados por finalidade para evitar confusão entre regras, apoio de mesa e conteúdo restrito.</span></div>
+            <div class="library-catalog-list">
+              <article class="library-catalog-item"><span class="library-catalog-code">SYS</span><div><h3>Manuais do Sistema</h3><p>Regras, procedimentos e documentos centrais para consulta da mesa.</p></div><span class="library-catalog-status">Referência</span></article>
+              <article class="library-catalog-item"><span class="library-catalog-code">QRG</span><div><h3>Guias rápidos</h3><p>Resumos, tabelas e materiais pensados para uso durante a sessão.</p></div><span class="library-catalog-status">Mesa</span></article>
+              <article class="library-catalog-item"><span class="library-catalog-code">LOR</span><div><h3>Ambientação</h3><p>Textos de apoio, ecologia sobrenatural e referências já liberadas.</p></div><span class="library-catalog-status">Leitura</span></article>
+              <article class="library-catalog-item"><span class="library-catalog-code">RES</span><div><h3>Acervo reservado</h3><p>Materiais cujo acesso depende do perfil e das permissões já existentes no portal.</p></div><span class="library-catalog-status is-restricted">Restrito</span></article>
+            </div>
+            <div class="library-classification" aria-label="Classificações da Biblioteca"><span>Manual</span><span>Guia</span><span>Documento</span></div>
+            <div class="library-access-note">Esta cena é apenas uma porta editorial para o acervo. A autorização real continua sendo determinada pelas regras de acesso já existentes no portal.</div>
+            <div class="library-scene-footer"><span class="library-vault-code">LIB/CHRONUS · CATÁLOGO DE REFERÊNCIA</span><a class="library-scene-link" href="#/library" aria-label="Acessar a Biblioteca CHRONUS">Acessar Acervo <span aria-hidden="true">→</span></a></div>
+          </aside>
+        </div>`;
+      filesScene.insertAdjacentElement('afterend', scene);
+    }
+
+    const libraryCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(6)');
+    promoteCardToScene(libraryCard, 'library');
   }
 
   function promoteCardToScene(card, sceneName) {
