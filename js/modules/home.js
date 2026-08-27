@@ -121,7 +121,11 @@ window.ChronusHome = (function() {
     editorial.classList.add('editorial-section-v13-rest');
 
     const chronicleCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(1)');
-    promoteCardToScene(chronicleCard, 'chronicle');
+    if (chronicleCard) {
+      chronicleCard.hidden = true;
+      chronicleCard.setAttribute('aria-hidden', 'true');
+      chronicleCard.dataset.promotedToScene = 'chronicle';
+    }
   }
 
   function setupSessionsScene() {
