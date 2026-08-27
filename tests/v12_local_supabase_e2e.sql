@@ -1,5 +1,5 @@
 -- CHRONUS v1.2 — local Supabase integration checks
--- Runs after migrations 001/002/003/004 inside the disposable CI database.
+-- Runs after migrations 001/002/003/004/005 inside the disposable CI database.
 \set ON_ERROR_STOP on
 
 -- Structural hardening: helpers must leave public and exist only in chronus_private.
@@ -25,6 +25,49 @@ BEGIN
   IF v_private <> 3 THEN
     RAISE EXCEPTION 'FAIL: private helper count = %', v_private;
   END IF;
+END $$;
+
+-- Migration 005 structural postcondition: no narrator FOR ALL policy remains on
+-- the 15 audited tables; one SELECT + three narrator write policies remain.
+DO $$
+DECLARE
+  v_all integer;
+  v_select integer;
+  v_writes integer;
+BEGIN
+  SELECT count(*) INTO v_all
+  FROM pg_policies
+  WHERE schemaname='public'
+    AND tablename = ANY (ARRAY[
+      'campaign_documents','campaign_sessions','chapter_locations','chapter_npcs',
+      'chronicle_chapters','library_items','locations','npc_documents','npc_locations',
+      'npcs','portal_assets','session_documents','session_locations','session_npcs','soundtrack'
+    ])
+    AND cmd='ALL';
+  IF v_all <> 0 THEN RAISE EXCEPTION 'FAIL migration 005: FOR ALL policies remain: %', v_all; END IF;
+
+  SELECT count(*) INTO v_select
+  FROM pg_policies
+  WHERE schemaname='public'
+    AND tablename = ANY (ARRAY[
+      'campaign_documents','campaign_sessions','chapter_locations','chapter_npcs',
+      'chronicle_chapters','library_items','locations','npc_documents','npc_locations',
+      'npcs','portal_assets','session_documents','session_locations','session_npcs','soundtrack'
+    ])
+    AND cmd='SELECT';
+  IF v_select <> 15 THEN RAISE EXCEPTION 'FAIL migration 005: expected 15 SELECT policies, found %', v_select; END IF;
+
+  SELECT count(*) INTO v_writes
+  FROM pg_policies
+  WHERE schemaname='public'
+    AND tablename = ANY (ARRAY[
+      'campaign_documents','campaign_sessions','chapter_locations','chapter_npcs',
+      'chronicle_chapters','library_items','locations','npc_documents','npc_locations',
+      'npcs','portal_assets','session_documents','session_locations','session_npcs','soundtrack'
+    ])
+    AND cmd IN ('INSERT','UPDATE','DELETE')
+    AND policyname ~ '_admin_(insert|update|delete)$';
+  IF v_writes <> 45 THEN RAISE EXCEPTION 'FAIL migration 005: expected 45 narrator write policies, found %', v_writes; END IF;
 END $$;
 
 -- Local auth identities. JWT role/subject are simulated with request.jwt.claims,
@@ -136,6 +179,15 @@ BEGIN
   END;
   IF NOT v_blocked THEN RAISE EXCEPTION 'FAIL player inserted character for another user'; END IF;
 
+  v_blocked := false;
+  BEGIN
+    INSERT INTO public.chronicle_chapters (id, title, slug, content, visibility, published)
+    VALUES ('10000000-0000-0000-0000-000000000010','Forbidden Player Chapter','v12-player-forbidden','forbidden','players',false);
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+    v_blocked := true;
+  END;
+  IF NOT v_blocked THEN RAISE EXCEPTION 'FAIL player gained editorial INSERT after migration 005'; END IF;
+
   UPDATE public.characters
      SET name = 'V12 Player Character Updated'
    WHERE id = '30000000-0000-0000-0000-000000000001';
@@ -160,8 +212,8 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- NARRATOR: all editorial rows/assets/profiles/characters remain readable, but
--- character write ownership is not broadened by the SELECT narrator exception.
+-- NARRATOR: all editorial rows/assets/profiles/characters remain readable and
+-- editorial INSERT/UPDATE/DELETE remains authorized after replacing FOR ALL.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000102"}',true);
@@ -197,7 +249,21 @@ BEGIN
      SET name = 'V12 Narrator Illicit Update'
    WHERE id = '30000000-0000-0000-0000-000000000001';
   GET DIAGNOSTICS v_rows = ROW_COUNT;
-  IF v_rows <> 0 THEN RAISE EXCEPTION 'FAIL narrator write access broadened by initplan migration'; END IF;
+  IF v_rows <> 0 THEN RAISE EXCEPTION 'FAIL narrator character write access broadened'; END IF;
+
+  INSERT INTO public.chronicle_chapters (id, chapter_number, title, slug, content, visibility, published)
+  VALUES ('10000000-0000-0000-0000-000000000020',20,'Narrator CRUD Chapter','v12-narrator-crud','crud','narrator',false);
+
+  UPDATE public.chronicle_chapters
+     SET title = 'Narrator CRUD Chapter Updated'
+   WHERE id = '10000000-0000-0000-0000-000000000020';
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 1 THEN RAISE EXCEPTION 'FAIL narrator editorial UPDATE rows: %', v_rows; END IF;
+
+  DELETE FROM public.chronicle_chapters
+   WHERE id = '10000000-0000-0000-0000-000000000020';
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 1 THEN RAISE EXCEPTION 'FAIL narrator editorial DELETE rows: %', v_rows; END IF;
 END $$;
 ROLLBACK;
 
@@ -212,4 +278,4 @@ BEGIN
   IF v_bad <> 0 THEN RAISE EXCEPTION 'FAIL policies still textual-public helper refs: %', v_bad; END IF;
 END $$;
 
-SELECT 'PASS: local migrations 003/004 integration — helper hardening, initplan optimization and RLS semantics' AS result;
+SELECT 'PASS: local migrations 003/004/005 integration — helper hardening, initplan optimization, permissive-policy consolidation and RLS semantics' AS result;
