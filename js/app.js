@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Inicializar Módulos de Página
   window.ChronusHome.init();
+  try {
+    await loadScriptOnce('js/modules/home_motion.js');
+  } catch (error) {
+    console.error('CHRONUS v1.3: camada de movimento indisponível; mantendo Home estática.', error);
+  }
   window.ChronusChronicle?.init?.();
   window.ChronusSessions?.init?.();
   window.ChronusNpcs?.init?.();
