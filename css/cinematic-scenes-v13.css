@@ -1,0 +1,335 @@
+/* ==========================================================================
+   CHRONUS v1.3 — CINEMATIC EXPERIENCE / FASE 2A
+   Primeiro bloco editorial: A Crônica.
+   Isolado em #view-home. As demais views e a ficha permanecem intocadas.
+   ========================================================================== */
+
+#view-home .chronicle-scene-v13 {
+  position: relative;
+  isolation: isolate;
+  min-height: 640px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.18fr);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 8% 14%, rgba(143, 29, 29, 0.11), transparent 28%),
+    linear-gradient(115deg, #090706 0%, #100b08 45%, #070605 100%);
+  border-top: 1px solid rgba(201, 154, 69, 0.15);
+  border-bottom: 1px solid rgba(201, 154, 69, 0.18);
+}
+
+#view-home .chronicle-scene-v13::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: .34;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 4px),
+    radial-gradient(circle at 15% 35%, rgba(201,154,69,.06), transparent 35%);
+  mix-blend-mode: screen;
+}
+
+#view-home .chronicle-scene-copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding: clamp(54px, 8vw, 112px) clamp(26px, 6vw, 88px);
+}
+
+#view-home .chronicle-scene-copy::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(201,154,69,.34), transparent);
+}
+
+#view-home .chronicle-scene-index {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--gold-primary);
+  font-family: var(--font-sans);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+
+#view-home .chronicle-scene-index::after {
+  content: '';
+  width: clamp(48px, 7vw, 92px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(201,154,69,.75), transparent);
+}
+
+#view-home .chronicle-scene-kicker {
+  color: #a72a24;
+  font-family: var(--font-title);
+  font-size: clamp(.72rem, 1vw, .88rem);
+  font-weight: 700;
+  letter-spacing: .20em;
+  text-transform: uppercase;
+}
+
+#view-home .chronicle-scene-title {
+  margin: 0;
+  color: var(--gold-highlight);
+  font-family: var(--font-accent);
+  font-size: clamp(2.55rem, 5.7vw, 5rem);
+  font-weight: 900;
+  letter-spacing: .035em;
+  line-height: .98;
+  text-shadow: 0 12px 34px rgba(0,0,0,.55);
+}
+
+#view-home .chronicle-scene-lead {
+  max-width: 570px;
+  color: rgba(232,220,200,.78);
+  font-family: var(--font-serif);
+  font-size: clamp(1.12rem, 1.7vw, 1.38rem);
+  line-height: 1.55;
+}
+
+#view-home .chronicle-scene-quote {
+  max-width: 520px;
+  margin: 0;
+  padding: 14px 0 14px 18px;
+  border-left: 1px solid rgba(143,29,29,.72);
+  color: rgba(232,220,200,.62);
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+#view-home .chronicle-scene-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+#view-home .chronicle-scene-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 11px 18px;
+  border: 1px solid rgba(201,154,69,.62);
+  border-radius: 2px;
+  color: #f1ddae;
+  background: rgba(17,12,9,.68);
+  box-shadow: 0 9px 28px rgba(0,0,0,.25);
+  font-family: var(--font-title);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease;
+}
+
+#view-home .chronicle-scene-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-highlight);
+  background: rgba(37,25,16,.82);
+}
+
+#view-home .chronicle-scene-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  max-width: 610px;
+  margin-top: 8px;
+  border: 1px solid rgba(201,154,69,.15);
+  background: rgba(201,154,69,.08);
+}
+
+#view-home .chronicle-scene-meta-item {
+  min-width: 0;
+  padding: 14px 12px;
+  background: rgba(7,6,5,.86);
+}
+
+#view-home .chronicle-scene-meta-item strong,
+#view-home .chronicle-scene-meta-item span {
+  display: block;
+}
+
+#view-home .chronicle-scene-meta-item strong {
+  color: var(--gold-primary);
+  font-family: var(--font-title);
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#view-home .chronicle-scene-meta-item span {
+  margin-top: 3px;
+  color: rgba(232,220,200,.58);
+  font-size: .72rem;
+  line-height: 1.35;
+}
+
+#view-home .chronicle-scene-media {
+  position: relative;
+  min-height: 640px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, #090706 0%, rgba(9,7,6,.30) 18%, rgba(8,6,5,.05) 42%, rgba(8,6,5,.30) 100%),
+    linear-gradient(180deg, rgba(8,6,5,.05), rgba(8,6,5,.42)),
+    url('../assets/art/chronicle-scene-berlin-1992.webp') center / cover no-repeat,
+    linear-gradient(135deg, #1a120d, #080605);
+}
+
+#view-home .chronicle-scene-media::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 58% 46%, transparent 0 34%, rgba(7,6,5,.15) 62%, rgba(7,6,5,.60) 100%),
+    linear-gradient(180deg, rgba(7,6,5,.05), rgba(7,6,5,.28));
+}
+
+#view-home .chronicle-scene-stamp {
+  position: absolute;
+  right: clamp(18px, 4vw, 54px);
+  top: clamp(18px, 4vw, 52px);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border: 1px solid rgba(160,37,31,.58);
+  border-radius: 50%;
+  color: rgba(178,44,37,.78);
+  font-family: var(--font-title);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-align: center;
+  text-transform: uppercase;
+  transform: rotate(8deg);
+  box-shadow: inset 0 0 0 6px rgba(113,23,19,.07);
+}
+
+#view-home .chronicle-scene-stamp::before {
+  content: '✦';
+  display: block;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+#view-home .chronicle-scene-caption {
+  position: absolute;
+  left: clamp(18px, 3vw, 44px);
+  bottom: clamp(20px, 4vw, 46px);
+  z-index: 2;
+  max-width: 330px;
+  padding: 12px 14px;
+  border-left: 2px solid rgba(201,154,69,.60);
+  background: rgba(5,5,5,.68);
+  backdrop-filter: blur(8px);
+  color: rgba(232,220,200,.65);
+  font-family: var(--font-serif);
+  font-size: .90rem;
+  line-height: 1.45;
+}
+
+/* Os cards antigos permanecem temporariamente para os demais módulos da Home.
+   O primeiro card (Crônica) foi promovido para a cena acima e não é duplicado. */
+#view-home .editorial-section-v13-rest {
+  padding-top: 54px;
+}
+
+@media (max-width: 980px) {
+  #view-home .chronicle-scene-v13 {
+    grid-template-columns: 1fr;
+  }
+
+  #view-home .chronicle-scene-copy::after {
+    display: none;
+  }
+
+  #view-home .chronicle-scene-media {
+    min-height: min(66vw, 560px);
+    order: -1;
+  }
+
+  #view-home .chronicle-scene-copy {
+    padding-top: 48px;
+    padding-bottom: 54px;
+  }
+}
+
+@media (max-width: 600px) {
+  #view-home .chronicle-scene-v13,
+  #view-home .chronicle-scene-media {
+    min-height: auto;
+  }
+
+  #view-home .chronicle-scene-media {
+    height: 62vw;
+    min-height: 280px;
+    background-position: 58% center;
+  }
+
+  #view-home .chronicle-scene-copy {
+    gap: 16px;
+    padding: 38px 18px 44px;
+  }
+
+  #view-home .chronicle-scene-title {
+    font-size: clamp(2.35rem, 13vw, 3.5rem);
+  }
+
+  #view-home .chronicle-scene-lead {
+    font-size: 1.06rem;
+  }
+
+  #view-home .chronicle-scene-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  #view-home .chronicle-scene-meta {
+    grid-template-columns: 1fr;
+  }
+
+  #view-home .chronicle-scene-stamp {
+    width: 72px;
+    height: 72px;
+    font-size: .48rem;
+  }
+
+  #view-home .chronicle-scene-caption {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+    max-width: none;
+    font-size: .82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #view-home .chronicle-scene-link {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(8px)) {
+  #view-home .chronicle-scene-caption {
+    background: rgba(5,5,5,.90);
+  }
+}
