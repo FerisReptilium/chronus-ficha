@@ -1,0 +1,48 @@
+name: CHRONUS v1.2 CI
+
+on:
+  push:
+    branches:
+      - editorial-v1.2
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  v12-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: v1.1 regression suite
+        run: |
+          node --check js/app.js
+          node --check js/services/editorial.js
+          node --check js/services/editorial_v11.js
+          node --check js/services/secrets_v11.js
+          node --check js/services/relations_v11.js
+          node --check js/services/schedule_v11.js
+          node --check js/modules/narrator_panel.js
+          node --check js/modules/narrator_v11.js
+          node --check js/modules/library_v11.js
+          node --check js/modules/secrets_v11.js
+          node --check js/modules/relations_v11.js
+          node --check js/modules/schedule_v11.js
+          node --check js/modules/responsive_v11.js
+          node tests/v11_delete.test.js
+          node tests/v11_library.test.js
+          node tests/v11_library_ui.test.js
+          node tests/v11_secrets.test.js
+          node tests/v11_relations.test.js
+          node tests/v11_schedule.test.js
+
+      - name: v1.2 RLS helper hardening regression
+        run: node tests/v12_rls_hardening.test.js
