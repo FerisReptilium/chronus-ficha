@@ -6,6 +6,7 @@ window.ChronusHome = (function() {
   const V13_STYLESHEET = 'css/cinematic-v13.css';
   const V13_SCENES_STYLESHEET = 'css/cinematic-scenes-v13.css';
   const V13_SESSIONS_STYLESHEET = 'css/cinematic-sessions-v13.css';
+  const V13_NPCS_STYLESHEET = 'css/cinematic-npcs-v13.css';
   const HERO_ART = 'assets/art/hero-berlin-1992.webp';
 
   function init() {
@@ -13,6 +14,7 @@ window.ChronusHome = (function() {
     setupCinematicHero();
     setupChronicleScene();
     setupSessionsScene();
+    setupNpcsScene();
     setupHeroCta();
   }
 
@@ -30,6 +32,7 @@ window.ChronusHome = (function() {
     appendStylesheetOnce(V13_STYLESHEET, 'chronus-v13', 'cinematic');
     appendStylesheetOnce(V13_SCENES_STYLESHEET, 'chronus-v13-layer', 'scenes');
     appendStylesheetOnce(V13_SESSIONS_STYLESHEET, 'chronus-v13-layer', 'sessions');
+    appendStylesheetOnce(V13_NPCS_STYLESHEET, 'chronus-v13-layer', 'npcs');
   }
 
   function setupCinematicHero() {
@@ -188,6 +191,95 @@ window.ChronusHome = (function() {
 
     const sessionsCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(2)');
     promoteCardToScene(sessionsCard, 'sessions');
+  }
+
+  function setupNpcsScene() {
+    const home = document.getElementById('view-home');
+    const sessionsScene = home?.querySelector('.sessions-scene-v13');
+    const editorial = home?.querySelector('.editorial-section');
+    if (!home || !sessionsScene || !editorial) return;
+
+    if (!home.querySelector('.npcs-scene-v13')) {
+      const scene = document.createElement('section');
+      scene.className = 'npcs-scene-v13';
+      scene.setAttribute('aria-labelledby', 'npcs-scene-title');
+      scene.innerHTML = `
+        <div class="npcs-scene-head">
+          <div>
+            <div class="npcs-scene-index">03 · Pessoas, entidades e máscaras</div>
+            <div class="npcs-scene-kicker">Arquivo confidencial</div>
+            <h2 class="npcs-scene-title" id="npcs-scene-title">Dossiê de NPCs</h2>
+          </div>
+          <p class="npcs-scene-intro">
+            Nem todo rosto tem um nome verdadeiro. O dossiê reúne contatos, testemunhas, autoridades, aliados e presenças sobrenaturais já encontradas — separando o que a mesa sabe daquilo que continua sob suspeita.
+          </p>
+        </div>
+
+        <div class="npcs-dossier-grid" aria-label="Amostra visual do Dossiê de NPCs">
+          <article class="npc-dossier-card">
+            <div class="npc-dossier-portrait" role="img" aria-label="Retrato documental de um contato conhecido"></div>
+            <div class="npc-dossier-topline">
+              <span class="npc-dossier-code">ARQ · 021</span>
+              <span class="npc-dossier-status is-known">Conhecido</span>
+            </div>
+            <div class="npc-dossier-content">
+              <div class="npc-dossier-role">Contato confirmado</div>
+              <h3 class="npc-dossier-name">Fonte sob proteção</h3>
+              <p class="npc-dossier-relation">Relação com a Crônica: informação recorrente e acesso a setores civis da cidade.</p>
+              <div class="npc-dossier-metrics">
+                <div class="npc-dossier-metric npc-threat-low"><span>Ameaça</span><strong>Baixa</strong></div>
+                <div class="npc-dossier-metric"><span>Confiança</span><strong>Parcial</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="npc-dossier-card">
+            <div class="npc-dossier-portrait" role="img" aria-label="Retrato obscurecido de identidade não confirmada"></div>
+            <div class="npc-dossier-topline">
+              <span class="npc-dossier-code">ARQ · ???</span>
+              <span class="npc-dossier-status is-unknown">Não identificado</span>
+            </div>
+            <div class="npc-dossier-content">
+              <div class="npc-dossier-role">Presença recorrente</div>
+              <h3 class="npc-dossier-name">Identidade desconhecida</h3>
+              <p class="npc-dossier-relation">Relação com a Crônica: observada em registros incompatíveis. Motivações ainda não determinadas.</p>
+              <div class="npc-dossier-metrics">
+                <div class="npc-dossier-metric npc-threat-unknown"><span>Ameaça</span><strong>Incerta</strong></div>
+                <div class="npc-dossier-metric"><span>Status</span><strong>Vigilância</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="npc-dossier-card">
+            <div class="npc-dossier-portrait" role="img" aria-label="Retrato documental de um alvo classificado como perigoso"></div>
+            <div class="npc-dossier-topline">
+              <span class="npc-dossier-code">ARQ · 009</span>
+              <span class="npc-dossier-status is-known">Confirmado</span>
+            </div>
+            <div class="npc-dossier-content">
+              <div class="npc-dossier-role">Alvo de interesse</div>
+              <h3 class="npc-dossier-name">Sujeito sob vigilância</h3>
+              <p class="npc-dossier-relation">Relação com a Crônica: conexão direta com eventos ainda não explicados e múltiplas versões do mesmo relato.</p>
+              <div class="npc-dossier-metrics">
+                <div class="npc-dossier-metric npc-threat-high"><span>Ameaça</span><strong>Alta</strong></div>
+                <div class="npc-dossier-metric"><span>Contato</span><strong>Evitar</strong></div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="npcs-confidential-note">
+          <span class="npcs-confidential-stamp">Confidencial · acesso de campo</span>
+          <span>As classificações representam apenas o que os personagens conhecem. Verdades ocultas permanecem protegidas pela própria Crônica.</span>
+          <a class="npcs-scene-link" href="#/npcs" aria-label="Consultar o Dossiê completo de NPCs do CHRONUS">
+            Consultar Dossiê <span aria-hidden="true">→</span>
+          </a>
+        </div>`;
+      sessionsScene.insertAdjacentElement('afterend', scene);
+    }
+
+    const npcsCard = editorial.querySelector('.editorial-cards-grid > .editorial-card:nth-child(3)');
+    promoteCardToScene(npcsCard, 'npcs');
   }
 
   function promoteCardToScene(card, sceneName) {
