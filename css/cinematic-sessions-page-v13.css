@@ -1,0 +1,547 @@
+/* ==========================================================================
+   CHRONUS v1.3 — CINEMATIC EXPERIENCE / FASE 4B
+   Página interna: Sessões (#/sessions).
+   Diário investigativo cinematográfico alimentado pelos registros reais do
+   Supabase. Escopo restrito a #view-sessions.
+   ========================================================================== */
+
+#view-sessions.sessions-internal-v13 {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 18%, rgba(151, 37, 31, .11), transparent 30%),
+    radial-gradient(circle at 82% 58%, rgba(201, 154, 69, .06), transparent 31%),
+    linear-gradient(136deg, #070605 0%, #110c09 48%, #060504 100%);
+}
+
+#view-sessions.sessions-internal-v13 > .editorial-section {
+  padding: 0 0 clamp(56px, 7vw, 92px);
+  background: transparent;
+}
+
+#view-sessions .portal-container {
+  max-width: 1280px;
+}
+
+/* Hero interno com linguagem de diário de investigação. */
+#view-sessions .section-head-editorial {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(390px, 54vh, 590px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin: 0 calc(50% - 50vw) clamp(42px, 6vw, 76px);
+  padding: clamp(86px, 12vh, 138px) max(clamp(22px, 6vw, 92px), calc((100vw - 1280px) / 2 + 24px)) clamp(50px, 7vw, 82px);
+  overflow: hidden;
+  text-align: left;
+  border-bottom: 1px solid rgba(201,154,69,.20);
+  background:
+    linear-gradient(90deg, rgba(5,5,5,.96) 0%, rgba(5,5,5,.72) 38%, rgba(5,5,5,.35) 72%, rgba(5,5,5,.66) 100%),
+    repeating-linear-gradient(0deg, rgba(229,207,165,.035) 0 1px, transparent 1px 30px),
+    linear-gradient(135deg, #21160f, #090706 74%);
+}
+
+#view-sessions .section-head-editorial::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 71% 33%, rgba(167,45,38,.10), transparent 22%),
+    radial-gradient(ellipse at 54% 46%, transparent 0 28%, rgba(5,5,5,.18) 54%, rgba(5,5,5,.72) 100%),
+    linear-gradient(180deg, transparent 38%, rgba(5,5,5,.58) 100%);
+}
+
+#view-sessions .section-head-editorial::after {
+  content: 'DIÁRIO DE CAMPO · REGISTRO CRONOLÓGICO';
+  position: absolute;
+  right: clamp(20px, 5vw, 72px);
+  top: clamp(24px, 6vw, 64px);
+  padding: 8px 11px;
+  border: 1px solid rgba(174,50,43,.46);
+  color: rgba(203,75,65,.62);
+  font-family: var(--font-title);
+  font-size: .56rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transform: rotate(2deg);
+}
+
+#view-sessions .sessions-page-context-v13 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: rgba(238,224,198,.58);
+  font-family: var(--font-sans);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+}
+
+#view-sessions .sessions-page-context-v13::before {
+  content: '';
+  width: clamp(34px, 5vw, 70px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(177,61,53,.82), transparent);
+}
+
+#view-sessions .section-head-editorial .section-kicker {
+  color: #c0544a;
+  letter-spacing: .18em;
+}
+
+#view-sessions .section-head-editorial .section-heading {
+  max-width: 840px;
+  margin: 7px 0 12px;
+  color: #f0dfb7;
+  font-family: var(--font-accent);
+  font-size: clamp(2.8rem, 7vw, 6rem);
+  line-height: .94;
+  text-shadow: 0 14px 42px rgba(0,0,0,.66);
+}
+
+#view-sessions .section-head-editorial .section-desc-lead {
+  max-width: 680px;
+  margin: 0;
+  color: rgba(235,222,198,.72);
+  font-family: var(--font-serif);
+  font-size: clamp(1.08rem, 1.7vw, 1.36rem);
+  line-height: 1.55;
+}
+
+/* Resumo calculado somente a partir das sessões retornadas para o perfil. */
+#view-sessions .sessions-page-summary-v13 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: clamp(30px, 4vw, 48px);
+  border: 1px solid rgba(201,154,69,.17);
+  background: rgba(201,154,69,.07);
+}
+
+#view-sessions .sessions-page-summary-item-v13 {
+  padding: 16px 18px;
+  background: rgba(7,6,5,.86);
+}
+
+#view-sessions .sessions-page-summary-item-v13 span,
+#view-sessions .sessions-page-summary-item-v13 strong {
+  display: block;
+}
+
+#view-sessions .sessions-page-summary-item-v13 span {
+  color: rgba(232,220,200,.42);
+  font-family: var(--font-sans);
+  font-size: .55rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#view-sessions .sessions-page-summary-item-v13 strong {
+  margin-top: 4px;
+  color: rgba(240,229,210,.84);
+  font-family: var(--font-title);
+  font-size: .80rem;
+  letter-spacing: .03em;
+}
+
+/* Linha cronológica real. */
+#view-sessions .sessions-page-timeline-v13 {
+  position: relative;
+  display: grid;
+  gap: clamp(24px, 3.7vw, 42px);
+  padding-left: clamp(28px, 3.3vw, 46px);
+}
+
+#view-sessions .sessions-page-timeline-v13::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  bottom: 20px;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(179,60,52,.74), rgba(201,154,69,.52), rgba(179,60,52,.28));
+}
+
+#view-sessions .sessions-page-entry-v13 {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(245px, .72fr) minmax(0, 1.28fr);
+  min-height: 370px;
+  overflow: hidden;
+  border: 1px solid rgba(201,154,69,.19);
+  background: linear-gradient(135deg, rgba(25,17,12,.94), rgba(8,7,6,.98));
+  box-shadow: 0 20px 54px rgba(0,0,0,.32);
+}
+
+#view-sessions .sessions-page-entry-v13::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * clamp(28px, 3.3vw, 46px) - 4px);
+  top: 31px;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(240,215,165,.72);
+  border-radius: 50%;
+  background: #86231e;
+  box-shadow: 0 0 0 5px rgba(134,35,30,.12);
+}
+
+#view-sessions .sessions-page-entry-v13:nth-child(even) {
+  grid-template-columns: minmax(0, 1.28fr) minmax(245px, .72fr);
+}
+
+#view-sessions .sessions-page-entry-v13:nth-child(even) .sessions-page-cover-v13 {
+  order: 2;
+}
+
+#view-sessions .sessions-page-entry-v13.is-latest {
+  border-color: rgba(201,154,69,.36);
+  box-shadow: 0 25px 68px rgba(0,0,0,.39), 0 0 40px rgba(201,154,69,.04);
+}
+
+#view-sessions .sessions-page-cover-v13 {
+  position: relative;
+  min-height: 370px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(0deg, rgba(218,196,151,.035) 0 1px, transparent 1px 28px),
+    radial-gradient(circle at 50% 32%, rgba(201,154,69,.09), transparent 28%),
+    linear-gradient(145deg, #25180f, #080706 76%);
+}
+
+#view-sessions .sessions-page-cover-v13::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 28%, rgba(5,5,5,.12) 58%, rgba(5,5,5,.70));
+}
+
+#view-sessions .sessions-page-cover-v13 img {
+  width: 100%;
+  height: 100%;
+  min-height: 370px;
+  display: block;
+  object-fit: cover;
+  filter: grayscale(.18) sepia(.08) saturate(.70) contrast(1.09) brightness(.70);
+  transition: transform .55s ease, filter .35s ease;
+}
+
+#view-sessions .sessions-page-entry-v13:hover .sessions-page-cover-v13 img {
+  transform: scale(1.025);
+  filter: grayscale(.12) sepia(.06) saturate(.76) contrast(1.10) brightness(.75);
+}
+
+#view-sessions .sessions-page-cover-fallback-v13 {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(200,163,93,.40);
+  font-family: var(--font-accent);
+  font-size: clamp(3rem, 7vw, 5.2rem);
+}
+
+#view-sessions .sessions-page-cover-fallback-v13::after {
+  content: 'REGISTRO';
+  position: absolute;
+  bottom: 48%;
+  margin-bottom: -64px;
+  color: rgba(229,208,166,.26);
+  font-family: var(--font-sans);
+  font-size: .55rem;
+  font-weight: 800;
+  letter-spacing: .22em;
+}
+
+#view-sessions .sessions-page-cover-code-v13 {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  bottom: 14px;
+  color: rgba(238,220,182,.55);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .59rem;
+  letter-spacing: .08em;
+}
+
+#view-sessions .sessions-page-entry-body-v13 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(26px, 4vw, 48px);
+}
+
+#view-sessions .sessions-page-topline-v13 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#view-sessions .sessions-page-entry-kicker-v13 {
+  color: #c15349;
+  font-family: var(--font-sans);
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+
+#view-sessions .sessions-page-status-v13 {
+  padding: 5px 8px;
+  border: 1px solid rgba(201,154,69,.25);
+  color: rgba(233,214,176,.62);
+  font-family: var(--font-sans);
+  font-size: .52rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#view-sessions .sessions-page-status-v13.status-in-progress {
+  border-color: rgba(201,154,69,.45);
+  color: #d7b267;
+}
+
+#view-sessions .sessions-page-status-v13.status-planned {
+  border-style: dashed;
+}
+
+#view-sessions .sessions-page-status-v13.status-canceled {
+  border-color: rgba(174,50,43,.45);
+  color: #cc6860;
+}
+
+#view-sessions .sessions-page-entry-title-v13 {
+  margin: 9px 0 4px;
+  color: rgba(241,226,194,.94);
+  font-family: var(--font-title);
+  font-size: clamp(1.65rem, 3.2vw, 2.8rem);
+  line-height: 1.08;
+}
+
+#view-sessions .sessions-page-dates-v13 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 8px 0 17px;
+}
+
+#view-sessions .sessions-page-date-v13 {
+  color: rgba(214,180,111,.66);
+  font-family: var(--font-serif);
+  font-size: .90rem;
+  font-style: italic;
+}
+
+#view-sessions .sessions-page-entry-summary-v13 {
+  max-width: 740px;
+  margin: 0;
+  color: rgba(232,220,200,.64);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.58;
+}
+
+#view-sessions .sessions-page-entry-meta-v13 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+#view-sessions .sessions-page-meta-chip-v13 {
+  padding: 5px 8px;
+  border: 1px solid rgba(201,154,69,.20);
+  color: rgba(232,220,200,.49);
+  font-family: var(--font-sans);
+  font-size: .53rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#view-sessions .sessions-page-meta-chip-v13.is-draft {
+  border-color: rgba(176,52,45,.42);
+  color: #cd6b63;
+}
+
+/* Eventos e pistas: o texto real permanece como texto, nunca HTML. */
+#view-sessions .sessions-page-investigation-v13 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+#view-sessions .sessions-page-details-v13 {
+  min-width: 0;
+  border: 1px solid rgba(201,154,69,.15);
+  background: rgba(5,5,5,.22);
+}
+
+#view-sessions .sessions-page-details-v13 summary {
+  cursor: pointer;
+  padding: 11px 13px;
+  color: #d7b26b;
+  font-family: var(--font-title);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+}
+
+#view-sessions .sessions-page-record-text-v13 {
+  margin: 0;
+  padding: 5px 14px 15px;
+  color: rgba(232,220,200,.62);
+  font-family: var(--font-serif);
+  font-size: .92rem;
+  line-height: 1.62;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+#view-sessions .sessions-page-details-v13.is-clues {
+  border-color: rgba(167,51,44,.22);
+}
+
+#view-sessions .sessions-page-details-v13.is-clues summary {
+  color: #cf776e;
+}
+
+/* Loading / empty / error. */
+#view-sessions .sessions-page-state-v13 {
+  min-height: 310px;
+  display: grid;
+  place-items: center;
+  padding: 48px 22px;
+  border: 1px solid rgba(201,154,69,.18);
+  background: radial-gradient(circle at 50% 40%, rgba(201,154,69,.05), transparent 35%), rgba(8,7,6,.72);
+  text-align: center;
+}
+
+#view-sessions .sessions-page-state-inner-v13 {
+  max-width: 520px;
+}
+
+#view-sessions .sessions-page-state-inner-v13 h3 {
+  margin: 12px 0 8px;
+  color: rgba(240,229,210,.88);
+  font-family: var(--font-title);
+}
+
+#view-sessions .sessions-page-state-inner-v13 p {
+  color: rgba(232,220,200,.54);
+  font-family: var(--font-serif);
+  line-height: 1.5;
+}
+
+#view-sessions .sessions-page-state-mark-v13 {
+  color: rgba(201,154,69,.58);
+  font-family: var(--font-accent);
+  font-size: 2.4rem;
+}
+
+@media (max-width: 980px) {
+  #view-sessions .sessions-page-summary-v13 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #view-sessions .sessions-page-entry-v13,
+  #view-sessions .sessions-page-entry-v13:nth-child(even) {
+    grid-template-columns: 1fr;
+  }
+
+  #view-sessions .sessions-page-entry-v13:nth-child(even) .sessions-page-cover-v13 {
+    order: 0;
+  }
+
+  #view-sessions .sessions-page-cover-v13,
+  #view-sessions .sessions-page-cover-v13 img {
+    min-height: min(56vw, 430px);
+  }
+}
+
+@media (max-width: 600px) {
+  #view-sessions .section-head-editorial {
+    min-height: 430px;
+    padding: 86px 18px 42px;
+  }
+
+  #view-sessions .section-head-editorial::after {
+    display: none;
+  }
+
+  #view-sessions .section-head-editorial .section-heading {
+    font-size: clamp(2.7rem, 14vw, 4.25rem);
+  }
+
+  #view-sessions .sessions-page-summary-v13 {
+    grid-template-columns: 1fr;
+  }
+
+  #view-sessions .sessions-page-timeline-v13 {
+    padding-left: 18px;
+  }
+
+  #view-sessions .sessions-page-timeline-v13::before {
+    left: 4px;
+  }
+
+  #view-sessions .sessions-page-entry-v13::before {
+    left: -18px;
+  }
+
+  #view-sessions .sessions-page-entry-v13 {
+    min-height: auto;
+  }
+
+  #view-sessions .sessions-page-cover-v13,
+  #view-sessions .sessions-page-cover-v13 img {
+    min-height: 250px;
+  }
+
+  #view-sessions .sessions-page-entry-body-v13 {
+    padding: 24px 18px 28px;
+  }
+
+  #view-sessions .sessions-page-entry-title-v13 {
+    font-size: clamp(1.6rem, 9vw, 2.25rem);
+  }
+
+  #view-sessions .sessions-page-investigation-v13 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #view-sessions .sessions-page-details-v13 summary:hover {
+    color: #efd08b;
+  }
+
+  #view-sessions .sessions-page-details-v13.is-clues summary:hover {
+    color: #e28b81;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #view-sessions .sessions-page-cover-v13 img,
+  #view-sessions .sessions-page-entry-v13,
+  #view-sessions .portal-btn {
+    transition: none !important;
+    transform: none !important;
+  }
+}
