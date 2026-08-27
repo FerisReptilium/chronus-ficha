@@ -5,6 +5,7 @@ const app = fs.readFileSync('js/app.js', 'utf8');
 const motion = fs.readFileSync('js/modules/home_motion.js', 'utf8');
 const css = fs.readFileSync('css/cinematic-motion-v13.css', 'utf8');
 const audit = fs.readFileSync('docs/v13-home-visual-audit.md', 'utf8');
+const motionWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 assert(app.includes("loadScriptOnce('js/modules/home_motion.js')"), 'Phase 3 motion layer must be loaded after Home init');
 assert(app.includes('mantendo Home estática'), 'motion failure must degrade gracefully');
@@ -32,10 +33,9 @@ assert(css.includes('#view-home.is-v13-motion-enabled .v13-motion-scene'), 'moti
 assert(css.includes('@media (prefers-reduced-motion: reduce)'), 'motion CSS must expose reduced-motion fallback');
 assert(css.includes('@media (hover: hover) and (pointer: fine)'), 'hover movement must be pointer-capability gated');
 assert(css.includes('focus-visible'), 'editorial CTAs need visible keyboard focus');
-assert(!css.includes('#view-sheet'), 'Phase 3 must not target the character sheet');
+assert(!motionWithoutComments.includes('#view-sheet'), 'Phase 3 must not target the character sheet');
 
 // Audit decision: repeated hero art should remain absent from sessions/NPC/location overrides.
-const motionWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 assert(!/sessions-scene-archive[\s\S]{0,700}hero-berlin-1992/.test(motionWithoutComments), 'Sessions audit override should not reuse hero art');
 assert(!/npc-dossier-portrait[\s\S]{0,700}hero-berlin-1992/.test(motionWithoutComments), 'NPC audit override should not reuse hero art');
 assert(!/locations-atlas-map[\s\S]{0,900}hero-berlin-1992/.test(motionWithoutComments), 'Locations audit override should not reuse hero art');
