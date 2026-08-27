@@ -49,3 +49,6 @@ jobs:
 
       - name: v1.2 RLS initplan optimization regression
         run: node tests/v12_rls_initplan.test.js
+
+      - name: v1.2 permissive policy consolidation regression
+        run: node tests/v12_permissive_policies.test.js
