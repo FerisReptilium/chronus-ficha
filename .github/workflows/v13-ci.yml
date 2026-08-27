@@ -44,3 +44,6 @@ jobs:
 
       - name: v1.3 cinematic hero Phase 1
         run: node tests/v13_cinematic_hero.test.js
+
+      - name: v1.3 Chronicle cinematic scene Phase 2A
+        run: node tests/v13_cinematic_chronicle.test.js
