@@ -1,0 +1,59 @@
+name: CHRONUS v1.2 permissive policy E2E
+
+on:
+  push:
+    branches: [editorial-v1.2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-policy-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Build disposable Supabase project
+        run: |
+          rm -rf .supabase-v12-policy
+          mkdir -p .supabase-v12-policy/supabase/migrations
+          cp tests/fixtures/v12_local_v10_baseline.sql .supabase-v12-policy/supabase/migrations/20260827000000_local_v10_baseline.sql
+          cp supabase/migrations/001_portal_content.sql .supabase-v12-policy/supabase/migrations/20260827000100_portal_content.sql
+          cp supabase/migrations/002_v11_security_hardening.sql .supabase-v12-policy/supabase/migrations/20260827000200_v11_security_hardening.sql
+          cp supabase/migrations/003_v12_rls_helper_hardening.sql .supabase-v12-policy/supabase/migrations/20260827000300_v12_rls_helper_hardening.sql
+          cp supabase/migrations/004_v12_rls_initplan_optimization.sql .supabase-v12-policy/supabase/migrations/20260827000400_v12_rls_initplan_optimization.sql
+          cp supabase/migrations/005_v12_permissive_policy_consolidation.sql .supabase-v12-policy/supabase/migrations/20260827000500_v12_permissive_policy_consolidation.sql
+          cd .supabase-v12-policy
+          supabase init
+      - name: Start disposable stack through migration 005
+        working-directory: .supabase-v12-policy
+        run: |
+          if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor > supabase-start.log 2>&1; then
+            grep -E 'Applying migration|ERROR:|failed:|At statement:|WARN:' supabase-start.log || true
+            exit 1
+          fi
+          supabase status -o env > ../supabase-policy.env
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Run v1.2 RLS integration suite
+        run: |
+          set -a
+          source supabase-policy.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/v12_local_supabase_e2e.sql
+      - name: Verify migration 005 registry
+        run: |
+          set -a
+          source supabase-policy.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select version,name from supabase_migrations.schema_migrations where version='20260827000500';"
+      - name: Stop disposable stack
+        if: always()
+        working-directory: .supabase-v12-policy
+        run: supabase stop --no-backup || true
