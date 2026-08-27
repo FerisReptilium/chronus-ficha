@@ -30,10 +30,11 @@ jobs:
           cp supabase/migrations/002_v11_security_hardening.sql .supabase-v12-local/supabase/migrations/20260827000200_v11_security_hardening.sql
           cp supabase/migrations/003_v12_rls_helper_hardening.sql .supabase-v12-local/supabase/migrations/20260827000300_v12_rls_helper_hardening.sql
           cp supabase/migrations/004_v12_rls_initplan_optimization.sql .supabase-v12-local/supabase/migrations/20260827000400_v12_rls_initplan_optimization.sql
+          cp supabase/migrations/005_v12_permissive_policy_consolidation.sql .supabase-v12-local/supabase/migrations/20260827000500_v12_permissive_policy_consolidation.sql
           cd .supabase-v12-local
           supabase init
 
-      - name: Start disposable Supabase stack and apply baseline + migrations 001 -> 004
+      - name: Start disposable Supabase stack and apply baseline + migrations 001 -> 005
         working-directory: .supabase-v12-local
         run: |
           if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor > supabase-start.log 2>&1; then
@@ -60,7 +61,7 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           select version, name
           from supabase_migrations.schema_migrations
-          where version in ('20260827000000','20260827000100','20260827000200','20260827000300','20260827000400')
+          where version in ('20260827000000','20260827000100','20260827000200','20260827000300','20260827000400','20260827000500')
           order by version;
           SQL
 
@@ -111,7 +112,7 @@ jobs:
 
           select schemaname, tablename, policyname, cmd, qual, with_check
           from pg_policies
-          where schemaname='public' and tablename in ('characters','profiles')
+          where schemaname='public' and tablename in ('characters','profiles','chronicle_chapters','portal_assets')
           order by tablename, policyname;
           SQL
 
