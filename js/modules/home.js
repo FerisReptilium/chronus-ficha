@@ -4,22 +4,29 @@
  */
 window.ChronusHome = (function() {
   const V13_STYLESHEET = 'css/cinematic-v13.css';
+  const V13_SCENES_STYLESHEET = 'css/cinematic-scenes-v13.css';
   const HERO_ART = 'assets/art/hero-berlin-1992.webp';
 
   function init() {
     setupV13Styles();
     setupCinematicHero();
+    setupChronicleScene();
     setupHeroCta();
   }
 
-  function setupV13Styles() {
-    if (document.querySelector(`link[data-chronus-v13="cinematic"]`)) return;
+  function appendStylesheetOnce(href, datasetKey, datasetValue) {
+    if (document.querySelector(`link[data-${datasetKey}="${datasetValue}"]`)) return;
 
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = V13_STYLESHEET;
-    link.dataset.chronusV13 = 'cinematic';
+    link.href = href;
+    link.dataset[datasetKey.replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = datasetValue;
     document.head.appendChild(link);
+  }
+
+  function setupV13Styles() {
+    appendStylesheetOnce(V13_STYLESHEET, 'chronus-v13', 'cinematic');
+    appendStylesheetOnce(V13_SCENES_STYLESHEET, 'chronus-v13-layer', 'scenes');
   }
 
   function setupCinematicHero() {
@@ -49,8 +56,6 @@ window.ChronusHome = (function() {
       hero.appendChild(scrollCue);
     }
 
-    // A Fase 1 não depende de asset externo: se a arte original ainda não
-    // estiver no repositório, o CSS mantém um fallback cinematográfico completo.
     preloadOptionalHeroArt(hero);
 
     requestAnimationFrame(() => {
@@ -69,6 +74,55 @@ window.ChronusHome = (function() {
       hero.classList.remove('is-art-ready');
     };
     image.src = HERO_ART;
+  }
+
+  function setupChronicleScene() {
+    const home = document.getElementById('view-home');
+    const hero = home?.querySelector('.hero-cinematic');
+    const editorial = home?.querySelector('.editorial-section');
+    if (!home || !hero || !editorial) return;
+
+    if (!home.querySelector('.chronicle-scene-v13')) {
+      const scene = document.createElement('section');
+      scene.className = 'chronicle-scene-v13';
+      scene.setAttribute('aria-labelledby', 'chronicle-scene-title');
+      scene.innerHTML = `
+        <div class="chronicle-scene-copy">
+          <div class="chronicle-scene-index">01 · A história que vocês vivem</div>
+          <div class="chronicle-scene-kicker">Capítulo de entrada</div>
+          <h2 class="chronicle-scene-title" id="chronicle-scene-title">A Crônica</h2>
+          <p class="chronicle-scene-lead">
+            Depois da queda do Muro, Berlim não ficou apenas dividida por lembranças. Algo antigo se moveu nas sombras, e cada descoberta aproxima os personagens de uma realidade que sempre esteve ali.
+          </p>
+          <blockquote class="chronicle-scene-quote">
+            “O Véu não caiu por acidente. Alguém abriu uma porta.”
+          </blockquote>
+          <div class="chronicle-scene-actions">
+            <a class="chronicle-scene-link" href="#/chronicle" aria-label="Acessar a Crônica do CHRONUS">
+              <span aria-hidden="true">✦</span> Acessar a Crônica <span aria-hidden="true">→</span>
+            </a>
+          </div>
+          <div class="chronicle-scene-meta" aria-label="Elementos da Crônica">
+            <div class="chronicle-scene-meta-item"><strong>História</strong><span>Capítulos e revelações</span></div>
+            <div class="chronicle-scene-meta-item"><strong>Escolhas</strong><span>Decisões dos personagens</span></div>
+            <div class="chronicle-scene-meta-item"><strong>Consequências</strong><span>O mundo reage à mesa</span></div>
+          </div>
+        </div>
+        <div class="chronicle-scene-media" role="img" aria-label="Berlim noturna e chuvosa, cenário da Crônica CHRONUS em 1992">
+          <div class="chronicle-scene-stamp" aria-hidden="true">Arquivo<br>Chronus</div>
+          <p class="chronicle-scene-caption">Berlim, 1992. Fotografias, mapas e fragmentos de uma cidade onde o sobrenatural se esconde à vista de todos.</p>
+        </div>`;
+      hero.insertAdjacentElement('afterend', scene);
+    }
+
+    editorial.classList.add('editorial-section-v13-rest');
+
+    const chronicleCard = editorial.querySelector('.editorial-cards-grid > .editorial-card');
+    if (chronicleCard) {
+      chronicleCard.hidden = true;
+      chronicleCard.setAttribute('aria-hidden', 'true');
+      chronicleCard.dataset.promotedToScene = 'chronicle';
+    }
   }
 
   function setupHeroCta() {
