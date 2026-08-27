@@ -25,6 +25,10 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check js/app.js
+          node --check js/router.js
+          node --check js/services/auth.js
+          node --check js/services/content.js
+          node --check js/services/assets.js
           node --check js/modules/home.js
           node --check js/modules/home_motion.js
           node --check js/modules/chronicle.js
@@ -33,6 +37,7 @@ jobs:
           node --check js/modules/locations.js
           node --check js/modules/documents.js
           node --check js/modules/library.js
+          node --check js/modules/sheet_engine.js
 
       - name: v1.1 regression suite
         run: |
@@ -90,3 +95,30 @@ jobs:
 
       - name: v1.3 Library internal cinematic archive Phase 4F
         run: node tests/v13_cinematic_library_page.test.js
+
+      - name: v1.3 final release readiness QA
+        run: node tests/v13_release_qa.test.js
+
+      - name: Static smoke server
+        run: |
+          python3 -m http.server 4173 >/tmp/chronus-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid 2>/dev/null || true' EXIT
+          sleep 1
+          for path in \
+            / \
+            /index.html \
+            /js/app.js \
+            /js/router.js \
+            /js/modules/sheet_engine.js \
+            /assets/art/hero-berlin-1992.webp \
+            /css/cinematic-v13.css \
+            /css/cinematic-chronicle-page-v13.css \
+            /css/cinematic-sessions-page-v13.css \
+            /css/cinematic-npcs-page-v13.css \
+            /css/cinematic-locations-page-v13.css \
+            /css/cinematic-files-page-v13.css \
+            /css/cinematic-library-page-v13.css; do
+            curl --fail --silent --show-error "http://127.0.0.1:4173${path}" >/dev/null
+          done
+          echo "v1.3 static smoke: PASS"
