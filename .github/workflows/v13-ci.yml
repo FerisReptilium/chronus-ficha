@@ -29,6 +29,7 @@ jobs:
           node --check js/modules/home_motion.js
           node --check js/modules/chronicle.js
           node --check js/modules/sessions.js
+          node --check js/modules/npcs.js
 
       - name: v1.1 regression suite
         run: |
@@ -74,3 +75,6 @@ jobs:
 
       - name: v1.3 Sessions internal cinematic page Phase 4B
         run: node tests/v13_cinematic_sessions_page.test.js
+
+      - name: v1.3 NPC internal cinematic dossier Phase 4C
+        run: node tests/v13_cinematic_npcs_page.test.js
