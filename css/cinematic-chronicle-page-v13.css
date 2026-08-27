@@ -1,0 +1,471 @@
+/* ==========================================================================
+   CHRONUS v1.3 — CINEMATIC EXPERIENCE / FASE 4A
+   Página interna: Crônica (#/chronicle).
+   Mantém o conteúdo real vindo do Supabase e a resolução segura de capas.
+   Escopo restrito a #view-chronicle.
+   ========================================================================== */
+
+#view-chronicle.chronicle-internal-v13 {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 80% 12%, rgba(139, 31, 27, .11), transparent 30%),
+    radial-gradient(circle at 14% 42%, rgba(201, 154, 69, .06), transparent 32%),
+    linear-gradient(135deg, #070605 0%, #100b08 48%, #060504 100%);
+}
+
+#view-chronicle.chronicle-internal-v13 > .editorial-section {
+  padding: 0 0 clamp(56px, 7vw, 92px);
+  background: transparent;
+}
+
+#view-chronicle .portal-container {
+  max-width: 1280px;
+}
+
+/* Hero interno — usa a mesma linguagem da Home sem duplicar o Hero principal. */
+#view-chronicle .section-head-editorial {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(390px, 54vh, 590px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin: 0 calc(50% - 50vw) clamp(42px, 6vw, 76px);
+  padding: clamp(86px, 12vh, 138px) max(clamp(22px, 6vw, 92px), calc((100vw - 1280px) / 2 + 24px)) clamp(50px, 7vw, 82px);
+  overflow: hidden;
+  text-align: left;
+  border-bottom: 1px solid rgba(201,154,69,.20);
+  background:
+    linear-gradient(90deg, rgba(5,5,5,.94) 0%, rgba(5,5,5,.60) 42%, rgba(5,5,5,.18) 76%, rgba(5,5,5,.50) 100%),
+    linear-gradient(180deg, rgba(5,5,5,.10), rgba(5,5,5,.76)),
+    url('../assets/art/hero-berlin-1992.webp') 58% center / cover no-repeat,
+    #100b08;
+}
+
+#view-chronicle .section-head-editorial::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 63% 42%, transparent 0 22%, rgba(5,5,5,.16) 54%, rgba(5,5,5,.72) 100%),
+    linear-gradient(180deg, transparent 42%, rgba(5,5,5,.58) 100%);
+}
+
+#view-chronicle .section-head-editorial::after {
+  content: 'ARQUIVO NARRATIVO · BERLIM 1992';
+  position: absolute;
+  right: clamp(20px, 5vw, 72px);
+  top: clamp(24px, 6vw, 64px);
+  padding: 8px 11px;
+  border: 1px solid rgba(174,50,43,.46);
+  color: rgba(203,75,65,.62);
+  font-family: var(--font-title);
+  font-size: .56rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transform: rotate(2deg);
+}
+
+#view-chronicle .chronicle-page-context-v13 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: rgba(238,224,198,.58);
+  font-family: var(--font-sans);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+}
+
+#view-chronicle .chronicle-page-context-v13::before {
+  content: '';
+  width: clamp(34px, 5vw, 70px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(201,154,69,.76), transparent);
+}
+
+#view-chronicle .section-head-editorial .section-kicker {
+  color: #c0544a;
+  letter-spacing: .18em;
+}
+
+#view-chronicle .section-head-editorial .section-heading {
+  max-width: 820px;
+  margin: 7px 0 12px;
+  color: #f0dfb7;
+  font-family: var(--font-accent);
+  font-size: clamp(2.8rem, 7vw, 6.1rem);
+  line-height: .94;
+  text-shadow: 0 14px 42px rgba(0,0,0,.66);
+}
+
+#view-chronicle .section-head-editorial .section-desc-lead {
+  max-width: 650px;
+  margin: 0;
+  color: rgba(235,222,198,.72);
+  font-family: var(--font-serif);
+  font-size: clamp(1.08rem, 1.7vw, 1.36rem);
+  line-height: 1.55;
+}
+
+/* Resumo derivado dos registros efetivamente retornados pelo Supabase. */
+#view-chronicle .chronicle-page-summary-v13 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: clamp(28px, 4vw, 44px);
+  border: 1px solid rgba(201,154,69,.17);
+  background: rgba(201,154,69,.07);
+}
+
+#view-chronicle .chronicle-page-summary-item-v13 {
+  padding: 16px 18px;
+  background: rgba(7,6,5,.84);
+}
+
+#view-chronicle .chronicle-page-summary-item-v13 span,
+#view-chronicle .chronicle-page-summary-item-v13 strong {
+  display: block;
+}
+
+#view-chronicle .chronicle-page-summary-item-v13 span {
+  color: rgba(232,220,200,.42);
+  font-family: var(--font-sans);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#view-chronicle .chronicle-page-summary-item-v13 strong {
+  margin-top: 4px;
+  color: rgba(240,229,210,.84);
+  font-family: var(--font-title);
+  font-size: .82rem;
+  letter-spacing: .03em;
+}
+
+/* Linha editorial de capítulos reais. */
+#view-chronicle .chronicle-page-timeline-v13 {
+  position: relative;
+  display: grid;
+  gap: clamp(22px, 3.5vw, 38px);
+  padding-left: clamp(24px, 3vw, 42px);
+}
+
+#view-chronicle .chronicle-page-timeline-v13::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 18px;
+  bottom: 18px;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(201,154,69,.72), rgba(144,39,33,.56), rgba(201,154,69,.20));
+}
+
+#view-chronicle .chronicle-page-entry-v13 {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(250px, .74fr) minmax(0, 1.26fr);
+  min-height: 340px;
+  overflow: hidden;
+  border: 1px solid rgba(201,154,69,.19);
+  background: linear-gradient(135deg, rgba(24,16,11,.92), rgba(8,7,6,.97));
+  box-shadow: 0 20px 52px rgba(0,0,0,.30);
+}
+
+#view-chronicle .chronicle-page-entry-v13::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * clamp(24px, 3vw, 42px) - 4px);
+  top: 30px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(238,213,161,.72);
+  border-radius: 50%;
+  background: #7e201c;
+  box-shadow: 0 0 0 5px rgba(126,32,28,.12);
+}
+
+#view-chronicle .chronicle-page-entry-v13:nth-child(even) {
+  grid-template-columns: minmax(0, 1.26fr) minmax(250px, .74fr);
+}
+
+#view-chronicle .chronicle-page-entry-v13:nth-child(even) .chronicle-page-cover-v13 {
+  order: 2;
+}
+
+#view-chronicle .chronicle-page-entry-v13.is-featured {
+  border-color: rgba(201,154,69,.36);
+  box-shadow: 0 24px 68px rgba(0,0,0,.38), 0 0 38px rgba(201,154,69,.04);
+}
+
+#view-chronicle .chronicle-page-cover-v13 {
+  position: relative;
+  min-height: 340px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(201,154,69,.10), transparent 25%),
+    linear-gradient(145deg, #24160f, #080706 76%);
+}
+
+#view-chronicle .chronicle-page-cover-v13::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 32%, rgba(5,5,5,.15) 60%, rgba(5,5,5,.64));
+}
+
+#view-chronicle .chronicle-page-cover-v13 img {
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+  display: block;
+  object-fit: cover;
+  filter: saturate(.72) contrast(1.08) brightness(.72);
+  transition: transform .55s ease, filter .35s ease;
+}
+
+#view-chronicle .chronicle-page-entry-v13:hover .chronicle-page-cover-v13 img {
+  transform: scale(1.025);
+  filter: saturate(.78) contrast(1.10) brightness(.76);
+}
+
+#view-chronicle .chronicle-page-cover-fallback-v13 {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(211,174,99,.42);
+  font-family: var(--font-accent);
+  font-size: clamp(3.2rem, 7vw, 5.4rem);
+}
+
+#view-chronicle .chronicle-page-cover-code-v13 {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  bottom: 14px;
+  color: rgba(238,220,182,.55);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .59rem;
+  letter-spacing: .08em;
+}
+
+#view-chronicle .chronicle-page-entry-body-v13 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(26px, 4vw, 48px);
+}
+
+#view-chronicle .chronicle-page-entry-kicker-v13 {
+  color: #bd4b43;
+  font-family: var(--font-sans);
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+
+#view-chronicle .chronicle-page-entry-title-v13 {
+  margin: 8px 0 4px;
+  color: rgba(241,226,194,.94);
+  font-family: var(--font-title);
+  font-size: clamp(1.65rem, 3.2vw, 2.8rem);
+  line-height: 1.08;
+}
+
+#view-chronicle .chronicle-page-entry-subtitle-v13 {
+  margin: 0 0 16px;
+  color: rgba(213,178,108,.70);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+#view-chronicle .chronicle-page-entry-summary-v13 {
+  max-width: 720px;
+  margin: 0;
+  color: rgba(232,220,200,.62);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.58;
+}
+
+#view-chronicle .chronicle-page-entry-meta-v13 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+#view-chronicle .chronicle-page-meta-chip-v13 {
+  padding: 5px 8px;
+  border: 1px solid rgba(201,154,69,.20);
+  color: rgba(232,220,200,.49);
+  font-family: var(--font-sans);
+  font-size: .53rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#view-chronicle .chronicle-page-meta-chip-v13.is-draft {
+  border-color: rgba(176,52,45,.42);
+  color: #cd6b63;
+}
+
+/* Conteúdo completo continua seguro: texto puro, nunca HTML injetado. */
+#view-chronicle .chronicle-page-details-v13 {
+  margin-top: 20px;
+  border-top: 1px solid rgba(201,154,69,.16);
+  padding-top: 14px;
+}
+
+#view-chronicle .chronicle-page-details-v13 summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #d7b26b;
+  font-family: var(--font-title);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+}
+
+#view-chronicle .chronicle-page-content-v13 {
+  max-width: 760px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-left: 1px solid rgba(201,154,69,.34);
+  color: rgba(232,220,200,.66);
+  background: rgba(5,5,5,.24);
+  font-family: var(--font-serif);
+  font-size: .98rem;
+  line-height: 1.68;
+  white-space: pre-line;
+}
+
+#view-chronicle .chronicle-page-state-v13 {
+  min-height: 310px;
+  display: grid;
+  place-items: center;
+  padding: 48px 22px;
+  border: 1px solid rgba(201,154,69,.18);
+  background: radial-gradient(circle at 50% 40%, rgba(201,154,69,.05), transparent 35%), rgba(8,7,6,.72);
+  text-align: center;
+}
+
+#view-chronicle .chronicle-page-state-inner-v13 {
+  max-width: 520px;
+}
+
+#view-chronicle .chronicle-page-state-inner-v13 h3 {
+  margin: 12px 0 8px;
+  color: rgba(240,229,210,.88);
+  font-family: var(--font-title);
+}
+
+#view-chronicle .chronicle-page-state-inner-v13 p {
+  color: rgba(232,220,200,.54);
+  font-family: var(--font-serif);
+  line-height: 1.5;
+}
+
+#view-chronicle .chronicle-page-state-mark-v13 {
+  color: rgba(201,154,69,.58);
+  font-family: var(--font-accent);
+  font-size: 2.4rem;
+}
+
+@media (max-width: 900px) {
+  #view-chronicle .chronicle-page-entry-v13,
+  #view-chronicle .chronicle-page-entry-v13:nth-child(even) {
+    grid-template-columns: 1fr;
+  }
+
+  #view-chronicle .chronicle-page-entry-v13:nth-child(even) .chronicle-page-cover-v13 {
+    order: 0;
+  }
+
+  #view-chronicle .chronicle-page-cover-v13,
+  #view-chronicle .chronicle-page-cover-v13 img {
+    min-height: min(56vw, 430px);
+  }
+}
+
+@media (max-width: 600px) {
+  #view-chronicle .section-head-editorial {
+    min-height: 430px;
+    padding: 86px 18px 42px;
+    background-position: 64% center;
+  }
+
+  #view-chronicle .section-head-editorial::after {
+    display: none;
+  }
+
+  #view-chronicle .section-head-editorial .section-heading {
+    font-size: clamp(2.7rem, 14vw, 4.25rem);
+  }
+
+  #view-chronicle .chronicle-page-summary-v13 {
+    grid-template-columns: 1fr;
+  }
+
+  #view-chronicle .chronicle-page-timeline-v13 {
+    padding-left: 18px;
+  }
+
+  #view-chronicle .chronicle-page-timeline-v13::before {
+    left: 4px;
+  }
+
+  #view-chronicle .chronicle-page-entry-v13::before {
+    left: -18px;
+  }
+
+  #view-chronicle .chronicle-page-entry-v13 {
+    min-height: auto;
+  }
+
+  #view-chronicle .chronicle-page-cover-v13,
+  #view-chronicle .chronicle-page-cover-v13 img {
+    min-height: 250px;
+  }
+
+  #view-chronicle .chronicle-page-entry-body-v13 {
+    padding: 24px 18px 28px;
+  }
+
+  #view-chronicle .chronicle-page-entry-title-v13 {
+    font-size: clamp(1.6rem, 9vw, 2.25rem);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #view-chronicle .chronicle-page-details-v13 summary:hover {
+    color: #efd08b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #view-chronicle .chronicle-page-cover-v13 img,
+  #view-chronicle .chronicle-page-entry-v13,
+  #view-chronicle .portal-btn {
+    transition: none !important;
+    transform: none !important;
+  }
+}
