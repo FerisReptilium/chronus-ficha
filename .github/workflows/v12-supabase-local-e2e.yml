@@ -35,7 +35,13 @@ jobs:
 
       - name: Start disposable Supabase stack and apply baseline + migrations 001 -> 004
         working-directory: .supabase-v12-local
-        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+        run: |
+          if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor > supabase-start.log 2>&1; then
+            echo "Supabase local bootstrap failed. Sanitized diagnostics:"
+            grep -E 'Applying migration|ERROR:|failed:|At statement:|Try rerunning|WARN:' supabase-start.log || true
+            exit 1
+          fi
+          echo "Supabase local bootstrap completed successfully."
 
       - name: Capture local connection info
         working-directory: .supabase-v12-local
