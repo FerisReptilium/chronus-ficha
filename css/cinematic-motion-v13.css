@@ -1,0 +1,209 @@
+/* ==========================================================================
+   CHRONUS v1.3 — CINEMATIC EXPERIENCE / FASE 3
+   Auditoria aplicada + microinterações progressivas da Home.
+   Escopo estrito a #view-home. Nenhuma regra atinge #view-sheet.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Ritmo vertical auditado
+   -------------------------------------------------------------------------- */
+#view-home .chronicle-scene-v13 { min-height: 590px; }
+#view-home .chronicle-scene-media { min-height: 590px; }
+#view-home .sessions-scene-v13 { min-height: 600px; }
+#view-home .sessions-scene-archive { min-height: 600px; }
+#view-home .npcs-scene-v13 { min-height: 630px; }
+#view-home .locations-scene-v13 { min-height: 650px; }
+#view-home .files-scene-v13 { min-height: 680px; }
+#view-home .library-scene-v13 { min-height: 680px; }
+
+/* A seção de cards legada só desaparece quando o JS confirma que as 6 cenas
+   foram montadas. Se qualquer cena falhar, o fallback continua disponível. */
+#view-home.is-v13-scenes-complete > .editorial-section {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   2. Redução da repetição do mesmo asset de Berlim
+   Hero e Crônica mantêm a arte principal. Arquivos conserva a fotografia.
+   Sessões, NPCs e Locais passam a ter linguagem gráfica própria.
+   -------------------------------------------------------------------------- */
+#view-home .sessions-scene-archive {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(154, 49, 41, .10), transparent 26%),
+    linear-gradient(90deg, rgba(7,6,5,.20), rgba(7,6,5,.54)),
+    repeating-linear-gradient(0deg, rgba(220,200,160,.035) 0 1px, transparent 1px 29px),
+    linear-gradient(135deg, #1a120d 0%, #0c0907 68%, #080605 100%);
+}
+
+#view-home .npc-dossier-portrait {
+  background:
+    radial-gradient(ellipse at 50% 29%, rgba(218,205,181,.16) 0 8%, transparent 8.5%),
+    radial-gradient(ellipse at 50% 45%, rgba(218,205,181,.10) 0 13%, transparent 13.5%),
+    linear-gradient(180deg, rgba(91,20,18,.08), rgba(0,0,0,.18)),
+    radial-gradient(ellipse at 50% 46%, #29231f 0 18%, #171411 19% 34%, #0a0908 35% 100%);
+}
+
+#view-home .npc-dossier-card:nth-child(1) .npc-dossier-portrait {
+  background-position: 45% center;
+  filter: grayscale(.30) sepia(.10) contrast(1.10) brightness(.72);
+}
+
+#view-home .npc-dossier-card:nth-child(2) .npc-dossier-portrait {
+  background-position: 50% center;
+  filter: grayscale(.84) sepia(.08) contrast(1.16) brightness(.48) blur(.35px);
+}
+
+#view-home .npc-dossier-card:nth-child(3) .npc-dossier-portrait {
+  background-position: 55% center;
+  filter: grayscale(.52) sepia(.10) contrast(1.15) brightness(.58);
+}
+
+#view-home .locations-atlas-map {
+  background:
+    radial-gradient(circle at 52% 48%, rgba(187,53,45,.12) 0 2%, transparent 2.4%),
+    linear-gradient(35deg, transparent 0 47%, rgba(207,179,119,.09) 47.2% 47.5%, transparent 47.7% 100%),
+    linear-gradient(145deg, transparent 0 58%, rgba(207,179,119,.07) 58.2% 58.45%, transparent 58.7% 100%),
+    repeating-linear-gradient(0deg, rgba(231,213,177,.045) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(90deg, rgba(231,213,177,.045) 0 1px, transparent 1px 42px),
+    radial-gradient(ellipse at 50% 50%, #221912 0%, #0e0b08 65%, #070605 100%);
+}
+
+/* --------------------------------------------------------------------------
+   3. Entrada por scroll — ativada somente após JS declarar suporte.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  #view-home.is-v13-motion-enabled .v13-motion-scene {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+    transition:
+      opacity .72s cubic-bezier(.2,.72,.2,1),
+      transform .72s cubic-bezier(.2,.72,.2,1);
+    will-change: opacity, transform;
+  }
+
+  #view-home.is-v13-motion-enabled .v13-motion-scene.is-v13-revealed {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  #view-home.is-v13-motion-enabled .v13-motion-scene > * {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+    transition:
+      opacity .62s ease .10s,
+      transform .62s cubic-bezier(.2,.72,.2,1) .10s;
+  }
+
+  #view-home.is-v13-motion-enabled .v13-motion-scene.is-v13-revealed > * {
+    opacity: 1;
+    transform: translate3d(0,0,0);
+  }
+
+  #view-home.is-v13-motion-enabled .v13-motion-scene.is-v13-revealed > *:nth-child(2) {
+    transition-delay: .17s;
+  }
+
+  #view-home.is-v13-motion-enabled .v13-motion-scene.is-v13-revealed > *:nth-child(3) {
+    transition-delay: .22s;
+  }
+
+  /* Parallax discreto, no máximo ±14px definido pelo JS. */
+  #view-home .hero-cinematic::before {
+    background-position:
+      center calc(50% + var(--v13-parallax-y, 0px)),
+      center,
+      center bottom,
+      center;
+  }
+
+  #view-home .chronicle-scene-media {
+    background-position: center calc(50% + var(--v13-parallax-y, 0px));
+    transition: background-position .08s linear;
+  }
+
+  /* Hover apenas onde há dispositivo apontador real. */
+  @media (hover: hover) and (pointer: fine) {
+    #view-home .npc-dossier-card,
+    #view-home .locations-place-card,
+    #view-home .files-evidence-item,
+    #view-home .library-catalog-item {
+      transition: transform .20s ease, border-color .20s ease, background .20s ease;
+    }
+
+    #view-home .npc-dossier-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(201,154,69,.42);
+    }
+
+    #view-home .locations-place-card:hover,
+    #view-home .files-evidence-item:hover,
+    #view-home .library-catalog-item:hover {
+      transform: translateX(4px);
+      background: rgba(201,154,69,.035);
+    }
+  }
+}
+
+/* Foco visível para CTAs e links editoriais. */
+#view-home :is(
+  .chronicle-scene-link,
+  .sessions-scene-link,
+  .npcs-scene-link,
+  .locations-scene-link,
+  .files-scene-link,
+  .library-scene-link,
+  .hero-cta-group .portal-btn
+):focus-visible {
+  outline: 2px solid rgba(238,213,156,.95);
+  outline-offset: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Mobile — compacta somente decoração, nunca texto ou área clicável.
+   -------------------------------------------------------------------------- */
+@media (max-width: 980px) {
+  #view-home .chronicle-scene-v13,
+  #view-home .sessions-scene-v13,
+  #view-home .npcs-scene-v13,
+  #view-home .locations-scene-v13,
+  #view-home .files-scene-v13,
+  #view-home .library-scene-v13 {
+    min-height: auto;
+  }
+
+  #view-home .chronicle-scene-media { min-height: 500px; }
+  #view-home .sessions-scene-archive { min-height: 520px; }
+}
+
+@media (max-width: 600px) {
+  #view-home .chronicle-scene-media { min-height: 270px; }
+  #view-home .sessions-scene-archive { height: 450px; min-height: 450px; }
+  #view-home .npc-dossier-card,
+  #view-home .npc-dossier-card:last-child { min-height: 380px; }
+  #view-home .locations-atlas-map { min-height: 390px; }
+  #view-home .files-board-surface { min-height: 470px; }
+  #view-home .library-shelves { min-height: 640px; }
+  #view-home .library-book-grid { min-height: 550px; }
+}
+
+/* --------------------------------------------------------------------------
+   5. Reduced motion — conteúdo sempre visível, sem parallax nem hover-move.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  #view-home .v13-motion-scene,
+  #view-home .v13-motion-scene > *,
+  #view-home .npc-dossier-card,
+  #view-home .locations-place-card,
+  #view-home .files-evidence-item,
+  #view-home .library-catalog-item {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  #view-home .hero-cinematic,
+  #view-home .chronicle-scene-media {
+    --v13-parallax-y: 0px !important;
+  }
+}
