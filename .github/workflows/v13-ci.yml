@@ -56,3 +56,6 @@ jobs:
 
       - name: v1.3 occult Berlin atlas Phase 2D
         run: node tests/v13_cinematic_locations.test.js
+
+      - name: v1.3 confiscated evidence Phase 2E
+        run: node tests/v13_cinematic_files.test.js
