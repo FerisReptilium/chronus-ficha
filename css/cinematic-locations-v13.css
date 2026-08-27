@@ -1,0 +1,555 @@
+/* ==========================================================================
+   CHRONUS v1.3 — CINEMATIC EXPERIENCE / FASE 2D
+   Quarto bloco editorial: Locais.
+   Linguagem própria: atlas oculto, cartografia de campo, setores e risco.
+   Escopo restrito a #view-home; ficha e views internas permanecem intocadas.
+   ========================================================================== */
+
+#view-home .locations-scene-v13 {
+  position: relative;
+  isolation: isolate;
+  min-height: 720px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(201,154,69,.18);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(119,22,20,.12), transparent 30%),
+    radial-gradient(circle at 82% 76%, rgba(201,154,69,.07), transparent 30%),
+    linear-gradient(135deg, #070706 0%, #100c09 48%, #060605 100%);
+}
+
+#view-home .locations-scene-v13::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: .32;
+  background:
+    repeating-linear-gradient(0deg, rgba(215,199,169,.025) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgba(215,199,169,.022) 0 1px, transparent 1px 34px);
+}
+
+#view-home .locations-scene-head {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(300px, 1.1fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: end;
+  padding: clamp(52px, 7vw, 92px) clamp(24px, 6vw, 88px) 34px;
+}
+
+#view-home .locations-scene-index {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #b23a32;
+  font-family: var(--font-sans);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+
+#view-home .locations-scene-index::after {
+  content: '';
+  width: clamp(42px, 7vw, 86px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(178,58,50,.78), transparent);
+}
+
+#view-home .locations-scene-kicker {
+  margin-bottom: 8px;
+  color: var(--gold-primary);
+  font-family: var(--font-title);
+  font-size: clamp(.72rem, 1vw, .88rem);
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+#view-home .locations-scene-title {
+  margin: 0;
+  color: var(--gold-highlight);
+  font-family: var(--font-accent);
+  font-size: clamp(2.55rem, 5.2vw, 4.8rem);
+  font-weight: 900;
+  line-height: .98;
+  text-shadow: 0 12px 36px rgba(0,0,0,.58);
+}
+
+#view-home .locations-scene-intro {
+  max-width: 690px;
+  margin: 0;
+  color: rgba(232,220,200,.72);
+  font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 1.45vw, 1.26rem);
+  line-height: 1.58;
+}
+
+#view-home .locations-atlas-shell {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) minmax(330px, .72fr);
+  gap: 1px;
+  margin: 0 clamp(20px, 5vw, 72px) clamp(50px, 7vw, 86px);
+  border: 1px solid rgba(201,154,69,.24);
+  background: rgba(201,154,69,.09);
+  box-shadow: 0 26px 70px rgba(0,0,0,.34);
+}
+
+#view-home .locations-atlas-map {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(6,6,5,.48), rgba(6,6,5,.14) 48%, rgba(6,6,5,.46)),
+    linear-gradient(180deg, rgba(6,6,5,.26), rgba(6,6,5,.58)),
+    url('../assets/art/hero-berlin-1992.webp') 56% center / cover no-repeat,
+    #15110d;
+}
+
+#view-home .locations-atlas-map::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(236,218,178,.055) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(90deg, rgba(236,218,178,.055) 0 1px, transparent 1px 42px),
+    radial-gradient(circle at 46% 52%, transparent 0 24%, rgba(7,6,5,.16) 52%, rgba(7,6,5,.72) 100%);
+  mix-blend-mode: screen;
+}
+
+#view-home .locations-atlas-map::after {
+  content: '';
+  position: absolute;
+  inset: 9%;
+  pointer-events: none;
+  opacity: .52;
+  border: 1px dashed rgba(211,180,117,.36);
+  clip-path: polygon(8% 18%, 26% 7%, 47% 14%, 66% 5%, 86% 23%, 91% 49%, 82% 71%, 64% 89%, 39% 83%, 20% 94%, 7% 72%, 13% 49%);
+}
+
+#view-home .locations-map-header {
+  position: absolute;
+  top: 20px;
+  left: 22px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: calc(100% - 44px);
+}
+
+#view-home .locations-map-chip {
+  padding: 7px 10px;
+  border: 1px solid rgba(222,199,151,.26);
+  background: rgba(5,5,5,.72);
+  color: rgba(235,220,194,.66);
+  font-family: var(--font-sans);
+  font-size: .59rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(7px);
+}
+
+#view-home .locations-map-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 240px;
+  height: 240px;
+  border: 1px solid rgba(201,154,69,.14);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+#view-home .locations-map-crosshair::before,
+#view-home .locations-map-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(201,154,69,.16);
+}
+
+#view-home .locations-map-crosshair::before {
+  left: 50%;
+  top: -56px;
+  bottom: -56px;
+  width: 1px;
+}
+
+#view-home .locations-map-crosshair::after {
+  top: 50%;
+  left: -56px;
+  right: -56px;
+  height: 1px;
+}
+
+#view-home .locations-map-node {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(241,220,173,.62);
+  border-radius: 50%;
+  background: rgba(12,10,8,.92);
+  color: #eed59c;
+  font-family: var(--font-sans);
+  font-size: .64rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 6px rgba(201,154,69,.08), 0 0 22px rgba(0,0,0,.56);
+}
+
+#view-home .locations-map-node::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 36px;
+  top: 50%;
+  min-width: max-content;
+  padding: 5px 8px;
+  border-left: 1px solid rgba(201,154,69,.45);
+  background: rgba(5,5,5,.75);
+  color: rgba(239,224,197,.70);
+  font-family: var(--font-sans);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transform: translateY(-50%);
+}
+
+#view-home .locations-map-node.is-risk {
+  border-color: rgba(190,58,49,.84);
+  color: #ef9a91;
+  box-shadow: 0 0 0 6px rgba(160,36,30,.10), 0 0 25px rgba(127,22,19,.30);
+}
+
+#view-home .locations-map-node.is-unknown {
+  border-style: dashed;
+  color: rgba(239,224,197,.48);
+}
+
+#view-home .locations-map-node:nth-of-type(1) { left: 20%; top: 31%; }
+#view-home .locations-map-node:nth-of-type(2) { left: 48%; top: 43%; }
+#view-home .locations-map-node:nth-of-type(3) { left: 69%; top: 27%; }
+#view-home .locations-map-node:nth-of-type(4) { left: 63%; top: 68%; }
+#view-home .locations-map-node:nth-of-type(5) { left: 31%; top: 72%; }
+
+#view-home .locations-map-coordinate {
+  position: absolute;
+  z-index: 4;
+  right: 22px;
+  bottom: 20px;
+  padding: 8px 10px;
+  border: 1px solid rgba(201,154,69,.24);
+  background: rgba(5,5,5,.72);
+  color: rgba(235,220,194,.57);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .63rem;
+  letter-spacing: .08em;
+}
+
+#view-home .locations-atlas-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background:
+    linear-gradient(180deg, rgba(24,17,12,.96), rgba(8,7,6,.98)),
+    #0a0807;
+}
+
+#view-home .locations-atlas-panel-head {
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid rgba(201,154,69,.18);
+}
+
+#view-home .locations-atlas-panel-head strong {
+  display: block;
+  color: var(--gold-primary);
+  font-family: var(--font-title);
+  font-size: .72rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+#view-home .locations-atlas-panel-head span {
+  display: block;
+  margin-top: 5px;
+  color: rgba(232,220,200,.48);
+  font-family: var(--font-serif);
+  font-size: .90rem;
+}
+
+#view-home .locations-place-list {
+  display: grid;
+  flex: 1;
+}
+
+#view-home .locations-place-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 19px 20px;
+  border-bottom: 1px solid rgba(201,154,69,.12);
+}
+
+#view-home .locations-place-number {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(201,154,69,.42);
+  border-radius: 50%;
+  color: #d4ac60;
+  font-family: var(--font-sans);
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+#view-home .locations-place-card.is-high .locations-place-number {
+  border-color: rgba(183,57,48,.72);
+  color: #df776f;
+}
+
+#view-home .locations-place-card h3 {
+  margin: 0;
+  color: rgba(240,229,210,.90);
+  font-family: var(--font-title);
+  font-size: .88rem;
+  letter-spacing: .025em;
+}
+
+#view-home .locations-place-card p {
+  margin: 5px 0 0;
+  color: rgba(232,220,200,.52);
+  font-family: var(--font-serif);
+  font-size: .88rem;
+  line-height: 1.38;
+}
+
+#view-home .locations-place-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+#view-home .locations-place-tag {
+  padding: 4px 7px;
+  border: 1px solid rgba(201,154,69,.24);
+  color: rgba(234,215,177,.62);
+  font-family: var(--font-sans);
+  font-size: .54rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+#view-home .locations-place-tag.is-risk {
+  border-color: rgba(175,52,45,.38);
+  color: #d66d65;
+}
+
+#view-home .locations-atlas-legend {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 8px 12px;
+  padding: 17px 20px;
+  border-bottom: 1px solid rgba(201,154,69,.16);
+  background: rgba(255,255,255,.012);
+}
+
+#view-home .locations-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(232,220,200,.54);
+  font-family: var(--font-sans);
+  font-size: .58rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+#view-home .locations-legend-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(221,198,151,.58);
+  border-radius: 50%;
+  background: rgba(201,154,69,.22);
+}
+
+#view-home .locations-legend-dot.is-anomaly { border-color: #a9342e; background: rgba(169,52,46,.34); }
+#view-home .locations-legend-dot.is-unknown { border-style: dashed; background: transparent; }
+#view-home .locations-legend-dot.is-restricted { border-radius: 1px; }
+
+#view-home .locations-scene-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+}
+
+#view-home .locations-field-note {
+  max-width: 360px;
+  color: rgba(232,220,200,.48);
+  font-family: var(--font-serif);
+  font-size: .82rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+#view-home .locations-scene-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid rgba(201,154,69,.55);
+  border-radius: 2px;
+  color: #efd69d;
+  background: rgba(27,19,13,.78);
+  font-family: var(--font-title);
+  font-size: .70rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: transform .2s ease, background .2s ease, border-color .2s ease;
+}
+
+#view-home .locations-scene-link:hover {
+  transform: translateY(-2px);
+  background: rgba(48,32,19,.88);
+  border-color: var(--gold-highlight);
+}
+
+#view-home .locations-atlas-stamp {
+  position: absolute;
+  right: clamp(26px,5vw,72px);
+  top: 28px;
+  z-index: 3;
+  padding: 8px 12px;
+  border: 2px solid rgba(153,40,34,.42);
+  color: rgba(183,55,48,.60);
+  font-family: var(--font-title);
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transform: rotate(3deg);
+}
+
+@media (max-width: 1040px) {
+  #view-home .locations-scene-head,
+  #view-home .locations-atlas-shell {
+    grid-template-columns: 1fr;
+  }
+
+  #view-home .locations-atlas-map {
+    min-height: 500px;
+  }
+
+  #view-home .locations-atlas-panel {
+    border-top: 1px solid rgba(201,154,69,.18);
+  }
+}
+
+@media (max-width: 600px) {
+  #view-home .locations-scene-head {
+    gap: 18px;
+    padding: 40px 18px 24px;
+  }
+
+  #view-home .locations-scene-title {
+    font-size: clamp(2.35rem,12vw,3.45rem);
+  }
+
+  #view-home .locations-atlas-shell {
+    margin: 0 14px 44px;
+  }
+
+  #view-home .locations-atlas-map {
+    min-height: 430px;
+  }
+
+  #view-home .locations-map-header {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+  }
+
+  #view-home .locations-map-chip:nth-child(n+3) {
+    display: none;
+  }
+
+  #view-home .locations-map-crosshair {
+    width: 180px;
+    height: 180px;
+  }
+
+  #view-home .locations-map-node {
+    width: 26px;
+    height: 26px;
+    font-size: .58rem;
+  }
+
+  #view-home .locations-map-node::after {
+    display: none;
+  }
+
+  #view-home .locations-map-coordinate {
+    right: 12px;
+    bottom: 12px;
+    font-size: .55rem;
+  }
+
+  #view-home .locations-place-card {
+    padding: 16px;
+  }
+
+  #view-home .locations-atlas-legend {
+    grid-template-columns: 1fr 1fr;
+    padding: 14px 16px;
+  }
+
+  #view-home .locations-scene-footer {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  #view-home .locations-scene-link {
+    width: 100%;
+  }
+
+  #view-home .locations-atlas-stamp {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #view-home .locations-scene-link,
+  #view-home .locations-map-node {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(7px)) {
+  #view-home .locations-map-chip {
+    background: rgba(5,5,5,.92);
+  }
+}
