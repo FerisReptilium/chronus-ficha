@@ -18,10 +18,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Inicializar Módulos de Página
   window.ChronusHome.init();
+  let editorialV132Ready = false;
   try {
-    await loadScriptOnce('js/modules/home_motion.js');
+    await loadScriptOnce('js/modules/home_v132.js');
+    editorialV132Ready = window.ChronusHomeV132?.init?.() === true;
   } catch (error) {
-    console.error('CHRONUS v1.3: camada de movimento indisponível; mantendo Home estática.', error);
+    console.error('CHRONUS v1.3.2: wireframe editorial indisponível; mantendo Home v1.3.1.', error);
+  }
+
+  if (!editorialV132Ready) {
+    try {
+      await loadScriptOnce('js/modules/home_motion.js');
+    } catch (error) {
+      console.error('CHRONUS v1.3: camada de movimento indisponível; mantendo Home estática.', error);
+    }
   }
   window.ChronusChronicle?.init?.();
   window.ChronusSessions?.init?.();
