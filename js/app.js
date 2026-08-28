@@ -50,6 +50,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('CHRONUS v1.3.3: polimento editorial indisponível; mantendo apresentação anterior.', error);
   }
 
+  // 3.4. Trilha ambiente global com controle persistente.
+  // O navegador pode exigir a primeira interação do visitante para liberar áudio com som.
+  try {
+    await loadScriptOnce('js/modules/ambient_audio_v134.js');
+    window.ChronusAmbientAudio?.init?.();
+  } catch (error) {
+    console.error('CHRONUS v1.3.4: trilha ambiente indisponível; mantendo o portal silencioso.', error);
+  }
+
   // 4. Configurar Formulários de Autenticação
   setupAuthForms();
 
