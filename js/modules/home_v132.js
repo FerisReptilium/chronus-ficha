@@ -151,7 +151,11 @@ window.ChronusHomeV132 = (function() {
 
         <section class="v132-library" aria-labelledby="v132-library-title">
           <div class="v132-library-copy"><span class="v132-index">05 / Acervo de referência</span><p class="v132-kicker">Biblioteca CHRONUS</p><h2 id="v132-library-title">Leve o universo para a mesa.</h2><p>Manuais, guias rápidos e documentos de apoio reunidos sem misturar regras, ambientação e informações restritas.</p><a class="v132-text-link" href="#/library">Acessar biblioteca <span aria-hidden="true">→</span></a></div>
-          <div class="v132-library-art" role="img" aria-label="Estantes do acervo CHRONUS"><span>Manual</span><span>Guia</span><span>Arquivo</span></div>
+          <div class="v132-library-art" role="img" aria-label="Três volumes editoriais do acervo CHRONUS: Manual, Guia e Arquivo">
+            <span class="v132-library-volume v132-volume-manual"><i aria-hidden="true">✦</i><strong>Manual</strong><small>Fundamentos · I</small></span>
+            <span class="v132-library-volume v132-volume-guide"><i aria-hidden="true">◇</i><strong>Guia</strong><small>Mesa rápida · II</small></span>
+            <span class="v132-library-volume v132-volume-archive"><i aria-hidden="true">⌁</i><strong>Arquivo</strong><small>Casos K-17 · III</small></span>
+          </div>
         </section>
       </div>`;
   }
