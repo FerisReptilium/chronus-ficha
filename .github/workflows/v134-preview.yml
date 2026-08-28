@@ -1,0 +1,63 @@
+name: CHRONUS v1.3.4 Private Preview
+
+on:
+  push:
+    branches:
+      - work/v1.3.4-ambient-audio
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ambient-audio-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Static and regression QA
+        run: |
+          node --check js/app.js
+          node --check js/modules/ambient_audio_v134.js
+          node --check tests/visual/v134_preview.js
+          for test_file in tests/*.test.js; do node "$test_file"; done
+
+      - name: Install preview browser
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start private preview server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chronus-v134-http.log 2>&1 &
+          echo $! > /tmp/chronus-v134-http.pid
+          for attempt in 1 2 3 4 5; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/chronus-v134-http.log
+          exit 1
+
+      - name: Capture ambient audio previews
+        run: node tests/visual/v134_preview.js
+
+      - name: Upload private preview artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronus-v134-private-preview
+          path: artifacts/v134-preview
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -f /tmp/chronus-v134-http.pid ]; then
+            kill "$(cat /tmp/chronus-v134-http.pid)" 2>/dev/null || true
+          fi
