@@ -41,6 +41,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.ChronusSoundtrack?.init?.();
   window.ChronusLibrary?.init?.();
 
+  // 3.3. Polimento editorial das páginas internas e da Biblioteca da Home.
+  // Se esta camada falhar, todas as páginas v1.3/v1.3.2 continuam funcionais.
+  try {
+    await loadScriptOnce('js/modules/portal_v133.js');
+    window.ChronusPortalV133?.init?.();
+  } catch (error) {
+    console.error('CHRONUS v1.3.3: polimento editorial indisponível; mantendo apresentação anterior.', error);
+  }
+
   // 4. Configurar Formulários de Autenticação
   setupAuthForms();
 
