@@ -24,7 +24,8 @@ async function inspectPage(page, name) {
     textLength: document.body.innerText.trim().length,
     sections: document.querySelectorAll('.home-v132 > section').length,
     legacyScenes: document.querySelectorAll('.chronicle-scene-v13,.sessions-scene-v13,.npcs-scene-v13,.locations-scene-v13,.files-scene-v13,.library-scene-v13').length,
-    oldEditorialVisible: Boolean(document.querySelector('.editorial-section:not([hidden])')),
+    oldEditorialVisible: [...document.querySelectorAll('#view-home > .editorial-section')]
+      .some(section => getComputedStyle(section).display !== 'none'),
     horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
