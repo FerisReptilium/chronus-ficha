@@ -12,24 +12,24 @@ assert(app.includes("loadScriptOnce('js/modules/home_v132.js')"), 'v1.3.2 Home m
 assert(app.includes("loadScriptOnce('js/modules/home_motion.js')"), 'v1.3.1 motion fallback must remain available');
 assert(home.includes("window.ChronusHomeV132"), 'v1.3.2 namespace missing');
 assert(home.includes("LEGACY_SCENES"), 'legacy scene replacement contract missing');
-assert(home.includes("document.documentElement.dataset.chronusHome = 'v1.3.2-wireframe'"), 'wireframe readiness marker missing');
+assert(home.includes("document.documentElement.dataset.chronusHome = 'v1.3.2-art-preview'"), 'art preview readiness marker missing');
 
 for (const route of ['#/chronicle', '#/system', '#/sessions', '#/npcs', '#/maps', '#/files', '#/library']) {
   assert(home.includes(`href="${route}"`), `editorial route missing: ${route}`);
 }
 
 for (const art of [
-  'chronicle-cover.webp',
-  'sessions-cover.webp',
-  'documents-cover.webp',
-  'locations-cover.webp',
-  'library-cover.webp',
-  'npc-known.webp',
-  'npc-unknown.webp',
-  'npc-threat.webp'
+  'v132-hero-berlin.webp',
+  'v132-sessions.webp',
+  'v132-documents.webp',
+  'v132-atlas.webp',
+  'v132-library.webp',
+  'v132-npc-contact.webp',
+  'v132-npc-unknown.webp',
+  'v132-npc-threat.webp'
 ]) {
-  assert(fs.existsSync(`assets/art/${art}`), `existing art missing: ${art}`);
-  assert(home.includes(art) || css.includes(art), `existing art is not wired into v1.3.2: ${art}`);
+  assert(fs.existsSync(`assets/art/${art}`), `v1.3.2 art missing: ${art}`);
+  assert(home.includes(art) || css.includes(art), `v1.3.2 art is not wired into the preview: ${art}`);
 }
 
 assert(!home.includes('hero-berlin-1992.webp'), 'corrupted hero asset must not be referenced by the rebuild module');

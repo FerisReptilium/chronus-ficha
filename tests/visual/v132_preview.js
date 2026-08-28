@@ -78,7 +78,7 @@ async function inspectPage(page, name) {
 
   for (const [name, result] of Object.entries(results)) {
     if (result.httpStatus !== 200) throw new Error(`${name}: unexpected HTTP status ${result.httpStatus}`);
-    if (result.marker !== 'v1.3.2-wireframe') throw new Error(`${name}: v1.3.2 readiness marker missing`);
+    if (result.marker !== 'v1.3.2-art-preview') throw new Error(`${name}: v1.3.2 art preview marker missing`);
     if (result.sections !== 5) throw new Error(`${name}: expected 5 editorial sections, found ${result.sections}`);
     if (result.legacyScenes !== 0 || result.oldEditorialVisible) throw new Error(`${name}: legacy Home remains visible`);
     if (result.horizontalOverflow) throw new Error(`${name}: horizontal overflow detected`);

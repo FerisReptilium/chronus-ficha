@@ -2,8 +2,8 @@
  * CHRONUS v1.3.2 — reconstrução editorial controlada da Home.
  *
  * Mantém as rotas, autenticação e páginas internas da v1.3.1. Esta camada
- * substitui somente a apresentação da Home e usa apenas o art-pack local já
- * aprovado. O arquivo de hero corrompido não é utilizado no wireframe.
+ * substitui somente a apresentação da Home. O art-pack v1.3.2 foi criado
+ * depois da aprovação do wireframe e não sobrescreve os assets da v1.3.1.
  */
 window.ChronusHomeV132 = (function() {
   const STYLE_HREF = 'css/editorial-v132-rebuild.css';
@@ -84,7 +84,7 @@ window.ChronusHomeV132 = (function() {
             <a class="v132-text-link" href="#/chronicle">Ler a crônica <span aria-hidden="true">→</span></a>
           </div>
           <figure class="v132-opening-art">
-            <img src="assets/art/locations-cover.webp" width="480" height="270" alt="Mapa urbano estilizado de Berlim usado no Atlas CHRONUS">
+            <img src="assets/art/v132-atlas.webp" width="1448" height="1086" alt="Mapa urbano de Berlim e materiais de investigação do Atlas CHRONUS">
             <figcaption><span>Atlas 1992</span><strong>Uma cidade dividida por memórias e territórios invisíveis.</strong></figcaption>
           </figure>
         </section>
@@ -96,15 +96,15 @@ window.ChronusHomeV132 = (function() {
           </header>
           <div class="v132-pillar-grid">
             <a class="v132-pillar" href="#/chronicle">
-              <img src="assets/art/chronicle-cover.webp" width="640" height="360" alt="Figura solitária diante do Muro de Berlim sob chuva">
+              <img src="assets/art/v132-hero-berlin.webp" width="1672" height="941" alt="Investigador solitário diante do Muro de Berlim sob chuva">
               <span class="v132-pillar-number">I</span><div><p>História viva</p><h3>A Crônica</h3><span>Capítulos, revelações e consequências da mesa.</span></div>
             </a>
             <a class="v132-pillar" href="#/system">
-              <img src="assets/art/documents-cover.webp" width="480" height="270" alt="Documentos de investigação do universo CHRONUS">
+              <img src="assets/art/v132-documents.webp" width="1586" height="992" alt="Mesa com documentos e equipamentos de investigação do universo CHRONUS">
               <span class="v132-pillar-number">II</span><div><p>Regras da realidade</p><h3>O Sistema</h3><span>Ficção, dados de ação, Mana e Paradoxo.</span></div>
             </a>
             <a class="v132-pillar" href="#/library">
-              <img src="assets/art/library-cover.webp" width="480" height="270" alt="Acervo escuro da Biblioteca CHRONUS">
+              <img src="assets/art/v132-library.webp" width="1586" height="992" alt="Acervo subterrâneo da Biblioteca CHRONUS">
               <span class="v132-pillar-number">III</span><div><p>Conhecimento preservado</p><h3>A Biblioteca</h3><span>Manuais, guias e documentos para a mesa.</span></div>
             </a>
           </div>
@@ -112,7 +112,7 @@ window.ChronusHomeV132 = (function() {
 
         <section class="v132-session" aria-labelledby="v132-session-title">
           <div class="v132-session-art">
-            <img src="assets/art/sessions-cover.webp" width="640" height="360" alt="Arquivo visual de uma investigação noturna em Berlim">
+            <img src="assets/art/v132-sessions.webp" width="1660" height="948" alt="Dois investigadores examinam uma passagem subterrânea em Berlim">
             <span class="v132-session-stamp">Registro de campo</span>
           </div>
           <div class="v132-session-copy">
@@ -137,13 +137,13 @@ window.ChronusHomeV132 = (function() {
           </header>
           <div class="v132-archive-grid">
             <a class="v132-atlas-card" href="#/maps">
-              <img src="assets/art/locations-cover.webp" width="480" height="270" alt="Atlas dos locais investigados em Berlim">
+              <img src="assets/art/v132-atlas.webp" width="1448" height="1086" alt="Mapa e evidências do Atlas dos locais investigados em Berlim">
               <span class="v132-card-label">Atlas</span><strong>Territórios reconhecidos</strong><small>Explorar locais →</small>
             </a>
             <div class="v132-dossiers" aria-label="Amostra do Dossiê de NPCs">
-              <a class="v132-dossier" href="#/npcs"><img src="assets/art/npc-known.webp" width="480" height="600" alt="Contato conhecido catalogado no Dossiê"><span>021</span><strong>Contato</strong></a>
-              <a class="v132-dossier" href="#/npcs"><img src="assets/art/npc-unknown.webp" width="280" height="350" alt="Identidade desconhecida catalogada no Dossiê"><span>???</span><strong>Incógnita</strong></a>
-              <a class="v132-dossier" href="#/npcs"><img src="assets/art/npc-threat.webp" width="480" height="600" alt="Ameaça catalogada no Dossiê"><span>008</span><strong>Ameaça</strong></a>
+              <a class="v132-dossier" href="#/npcs"><img src="assets/art/v132-npc-contact.webp" width="1122" height="1402" alt="Arquivista catalogada como contato conhecido no Dossiê"><span>021</span><strong>Contato</strong></a>
+              <a class="v132-dossier" href="#/npcs"><img src="assets/art/v132-npc-unknown.webp" width="1122" height="1402" alt="Identidade desconhecida observada em uma plataforma de metrô"><span>???</span><strong>Incógnita</strong></a>
+              <a class="v132-dossier" href="#/npcs"><img src="assets/art/v132-npc-threat.webp" width="1122" height="1402" alt="Figura institucional catalogada como ameaça no Dossiê"><span>008</span><strong>Ameaça</strong></a>
             </div>
           </div>
           <div class="v132-archive-links"><a href="#/files">Examinar arquivos <span aria-hidden="true">→</span></a><a href="#/npcs">Abrir dossiê completo <span aria-hidden="true">→</span></a></div>
@@ -178,7 +178,7 @@ window.ChronusHomeV132 = (function() {
     if (!rebuildHero(home)) return false;
     replaceLegacyHome(home);
     home.classList.add('is-v132-editorial');
-    document.documentElement.dataset.chronusHome = 'v1.3.2-wireframe';
+    document.documentElement.dataset.chronusHome = 'v1.3.2-art-preview';
     return true;
   }
 

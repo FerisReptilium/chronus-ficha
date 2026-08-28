@@ -189,7 +189,7 @@
   aspect-ratio: 16 / 9;
   background:
     linear-gradient(90deg, rgba(5,6,6,.08), transparent 52%, rgba(5,6,6,.1)),
-    url('../assets/art/chronicle-cover.webp') center / cover no-repeat;
+    url('../assets/art/v132-hero-berlin.webp') center / cover no-repeat;
   border: 1px solid rgba(238,232,220,.18);
   box-shadow: 0 28px 70px rgba(0,0,0,.5);
 }
@@ -329,7 +329,7 @@
   background: #0d0f10;
 }
 
-.v132-opening-art img { filter: saturate(.76) contrast(1.06); }
+.v132-opening-art img { object-position: center 52%; filter: saturate(.82) contrast(1.04); }
 .v132-opening-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 44%, rgba(5,6,6,.88)); }
 .v132-opening-art figcaption { position: absolute; z-index: 2; left: clamp(22px, 4vw, 54px); right: clamp(22px, 4vw, 54px); bottom: clamp(24px, 4vw, 52px); }
 .v132-opening-art figcaption span { display: block; margin-bottom: 10px; color: var(--v132-gold); font-family: var(--font-sans); font-size: .58rem; letter-spacing: .2em; text-transform: uppercase; }
@@ -369,7 +369,10 @@
 }
 
 .v132-pillar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,6,6,.08) 12%, rgba(5,6,6,.18) 42%, rgba(5,6,6,.96) 82%); }
-.v132-pillar img { position: absolute; inset: 0; filter: saturate(.72) contrast(1.04); transition: transform .6s ease, filter .3s ease; }
+.v132-pillar img { position: absolute; inset: 0; filter: saturate(.78) contrast(1.04); transition: transform .6s ease, filter .3s ease; }
+.v132-pillar:nth-child(1) img { object-position: 46% center; }
+.v132-pillar:nth-child(2) img { object-position: 58% center; }
+.v132-pillar:nth-child(3) img { object-position: 52% center; }
 .v132-pillar:hover img { transform: scale(1.025); filter: saturate(.9) contrast(1.04); }
 .v132-pillar-number { position: absolute; z-index: 2; top: 24px; left: 24px; color: rgba(238,232,220,.56); font-family: var(--font-serif); font-size: 1rem; }
 .v132-pillar > div { position: absolute; z-index: 2; left: clamp(22px, 3vw, 38px); right: clamp(22px, 3vw, 38px); bottom: clamp(26px, 3vw, 40px); }
@@ -390,7 +393,7 @@
 
 .v132-session-art { position: relative; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid var(--v132-line); }
 .v132-session-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(5,6,6,.18)); }
-.v132-session-art img { filter: saturate(.78) contrast(1.05); }
+.v132-session-art img { object-position: center 46%; filter: saturate(.82) contrast(1.04); }
 .v132-session-stamp { position: absolute; z-index: 2; left: 22px; bottom: 22px; padding: 8px 11px; background: rgba(5,6,6,.82); color: var(--v132-ivory); font-family: var(--font-sans); font-size: .57rem; letter-spacing: .18em; text-transform: uppercase; }
 .v132-session-copy h2 { margin: 14px 0 26px; }
 .v132-session-copy > p:not(.v132-kicker) { line-height: 1.8; }
@@ -411,7 +414,7 @@
 .v132-archive-grid { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 1.08fr .92fr; gap: clamp(18px, 3vw, 42px); }
 .v132-atlas-card { position: relative; min-height: 590px; overflow: hidden; border: 1px solid var(--v132-line); color: inherit; text-decoration: none; }
 .v132-atlas-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,6,6,.08), rgba(5,6,6,.84)); }
-.v132-atlas-card img { position: absolute; inset: 0; filter: saturate(.72) contrast(1.06); }
+.v132-atlas-card img { position: absolute; inset: 0; object-position: center 48%; filter: saturate(.8) contrast(1.05); }
 .v132-atlas-card > span,.v132-atlas-card > strong,.v132-atlas-card > small { position: absolute; z-index: 2; left: clamp(24px, 4vw, 52px); }
 .v132-atlas-card > span { bottom: 124px; color: var(--v132-gold); font-family: var(--font-sans); font-size: .58rem; letter-spacing: .2em; text-transform: uppercase; }
 .v132-atlas-card > strong { bottom: 74px; color: var(--v132-ivory); font-family: var(--font-title); font-size: clamp(1.45rem, 2.4vw, 2.35rem); font-weight: 600; }
@@ -419,7 +422,7 @@
 .v132-dossiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(10px, 1.4vw, 18px); }
 .v132-dossier { position: relative; min-height: 590px; overflow: hidden; border: 1px solid var(--v132-line); color: inherit; text-decoration: none; }
 .v132-dossier::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 38%, rgba(5,6,6,.94)); }
-.v132-dossier img { position: absolute; inset: 0; filter: grayscale(.4) saturate(.6) contrast(1.08); }
+.v132-dossier img { position: absolute; inset: 0; object-position: center 24%; filter: grayscale(.3) saturate(.72) contrast(1.06); }
 .v132-dossier span,.v132-dossier strong { position: absolute; z-index: 2; left: 18px; }
 .v132-dossier span { bottom: 58px; color: var(--v132-gold); font-family: var(--font-sans); font-size: .58rem; letter-spacing: .16em; }
 .v132-dossier strong { bottom: 26px; color: var(--v132-ivory); font-family: var(--font-title); font-size: clamp(.8rem, 1.1vw, 1.05rem); font-weight: 600; }
@@ -438,7 +441,7 @@
 .v132-library-copy { align-self: center; max-width: 610px; padding: clamp(70px, 9vw, 130px) var(--v132-gutter); }
 .v132-library-copy h2 { margin: 14px 0 24px; }
 .v132-library-copy > p:not(.v132-kicker) { max-width: 500px; line-height: 1.8; }
-.v132-library-art { position: relative; min-height: 580px; display: flex; align-items: flex-end; justify-content: center; gap: clamp(12px, 2vw, 28px); padding: 70px clamp(24px, 5vw, 80px); background: linear-gradient(90deg, rgba(7,8,8,.78), rgba(7,8,8,.08)), url('../assets/art/library-cover.webp') center / cover no-repeat; border-left: 1px solid var(--v132-line); }
+.v132-library-art { position: relative; min-height: 580px; display: flex; align-items: flex-end; justify-content: center; gap: clamp(12px, 2vw, 28px); padding: 70px clamp(24px, 5vw, 80px); background: linear-gradient(90deg, rgba(7,8,8,.78), rgba(7,8,8,.08)), url('../assets/art/v132-library.webp') center / cover no-repeat; border-left: 1px solid var(--v132-line); }
 .v132-library-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,6,6,.08), rgba(5,6,6,.54)); }
 .v132-library-art span { position: relative; z-index: 2; width: clamp(84px, 9vw, 136px); height: clamp(190px, 24vw, 320px); display: grid; place-items: center; border: 1px solid rgba(184,148,85,.38); background: linear-gradient(135deg, rgba(38,26,21,.94), rgba(10,11,11,.96)); color: rgba(238,232,220,.72); font-family: var(--font-title); font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; writing-mode: vertical-rl; box-shadow: 0 20px 44px rgba(0,0,0,.48); }
 .v132-library-art span:nth-child(2) { height: clamp(170px, 21vw, 280px); background: linear-gradient(135deg, rgba(25,26,25,.96), rgba(8,9,9,.96)); }
