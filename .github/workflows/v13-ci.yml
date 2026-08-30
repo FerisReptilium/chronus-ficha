@@ -18,10 +18,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Patch hygiene
+        run: git diff --check origin/${{ github.base_ref || 'main' }}...HEAD
 
       - name: JavaScript syntax
         run: |
@@ -39,6 +44,8 @@ jobs:
           node --check js/modules/documents.js
           node --check js/modules/library.js
           node --check js/modules/sheet_engine.js
+          node --check js/modules/hero_video_v135.js
+          node --check js/modules/dice_roller_v135.js
 
       - name: v1.1 regression suite
         run: |
@@ -103,6 +110,12 @@ jobs:
       - name: v1.3.1 cinematic art pack QA
         run: node tests/v131_art_pack.test.js
 
+      - name: v1.3.5 cinematic hero video QA
+        run: node tests/v135_hero_video.test.js
+
+      - name: v1.3.5 CHRONUS dice roller QA
+        run: node tests/v135_dice_roller.test.js
+
       - name: Static smoke server
         run: |
           python3 -m http.server 4173 >/tmp/chronus-http.log 2>&1 &
@@ -115,6 +128,8 @@ jobs:
             /js/app.js \
             /js/router.js \
             /js/modules/sheet_engine.js \
+            /js/modules/hero_video_v135.js \
+            /js/modules/dice_roller_v135.js \
             /assets/art/hero-berlin-1992.webp \
             /assets/art/chronicle-cover.webp \
             /assets/art/sessions-cover.webp \
@@ -124,13 +139,18 @@ jobs:
             /assets/art/locations-cover.webp \
             /assets/art/documents-cover.webp \
             /assets/art/library-cover.webp \
+            /assets/video/v135-hero-berlin-loop.mp4 \
+            /assets/video/v135-hero-berlin-loop.webm \
+            /assets/video/v135-hero-berlin-poster.webp \
             /css/cinematic-v13.css \
             /css/cinematic-chronicle-page-v13.css \
             /css/cinematic-sessions-page-v13.css \
             /css/cinematic-npcs-page-v13.css \
             /css/cinematic-locations-page-v13.css \
             /css/cinematic-files-page-v13.css \
-            /css/cinematic-library-page-v13.css; do
+            /css/cinematic-library-page-v13.css \
+            /css/hero-video-v135.css \
+            /css/dice-roller-v135.css; do
             curl --fail --silent --show-error "http://127.0.0.1:4173${path}" >/dev/null
           done
-          echo "v1.3.1 static smoke: PASS"
+          echo "v1.3.5 static smoke: PASS"
