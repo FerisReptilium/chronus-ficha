@@ -26,6 +26,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('CHRONUS v1.3.2: wireframe editorial indisponível; mantendo Home v1.3.1.', error);
   }
 
+  // 3.2.5. Hero cinematográfica em vídeo. A camada é progressiva: conexões
+  // econômicas, telas menores e preferência por movimento reduzido usam o poster.
+  if (editorialV132Ready) {
+    try {
+      await loadScriptOnce('js/modules/hero_video_v135.js');
+      window.ChronusHeroVideoV135?.init?.();
+    } catch (error) {
+      console.error('CHRONUS v1.3.5: vídeo da hero indisponível; mantendo o poster estático.', error);
+    }
+  }
+
   if (!editorialV132Ready) {
     try {
       await loadScriptOnce('js/modules/home_motion.js');
@@ -57,6 +68,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.ChronusAmbientAudio?.init?.();
   } catch (error) {
     console.error('CHRONUS v1.3.4: trilha ambiente indisponível; mantendo o portal silencioso.', error);
+  }
+
+  // 3.5. Rolador global fiel ao Manual de Bolso: rolagem rápida primeiro,
+  // montagem guiada opcional e tratamento próprio para Descargas de Paradoxo.
+  try {
+    await loadScriptOnce('js/modules/dice_roller_v135.js');
+    window.ChronusDiceRollerV135?.init?.();
+  } catch (error) {
+    console.error('CHRONUS v1.3.5: rolador de dados indisponível; mantendo o restante do portal funcional.', error);
   }
 
   // 4. Configurar Formulários de Autenticação
