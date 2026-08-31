@@ -54,6 +54,8 @@ async function inspect(page) {
       const element = document.querySelector(selector);
       return Boolean(element && getComputedStyle(element).display !== 'none');
     };
+    const desktopLiveLink = [...document.querySelectorAll('.nav-links-desktop a[href="#/live"]')][0];
+    const desktopLiveLinkBox = desktopLiveLink?.getBoundingClientRect();
     return {
       marker: document.documentElement.dataset.chronusLive || null,
       localPreview: document.documentElement.dataset.chronusLiveLocalPreview || null,
@@ -73,6 +75,7 @@ async function inspect(page) {
         dice: overlayVisible('#chronus-dice-launcher'),
         audio: overlayVisible('#chronus-audio-dock')
       },
+      desktopLiveNavigationVisible: Boolean(desktopLiveLinkBox && desktopLiveLinkBox.width > 0 && desktopLiveLinkBox.height > 0),
       brokenImages: [...root.querySelectorAll('img[src]')]
         .filter(image => !image.complete || image.naturalWidth === 0)
         .map(image => image.getAttribute('src')),
@@ -143,6 +146,7 @@ async function runMode(browser, mode, viewport) {
   if (initial.horizontalOverflow || initial.brokenImages.length) throw new Error(`${mode}: initial visual regression`);
   if (initial.boxesOutsideViewport.length || initial.controlsOutsideBar.length || initial.clippedText.length) throw new Error(`${mode}: initial content clipping`);
   if (initial.globalOverlaysVisible.dice || initial.globalOverlaysVisible.audio) throw new Error(`${mode}: global dock overlaps live room`);
+  if (mode === 'desktop' && !initial.desktopLiveNavigationVisible) throw new Error('desktop: CHRONUS LIVE navigation link is hidden');
   if (initial.mediaDevicesRequested) throw new Error(`${mode}: prototype requested real media`);
   if (portrait.stageMediaState !== 'portrait' || portrait.stageCharacter !== 'Desperto 01') throw new Error(`${mode}: portrait spotlight failed`);
   if (cameraOn.localMediaState !== 'camera' || cameraOn.stageMediaState !== 'camera') throw new Error(`${mode}: camera-on simulation failed`);
