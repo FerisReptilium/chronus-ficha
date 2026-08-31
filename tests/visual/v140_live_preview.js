@@ -1,0 +1,135 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright');
+
+const origin = process.env.CHRONUS_PREVIEW_ORIGIN || 'http://127.0.0.1:4173';
+const outputDir = path.resolve(process.env.CHRONUS_PREVIEW_OUTPUT || 'artifacts/v140-live-preview');
+const viewports = {
+  desktop: { width: 1440, height: 1000 },
+  mobile: { width: 390, height: 844 }
+};
+
+function watchErrors(page) {
+  const errors = { console: [], page: [] };
+  page.on('console', message => {
+    if (message.type() === 'error') errors.console.push(message.text());
+  });
+  page.on('pageerror', error => errors.page.push(error.message));
+  return errors;
+}
+
+async function inspect(page) {
+  return page.evaluate(() => {
+    const root = document.getElementById('chronus-live-root');
+    const localCard = document.querySelector('[data-participant-id="local"]');
+    return {
+      marker: document.documentElement.dataset.chronusLive || null,
+      localPreview: document.documentElement.dataset.chronusLiveLocalPreview || null,
+      active: document.getElementById('view-live')?.classList.contains('is-active') || false,
+      participants: document.querySelectorAll('.chronus-live-participant').length,
+      portraitFallbacks: document.querySelectorAll('.chronus-live-participant .chronus-live-media.is-camera-off').length,
+      localMediaState: localCard?.querySelector('.chronus-live-media')?.dataset.mediaState || null,
+      stageMediaState: document.querySelector('#chronus-live-stage .chronus-live-media')?.dataset.mediaState || null,
+      stageCharacter: document.querySelector('#chronus-live-stage .chronus-live-identity strong')?.textContent.trim() || '',
+      screenShare: document.getElementById('chronus-live-stage')?.classList.contains('is-screen-share') || false,
+      grid: document.getElementById('chronus-live-roster')?.classList.contains('is-grid') || false,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      brokenImages: [...root.querySelectorAll('img[src]')]
+        .filter(image => !image.complete || image.naturalWidth === 0)
+        .map(image => image.getAttribute('src')),
+      mediaDevicesRequested: Boolean(window.__chronusMediaDevicesRequested)
+    };
+  });
+}
+
+async function runMode(browser, mode, viewport) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  await context.addInitScript(() => {
+    window.__chronusMediaDevicesRequested = false;
+    if (navigator.mediaDevices?.getUserMedia) {
+      const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = (...args) => {
+        window.__chronusMediaDevicesRequested = true;
+        return original(...args);
+      };
+    }
+  });
+
+  const page = await context.newPage();
+  const errors = watchErrors(page);
+  const response = await page.goto(`${origin}/#/live?preview=1`, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.waitForSelector('.chronus-live-room', { state: 'visible' });
+  await page.waitForFunction(() => document.documentElement.dataset.chronusLive === 'v1.4.0-prototype');
+
+  const initial = await inspect(page);
+  await page.screenshot({ path: path.join(outputDir, `${mode}-room.png`), fullPage: true });
+
+  await page.click('[data-participant-id="local"]');
+  await page.waitForFunction(() => document.querySelector('#chronus-live-stage .chronus-live-identity strong')?.textContent.includes('Desperto 01'));
+  const portrait = await inspect(page);
+  await page.screenshot({ path: path.join(outputDir, `${mode}-portrait-fallback.png`), fullPage: false });
+
+  await page.click('#chronus-live-camera');
+  await page.waitForFunction(() => document.querySelector('[data-participant-id="local"] .chronus-live-media')?.dataset.mediaState === 'camera');
+  const cameraOn = await inspect(page);
+  await page.screenshot({ path: path.join(outputDir, `${mode}-camera-on.png`), fullPage: false });
+
+  await page.click('#chronus-live-camera');
+  await page.waitForFunction(() => document.querySelector('[data-participant-id="local"] .chronus-live-media')?.dataset.mediaState === 'portrait');
+  const cameraOff = await inspect(page);
+
+  await page.click('#chronus-live-share');
+  await page.waitForSelector('.chronus-live-shared-file', { state: 'visible' });
+  const screenShare = await inspect(page);
+  await page.screenshot({ path: path.join(outputDir, `${mode}-screen-share.png`), fullPage: false });
+
+  await page.click('#chronus-live-grid');
+  const grid = await inspect(page);
+
+  const result = {
+    httpStatus: response?.status() || null,
+    initial,
+    portrait,
+    cameraOn,
+    cameraOff,
+    screenShare,
+    grid,
+    errors
+  };
+
+  if (result.httpStatus !== 200) throw new Error(`${mode}: preview HTTP ${result.httpStatus}`);
+  if (initial.marker !== 'v1.4.0-prototype' || initial.localPreview !== 'true') throw new Error(`${mode}: preview marker missing`);
+  if (!initial.active || initial.participants !== 5) throw new Error(`${mode}: room or participants missing`);
+  if (initial.portraitFallbacks < 3) throw new Error(`${mode}: portrait fallbacks missing`);
+  if (initial.horizontalOverflow || initial.brokenImages.length) throw new Error(`${mode}: initial visual regression`);
+  if (initial.mediaDevicesRequested) throw new Error(`${mode}: prototype requested real media`);
+  if (portrait.stageMediaState !== 'portrait' || portrait.stageCharacter !== 'Desperto 01') throw new Error(`${mode}: portrait spotlight failed`);
+  if (cameraOn.localMediaState !== 'camera' || cameraOn.stageMediaState !== 'camera') throw new Error(`${mode}: camera-on simulation failed`);
+  if (cameraOff.localMediaState !== 'portrait' || cameraOff.stageMediaState !== 'portrait') throw new Error(`${mode}: camera-off fallback failed`);
+  if (!screenShare.screenShare) throw new Error(`${mode}: screen-share prototype failed`);
+  if (!grid.grid) throw new Error(`${mode}: grid layout failed`);
+  if (cameraOn.horizontalOverflow || cameraOff.horizontalOverflow || screenShare.horizontalOverflow || grid.horizontalOverflow) throw new Error(`${mode}: interaction caused horizontal overflow`);
+  if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected`);
+
+  await context.close();
+  return result;
+}
+
+(async () => {
+  fs.mkdirSync(outputDir, { recursive: true });
+  const browser = await chromium.launch({ headless: true });
+  const results = {};
+
+  for (const [mode, viewport] of Object.entries(viewports)) {
+    results[mode] = await runMode(browser, mode, viewport);
+  }
+
+  await browser.close();
+  fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
+  console.log('v1.4.0 CHRONUS LIVE desktop/mobile visual QA: PASS');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

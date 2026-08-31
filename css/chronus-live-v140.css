@@ -1,0 +1,1116 @@
+/* CHRONUS LIVE v1.4.0 — sala cinematográfica, escopo exclusivo #view-live. */
+
+#view-live {
+  --live-bg: #050606;
+  --live-panel: rgba(11, 13, 13, 0.96);
+  --live-panel-soft: rgba(19, 21, 20, 0.88);
+  --live-line: rgba(184, 148, 85, 0.23);
+  --live-line-strong: rgba(184, 148, 85, 0.62);
+  --live-gold: #b89455;
+  --live-gold-bright: #e0bd76;
+  --live-ink: #eee8dc;
+  --live-muted: rgba(238, 232, 220, 0.56);
+  --live-red: #a13b35;
+  --live-green: #76a88f;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 15%, rgba(161, 59, 53, 0.09), transparent 28%),
+    radial-gradient(circle at 88% 35%, rgba(184, 148, 85, 0.08), transparent 24%),
+    linear-gradient(145deg, #050606, #0a0c0c 52%, #050606);
+  color: var(--live-ink);
+}
+
+body.in-live-mode {
+  background: #050606;
+}
+
+.chronus-live-root {
+  width: min(100%, 1600px);
+  margin: 0 auto;
+  padding: clamp(28px, 4vw, 64px) clamp(16px, 3vw, 46px) 48px;
+}
+
+.chronus-live-loading {
+  min-height: 65vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+}
+
+.chronus-live-loading > span {
+  color: var(--live-gold);
+  font-size: 1.6rem;
+  animation: chronusLivePulse 1.7s ease-in-out infinite;
+}
+
+.chronus-live-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: clamp(26px, 4vw, 46px);
+  padding: 0 0 clamp(22px, 3vw, 32px);
+  border-bottom: 1px solid var(--live-line);
+}
+
+.chronus-live-hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: clamp(90px, 16vw, 240px);
+  height: 1px;
+  background: linear-gradient(90deg, var(--live-gold-bright), transparent);
+}
+
+.chronus-live-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--live-gold);
+  font-family: var(--font-sans);
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+}
+
+.chronus-live-eyebrow > span,
+.chronus-live-room-state > span,
+.chronus-live-prototype-badge > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 11px currentColor;
+}
+
+.chronus-live-hero h1 {
+  margin: 0;
+  color: var(--live-ink);
+  font-family: var(--font-accent);
+  font-size: clamp(2.4rem, 5.2vw, 5.4rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 0.92;
+}
+
+.chronus-live-hero h1 em {
+  color: var(--live-gold);
+  font-family: var(--font-title);
+  font-size: 0.39em;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  vertical-align: 0.72em;
+}
+
+.chronus-live-hero-copy > p {
+  max-width: 700px;
+  margin: 17px 0 0;
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: clamp(1rem, 1.35vw, 1.24rem);
+  line-height: 1.5;
+}
+
+.chronus-live-prototype-badge {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 235px;
+  padding: 13px 16px;
+  border: 1px solid rgba(160, 118, 56, 0.42);
+  background: rgba(37, 29, 18, 0.7);
+  color: var(--live-gold-bright);
+}
+
+.chronus-live-prototype-badge div {
+  display: grid;
+  gap: 2px;
+}
+
+.chronus-live-prototype-badge strong,
+.chronus-live-prototype-badge small {
+  display: block;
+}
+
+.chronus-live-prototype-badge strong {
+  font-family: var(--font-sans);
+  font-size: 0.67rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chronus-live-prototype-badge small {
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.82rem;
+}
+
+.chronus-live-room {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 350px);
+  gap: clamp(16px, 2vw, 28px);
+  align-items: start;
+}
+
+.chronus-live-stage-column,
+.chronus-live-sidebar {
+  border: 1px solid var(--live-line);
+  background: var(--live-panel);
+  box-shadow: 0 24px 65px rgba(0, 0, 0, 0.34);
+}
+
+.chronus-live-room-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 72px;
+  padding: 15px clamp(16px, 2.2vw, 28px);
+  border-bottom: 1px solid var(--live-line);
+  background: linear-gradient(90deg, rgba(184, 148, 85, 0.07), transparent 38%);
+}
+
+.chronus-live-room-bar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.chronus-live-room-code {
+  color: var(--live-gold);
+  font-family: var(--font-sans);
+  font-size: 0.53rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.chronus-live-room-bar strong {
+  color: var(--live-ink);
+  font-family: var(--font-title);
+  font-size: clamp(0.96rem, 1.3vw, 1.14rem);
+  font-weight: 500;
+}
+
+.chronus-live-room-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--live-green);
+  font-family: var(--font-sans);
+  font-size: 0.59rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chronus-live-stage {
+  position: relative;
+  min-height: clamp(390px, 50vw, 690px);
+  overflow: hidden;
+  border-bottom: 1px solid var(--live-line);
+  background:
+    linear-gradient(rgba(184, 148, 85, 0.025) 1px, transparent 1px) 0 0 / 100% 56px,
+    linear-gradient(90deg, rgba(184, 148, 85, 0.025) 1px, transparent 1px) 0 0 / 56px 100%,
+    #050606;
+}
+
+.chronus-live-stage::before,
+.chronus-live-stage::after {
+  content: '';
+  position: absolute;
+  z-index: 8;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+}
+
+.chronus-live-stage::before {
+  top: 16px;
+  left: 16px;
+  border-top: 1px solid var(--live-gold);
+  border-left: 1px solid var(--live-gold);
+}
+
+.chronus-live-stage::after {
+  right: 16px;
+  bottom: 16px;
+  border-right: 1px solid var(--live-gold);
+  border-bottom: 1px solid var(--live-gold);
+}
+
+.chronus-live-stage-media,
+.chronus-live-stage-media > .chronus-live-media,
+.chronus-live-shared-file {
+  position: absolute;
+  inset: 0;
+}
+
+.chronus-live-stage-media {
+  overflow: hidden;
+}
+
+.chronus-live-media {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #080909;
+}
+
+.chronus-live-media-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chronus-live-media::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(2, 3, 3, 0.04), rgba(2, 3, 3, 0.2)),
+    repeating-linear-gradient(180deg, transparent 0 3px, rgba(255, 255, 255, 0.018) 4px);
+  pointer-events: none;
+}
+
+.chronus-live-media.is-camera-on .chronus-live-media-backdrop {
+  filter: saturate(0.63) contrast(1.06) brightness(0.82);
+  transform: scale(1.015);
+}
+
+.chronus-live-media.is-camera-off {
+  display: grid;
+  place-items: center;
+}
+
+.chronus-live-media.is-camera-off .chronus-live-media-backdrop {
+  opacity: 0.34;
+  filter: blur(20px) saturate(0.48) brightness(0.58);
+  transform: scale(1.15);
+}
+
+.chronus-live-portrait {
+  position: relative;
+  width: min(37%, 265px);
+  aspect-ratio: 1;
+  padding: 7px;
+  border: 1px solid var(--live-line-strong);
+  border-radius: 50%;
+  background: rgba(5, 6, 6, 0.88);
+  box-shadow: 0 0 0 7px rgba(5, 6, 6, 0.62), 0 0 60px rgba(184, 148, 85, 0.18);
+}
+
+.chronus-live-portrait::after {
+  content: '✦';
+  position: absolute;
+  right: 3%;
+  bottom: 3%;
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border: 1px solid var(--live-line-strong);
+  border-radius: 50%;
+  background: #11100e;
+  color: var(--live-gold-bright);
+  font-size: 0.64rem;
+}
+
+.chronus-live-portrait img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: saturate(0.72) contrast(1.04);
+}
+
+.chronus-live-camera-tag,
+.chronus-live-camera-off-tag {
+  position: absolute;
+  top: 23px;
+  right: 24px;
+  z-index: 3;
+  padding: 7px 9px;
+  border: 1px solid rgba(238, 232, 220, 0.18);
+  background: rgba(5, 6, 6, 0.7);
+  color: rgba(238, 232, 220, 0.66);
+  font-family: var(--font-sans);
+  font-size: 0.49rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.chronus-live-camera-off-tag {
+  top: auto;
+  right: auto;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.chronus-live-stage-status {
+  position: absolute;
+  top: 22px;
+  left: 25px;
+  z-index: 9;
+  display: grid;
+  gap: 3px;
+}
+
+.chronus-live-stage-status span {
+  color: var(--live-gold-bright);
+  font-family: var(--font-sans);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.chronus-live-stage-status small {
+  color: rgba(238, 232, 220, 0.62);
+  font-family: var(--font-serif);
+}
+
+.chronus-live-identity {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 78px;
+  padding: 17px 24px 18px;
+  background: linear-gradient(180deg, transparent, rgba(3, 4, 4, 0.96));
+}
+
+.chronus-live-identity > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chronus-live-identity strong {
+  overflow: hidden;
+  color: var(--live-ink);
+  font-family: var(--font-title);
+  font-size: clamp(1.05rem, 1.7vw, 1.42rem);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chronus-live-identity > div:first-child > span {
+  overflow: hidden;
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chronus-live-state-icons {
+  display: flex;
+  gap: 6px;
+}
+
+.chronus-live-state-icons span {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 1px solid rgba(238, 232, 220, 0.18);
+  border-radius: 50%;
+  background: rgba(5, 6, 6, 0.72);
+  font-size: 0.57rem;
+}
+
+.chronus-live-state-icons .is-on { color: var(--live-green); }
+.chronus-live-state-icons .is-off { color: rgba(238, 232, 220, 0.36); }
+
+.chronus-live-stage.is-speaking {
+  box-shadow: inset 0 0 0 1px rgba(224, 189, 118, 0.68), inset 0 0 46px rgba(184, 148, 85, 0.09);
+}
+
+.chronus-live-layout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--live-line);
+  color: var(--live-muted);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.chronus-live-layout-bar > div {
+  display: flex;
+  gap: 5px;
+}
+
+.chronus-live-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(238, 232, 220, 0.46);
+  font: inherit;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+}
+
+.chronus-live-layout-btn.is-active {
+  border-color: var(--live-line);
+  background: rgba(184, 148, 85, 0.08);
+  color: var(--live-gold-bright);
+}
+
+.chronus-live-roster {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--live-line);
+  background: #070808;
+}
+
+.chronus-live-roster.is-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.chronus-live-participant {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 11;
+  overflow: hidden;
+  border: 1px solid rgba(238, 232, 220, 0.12);
+  background: #0a0b0b;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.chronus-live-roster.is-grid .chronus-live-participant {
+  aspect-ratio: 16 / 10;
+}
+
+.chronus-live-participant:hover,
+.chronus-live-participant.is-selected {
+  border-color: var(--live-line-strong);
+  transform: translateY(-2px);
+}
+
+.chronus-live-participant.is-selected {
+  box-shadow: 0 0 0 1px rgba(184, 148, 85, 0.2), 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.chronus-live-participant.is-speaking {
+  animation: chronusLiveSpeaker 1.7s ease-in-out infinite;
+}
+
+.chronus-live-participant > .chronus-live-media {
+  position: absolute;
+  inset: 0;
+}
+
+.chronus-live-participant .chronus-live-portrait.is-compact {
+  width: min(48%, 88px);
+  padding: 3px;
+  box-shadow: 0 0 0 3px rgba(5, 6, 6, 0.62), 0 0 20px rgba(184, 148, 85, 0.14);
+}
+
+.chronus-live-participant .chronus-live-portrait::after,
+.chronus-live-participant .chronus-live-camera-tag,
+.chronus-live-participant .chronus-live-camera-off-tag {
+  display: none;
+}
+
+.chronus-live-identity.is-compact {
+  min-height: 44px;
+  padding: 18px 8px 7px;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.chronus-live-identity.is-compact strong {
+  font-family: var(--font-sans);
+  font-size: clamp(0.56rem, 0.8vw, 0.68rem);
+  font-weight: 700;
+}
+
+.chronus-live-identity.is-compact > div:first-child > span {
+  display: none;
+}
+
+.chronus-live-identity.is-compact .chronus-live-state-icons {
+  gap: 3px;
+}
+
+.chronus-live-identity.is-compact .chronus-live-state-icons span {
+  width: 19px;
+  height: 19px;
+  font-size: 0.42rem;
+}
+
+.chronus-live-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 1.2vw, 12px);
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(20, 22, 21, 0.88), rgba(9, 10, 10, 0.98));
+}
+
+.chronus-live-control {
+  min-width: 86px;
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 8px 11px;
+  border: 1px solid rgba(238, 232, 220, 0.15);
+  background: rgba(238, 232, 220, 0.04);
+  color: rgba(238, 232, 220, 0.72);
+  font-family: var(--font-sans);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.chronus-live-control:hover,
+.chronus-live-control.is-active {
+  border-color: var(--live-line-strong);
+  background: rgba(184, 148, 85, 0.1);
+  color: var(--live-gold-bright);
+}
+
+.chronus-live-control.is-off {
+  border-color: rgba(161, 59, 53, 0.38);
+  color: rgba(224, 132, 124, 0.8);
+}
+
+.chronus-live-control.is-danger {
+  border-color: rgba(161, 59, 53, 0.56);
+  background: rgba(161, 59, 53, 0.16);
+  color: #df8b83;
+}
+
+.chronus-live-control.is-danger:hover {
+  background: rgba(161, 59, 53, 0.28);
+}
+
+.chronus-live-control-icon {
+  font-size: 0.96rem;
+  line-height: 1;
+}
+
+.chronus-live-sidebar {
+  position: sticky;
+  top: 78px;
+  overflow: hidden;
+}
+
+.chronus-live-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px 18px;
+  border-bottom: 1px solid var(--live-line);
+  background: linear-gradient(90deg, rgba(184, 148, 85, 0.08), transparent);
+}
+
+.chronus-live-sidebar-head span,
+.chronus-live-sidebar-head strong {
+  font-family: var(--font-sans);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.chronus-live-sidebar-head span { color: var(--live-muted); }
+.chronus-live-sidebar-head strong { color: var(--live-gold-bright); }
+
+.chronus-live-objective,
+.chronus-live-feed,
+.chronus-live-quick {
+  padding: 20px 18px;
+  border-bottom: 1px solid var(--live-line);
+}
+
+.chronus-live-objective > span {
+  color: var(--live-gold);
+  font-family: var(--font-sans);
+  font-size: 0.53rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.chronus-live-objective h2 {
+  margin: 10px 0;
+  color: var(--live-ink);
+  font-family: var(--font-title);
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.chronus-live-objective p {
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.chronus-live-objective > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 15px;
+}
+
+.chronus-live-objective > div span {
+  padding: 5px 7px;
+  border: 1px solid rgba(184, 148, 85, 0.18);
+  color: rgba(238, 232, 220, 0.55);
+  font-family: var(--font-sans);
+  font-size: 0.48rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chronus-live-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.chronus-live-section-title h2,
+.chronus-live-quick h2 {
+  color: var(--live-ink);
+  font-family: var(--font-title);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.chronus-live-section-title > span {
+  color: var(--live-green);
+  font-family: var(--font-sans);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chronus-live-feed ol {
+  display: grid;
+  gap: 13px;
+  max-height: 255px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(184, 148, 85, 0.32) transparent;
+}
+
+.chronus-live-feed li {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  gap: 9px;
+  align-items: start;
+}
+
+.chronus-live-feed-marker {
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border: 1px solid var(--live-gold);
+  border-radius: 50%;
+}
+
+.chronus-live-feed li div {
+  display: grid;
+  gap: 2px;
+}
+
+.chronus-live-feed strong {
+  color: rgba(238, 232, 220, 0.78);
+  font-family: var(--font-sans);
+  font-size: 0.57rem;
+}
+
+.chronus-live-feed p {
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.chronus-live-feed time {
+  color: rgba(238, 232, 220, 0.3);
+  font-family: var(--font-sans);
+  font-size: 0.44rem;
+  white-space: nowrap;
+}
+
+.chronus-live-quick h2 { margin-bottom: 13px; }
+
+.chronus-live-quick > div {
+  display: grid;
+  gap: 7px;
+}
+
+.chronus-live-quick a {
+  display: grid;
+  grid-template-columns: 31px 1fr;
+  gap: 1px 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(238, 232, 220, 0.1);
+  background: rgba(238, 232, 220, 0.025);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.chronus-live-quick a:hover {
+  border-color: var(--live-line-strong);
+  background: rgba(184, 148, 85, 0.07);
+}
+
+.chronus-live-quick a > span {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border: 1px solid var(--live-line);
+  color: var(--live-gold-bright);
+}
+
+.chronus-live-quick strong {
+  color: rgba(238, 232, 220, 0.78);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+}
+
+.chronus-live-quick small {
+  color: rgba(238, 232, 220, 0.38);
+  font-family: var(--font-serif);
+  font-size: 0.7rem;
+}
+
+.chronus-live-shared-file {
+  display: grid;
+  place-items: center;
+  background: #050606;
+}
+
+.chronus-live-shared-file > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.55) brightness(0.42) contrast(1.12);
+}
+
+.chronus-live-shared-file-copy {
+  position: absolute;
+  left: clamp(25px, 5vw, 70px);
+  right: clamp(25px, 5vw, 70px);
+  bottom: clamp(30px, 5vw, 70px);
+  max-width: 670px;
+  padding: clamp(18px, 3vw, 32px);
+  border-left: 2px solid var(--live-gold);
+  background: rgba(4, 5, 5, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.chronus-live-shared-file-copy span {
+  color: var(--live-gold);
+  font-family: var(--font-sans);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.chronus-live-shared-file-copy strong {
+  display: block;
+  margin: 7px 0 8px;
+  color: var(--live-ink);
+  font-family: var(--font-title);
+  font-size: clamp(1.2rem, 2.7vw, 2.2rem);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.chronus-live-shared-file-copy p {
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+}
+
+.chronus-live-disclaimer {
+  margin: 18px auto 0;
+  color: rgba(238, 232, 220, 0.34);
+  font-family: var(--font-sans);
+  font-size: 0.52rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+#view-live .sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+#view-live button:focus-visible,
+#view-live a:focus-visible {
+  outline: 2px solid var(--live-gold-bright);
+  outline-offset: 3px;
+}
+
+@keyframes chronusLivePulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes chronusLiveSpeaker {
+  0%, 100% { border-color: rgba(224, 189, 118, 0.35); box-shadow: 0 0 0 rgba(184, 148, 85, 0); }
+  50% { border-color: rgba(224, 189, 118, 0.88); box-shadow: 0 0 18px rgba(184, 148, 85, 0.2); }
+}
+
+@media (max-width: 1180px) {
+  .chronus-live-room {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .chronus-live-stage {
+    min-height: clamp(360px, 54vw, 610px);
+  }
+
+  .chronus-live-control {
+    min-width: 74px;
+  }
+}
+
+@media (max-width: 960px) {
+  .chronus-live-room {
+    grid-template-columns: 1fr;
+  }
+
+  .chronus-live-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chronus-live-sidebar-head {
+    grid-column: 1 / -1;
+  }
+
+  .chronus-live-objective {
+    border-right: 1px solid var(--live-line);
+  }
+
+  .chronus-live-quick {
+    grid-column: 1 / -1;
+    border-bottom: 0;
+  }
+
+  .chronus-live-quick > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .chronus-live-root {
+    padding: 25px 10px 36px;
+  }
+
+  .chronus-live-hero {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .chronus-live-prototype-badge {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .chronus-live-room-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .chronus-live-stage {
+    min-height: 440px;
+  }
+
+  .chronus-live-stage-media .chronus-live-media-backdrop {
+    object-position: center;
+  }
+
+  .chronus-live-stage .chronus-live-portrait {
+    width: min(56%, 230px);
+  }
+
+  .chronus-live-camera-tag {
+    top: 17px;
+    right: 17px;
+  }
+
+  .chronus-live-stage-status {
+    top: 18px;
+    left: 18px;
+  }
+
+  .chronus-live-stage-status + .chronus-live-camera-tag {
+    display: none;
+  }
+
+  .chronus-live-roster {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(150px, 47vw);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline mandatory;
+  }
+
+  .chronus-live-roster.is-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    overflow: visible;
+  }
+
+  .chronus-live-participant {
+    scroll-snap-align: start;
+  }
+
+  .chronus-live-controls {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+    padding: 10px;
+  }
+
+  .chronus-live-control {
+    min-width: 0;
+    min-height: 51px;
+    padding: 7px 4px;
+    font-size: 0.45rem;
+  }
+
+  .chronus-live-sidebar {
+    display: block;
+  }
+
+  .chronus-live-objective {
+    border-right: 0;
+  }
+
+  .chronus-live-quick > div {
+    grid-template-columns: 1fr;
+  }
+
+  .chronus-live-shared-file-copy {
+    left: 18px;
+    right: 18px;
+    bottom: 34px;
+  }
+}
+
+@media (max-width: 430px) {
+  .chronus-live-stage {
+    min-height: 390px;
+  }
+
+  .chronus-live-layout-bar > span {
+    display: none;
+  }
+
+  .chronus-live-layout-bar {
+    justify-content: flex-end;
+  }
+
+  .chronus-live-identity {
+    padding-inline: 16px;
+  }
+
+  .chronus-live-identity strong {
+    max-width: 210px;
+  }
+
+  .chronus-live-control > span:last-child {
+    display: none;
+  }
+
+  .chronus-live-control-icon {
+    font-size: 1.08rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #view-live *,
+  #view-live *::before,
+  #view-live *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .chronus-live-participant:hover,
+  .chronus-live-participant.is-selected,
+  .chronus-live-media.is-camera-on .chronus-live-media-backdrop {
+    transform: none;
+  }
+}
+
+@media print {
+  #view-live,
+  .chronus-live-root {
+    display: none !important;
+  }
+}
