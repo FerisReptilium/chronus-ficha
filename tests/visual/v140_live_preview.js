@@ -24,6 +24,36 @@ async function inspect(page) {
   return page.evaluate(() => {
     const root = document.getElementById('chronus-live-root');
     const localCard = document.querySelector('[data-participant-id="local"]');
+    const viewportWidth = document.documentElement.clientWidth;
+    const boxSelectors = [
+      '.chronus-live-room',
+      '.chronus-live-stage-column',
+      '.chronus-live-stage',
+      '.chronus-live-controls',
+      '.chronus-live-sidebar'
+    ];
+    const boxesOutsideViewport = boxSelectors.flatMap(selector => [...document.querySelectorAll(selector)])
+      .filter(element => {
+        const box = element.getBoundingClientRect();
+        return box.left < -1 || box.right > viewportWidth + 1 || box.width > viewportWidth + 1;
+      })
+      .map(element => element.className);
+    const controls = document.querySelector('.chronus-live-controls')?.getBoundingClientRect();
+    const controlsOutsideBar = controls
+      ? [...document.querySelectorAll('.chronus-live-control')]
+          .filter(button => {
+            const box = button.getBoundingClientRect();
+            return box.left < controls.left - 1 || box.right > controls.right + 1;
+          })
+          .map(button => button.id)
+      : ['controls-missing'];
+    const clippedText = [...document.querySelectorAll('.chronus-live-objective p, .chronus-live-objective h2, .chronus-live-identity strong')]
+      .filter(element => element.scrollWidth > element.clientWidth + 1 && getComputedStyle(element).textOverflow !== 'ellipsis')
+      .map(element => element.textContent.trim());
+    const overlayVisible = selector => {
+      const element = document.querySelector(selector);
+      return Boolean(element && getComputedStyle(element).display !== 'none');
+    };
     return {
       marker: document.documentElement.dataset.chronusLive || null,
       localPreview: document.documentElement.dataset.chronusLiveLocalPreview || null,
@@ -36,6 +66,13 @@ async function inspect(page) {
       screenShare: document.getElementById('chronus-live-stage')?.classList.contains('is-screen-share') || false,
       grid: document.getElementById('chronus-live-roster')?.classList.contains('is-grid') || false,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      boxesOutsideViewport,
+      controlsOutsideBar,
+      clippedText,
+      globalOverlaysVisible: {
+        dice: overlayVisible('#chronus-dice-launcher'),
+        audio: overlayVisible('#chronus-audio-dock')
+      },
       brokenImages: [...root.querySelectorAll('img[src]')]
         .filter(image => !image.complete || image.naturalWidth === 0)
         .map(image => image.getAttribute('src')),
@@ -104,6 +141,8 @@ async function runMode(browser, mode, viewport) {
   if (!initial.active || initial.participants !== 5) throw new Error(`${mode}: room or participants missing`);
   if (initial.portraitFallbacks < 3) throw new Error(`${mode}: portrait fallbacks missing`);
   if (initial.horizontalOverflow || initial.brokenImages.length) throw new Error(`${mode}: initial visual regression`);
+  if (initial.boxesOutsideViewport.length || initial.controlsOutsideBar.length || initial.clippedText.length) throw new Error(`${mode}: initial content clipping`);
+  if (initial.globalOverlaysVisible.dice || initial.globalOverlaysVisible.audio) throw new Error(`${mode}: global dock overlaps live room`);
   if (initial.mediaDevicesRequested) throw new Error(`${mode}: prototype requested real media`);
   if (portrait.stageMediaState !== 'portrait' || portrait.stageCharacter !== 'Desperto 01') throw new Error(`${mode}: portrait spotlight failed`);
   if (cameraOn.localMediaState !== 'camera' || cameraOn.stageMediaState !== 'camera') throw new Error(`${mode}: camera-on simulation failed`);
@@ -111,6 +150,9 @@ async function runMode(browser, mode, viewport) {
   if (!screenShare.screenShare) throw new Error(`${mode}: screen-share prototype failed`);
   if (!grid.grid) throw new Error(`${mode}: grid layout failed`);
   if (cameraOn.horizontalOverflow || cameraOff.horizontalOverflow || screenShare.horizontalOverflow || grid.horizontalOverflow) throw new Error(`${mode}: interaction caused horizontal overflow`);
+  for (const [stateName, state] of Object.entries({ portrait, cameraOn, cameraOff, screenShare, grid })) {
+    if (state.boxesOutsideViewport.length || state.controlsOutsideBar.length || state.clippedText.length) throw new Error(`${mode}: ${stateName} content clipping`);
+  }
   if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected`);
 
   await context.close();

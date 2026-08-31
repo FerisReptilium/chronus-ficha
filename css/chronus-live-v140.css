@@ -25,6 +25,14 @@ body.in-live-mode {
   background: #050606;
 }
 
+/* A sala já oferece acesso integrado ao rolador. Os dois docks globais ficam
+   fora deste modo para não encobrir vídeo, retrato ou controles em telas
+   pequenas. Ao sair da rota, ambos voltam ao comportamento normal. */
+body.in-live-mode .chronus-dice-launcher,
+body.in-live-mode .chronus-audio-dock {
+  display: none;
+}
+
 .chronus-live-root {
   width: min(100%, 1600px);
   margin: 0 auto;
@@ -161,10 +169,12 @@ body.in-live-mode {
   grid-template-columns: minmax(0, 1fr) minmax(290px, 350px);
   gap: clamp(16px, 2vw, 28px);
   align-items: start;
+  min-width: 0;
 }
 
 .chronus-live-stage-column,
 .chronus-live-sidebar {
+  min-width: 0;
   border: 1px solid var(--live-line);
   background: var(--live-panel);
   box-shadow: 0 24px 65px rgba(0, 0, 0, 0.34);
@@ -1034,6 +1044,7 @@ body.in-live-mode {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 5px;
     padding: 10px;
+    width: 100%;
   }
 
   .chronus-live-control {

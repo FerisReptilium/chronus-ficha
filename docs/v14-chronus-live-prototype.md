@@ -16,6 +16,8 @@ segredos de infraestrutura.
 - indicador visual de participante falando;
 - estados simulados de microfone e compartilhamento de tela;
 - integração com o rolador global, ficha, arquivos e atlas;
+- supressão dos docks globais sobrepostos enquanto a sala estiver aberta; o
+  rolador continua acessível pelo controle integrado da sala;
 - reaproveitamento do nome, identidade e retrato do usuário autenticado;
 - avisos explícitos de que não existe transmissão ou gravação nesta fase.
 

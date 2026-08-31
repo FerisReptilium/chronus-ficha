@@ -68,6 +68,9 @@ assert(css.includes('@media (prefers-reduced-motion: reduce)'), 'reduced-motion 
 assert(css.includes(':focus-visible'), 'keyboard focus treatment missing');
 assert(css.includes('.chronus-live-media.is-camera-off'), 'portrait fallback styling missing');
 assert(css.includes('.chronus-live-participant.is-speaking'), 'active-speaker styling missing');
+assert(css.includes('body.in-live-mode .chronus-dice-launcher'), 'global dice launcher must not overlap the live room');
+assert(css.includes('body.in-live-mode .chronus-audio-dock'), 'global audio dock must not overlap the live room');
+assert(css.includes('min-width: 0'), 'live grid items need an intrinsic overflow guard');
 
 const context = { window: {} };
 vm.createContext(context);
