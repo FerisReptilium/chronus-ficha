@@ -10,8 +10,10 @@ const router = read('js/router.js');
 const app = read('js/app.js');
 const source = read('js/modules/chronus_live_v140.js');
 const css = read('css/chronus-live-v140.css');
+const editorialCss = read('css/editorial-v132-rebuild.css');
 
 assert(index.includes('href="#/live"'), 'CHRONUS LIVE navigation link missing');
+assert(index.includes('<li><a href="#/live" class="nav-link">Ao Vivo</a></li>'), 'desktop CHRONUS LIVE link must not be marked collapsible');
 assert(index.includes('id="view-live"'), 'CHRONUS LIVE SPA view missing');
 assert(index.includes('id="chronus-live-root"'), 'CHRONUS LIVE mount point missing');
 assert(index.includes('aria-labelledby="chronus-live-title"'), 'CHRONUS LIVE view needs an accessible title');
@@ -71,6 +73,8 @@ assert(css.includes('.chronus-live-participant.is-speaking'), 'active-speaker st
 assert(css.includes('body.in-live-mode .chronus-dice-launcher'), 'global dice launcher must not overlap the live room');
 assert(css.includes('body.in-live-mode .chronus-audio-dock'), 'global audio dock must not overlap the live room');
 assert(css.includes('min-width: 0'), 'live grid items need an intrinsic overflow guard');
+assert(editorialCss.includes('.nav-links-desktop > .nav-desktop-collapsible'), 'desktop navigation must hide secondary routes semantically');
+assert(!editorialCss.includes('.nav-links-desktop > li:nth-child'), 'route visibility must not depend on fragile list positions');
 
 const context = { window: {} };
 vm.createContext(context);

@@ -17,10 +17,7 @@
 
 /* Navegação enxuta no desktop. As rotas continuam disponíveis no menu mobile. */
 @media (min-width: 1101px) {
-  .nav-links-desktop > li:nth-child(3),
-  .nav-links-desktop > li:nth-child(4),
-  .nav-links-desktop > li:nth-child(5),
-  .nav-links-desktop > li:nth-child(7) {
+  .nav-links-desktop > .nav-desktop-collapsible {
     display: none;
   }
 
