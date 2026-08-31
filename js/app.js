@@ -79,7 +79,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('CHRONUS v1.3.5: rolador de dados indisponível; mantendo o restante do portal funcional.', error);
   }
 
-  // 4. Configurar Formulários de Autenticação
+  // 4.0. Sala CHRONUS LIVE. Nesta primeira entrega, o módulo trabalha em modo
+  // de protótipo visual e não solicita câmera, microfone ou credenciais externas.
+  try {
+    await loadScriptOnce('js/modules/chronus_live_v140.js');
+    window.ChronusLiveV140?.init?.();
+  } catch (error) {
+    console.error('CHRONUS v1.4.0: sala ao vivo indisponível; mantendo o restante do portal funcional.', error);
+  }
+
+  // 5. Configurar Formulários de Autenticação
   setupAuthForms();
 
   console.log('CHRONUS: Portal pronto.');

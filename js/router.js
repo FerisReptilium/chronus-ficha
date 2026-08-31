@@ -7,6 +7,7 @@ window.ChronusRouter = (function() {
     '#/home': { viewId: 'view-home', title: 'Início · CHRONUS' },
     '#/player': { viewId: 'view-player', title: 'Minha Área · CHRONUS', authRequired: true },
     '#/narrator': { viewId: 'view-narrator', title: 'Painel do Narrador · CHRONUS', narratorOnly: true },
+    '#/live': { viewId: 'view-live', title: 'CHRONUS LIVE · Sala da Crônica', authRequired: true },
     '#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS' },
     '#/chronicle': { viewId: 'view-chronicle', title: 'Crônica · CHRONUS' },
     '#/sessions': { viewId: 'view-sessions', title: 'Sessões · CHRONUS' },
@@ -27,6 +28,13 @@ window.ChronusRouter = (function() {
     handleRouteChange();
   }
 
+  function allowsLocalLivePreview(cleanHash, fullHash) {
+    if (cleanHash !== '#/live') return false;
+    if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') return false;
+    const query = fullHash.includes('?') ? fullHash.split('?')[1] : '';
+    return new URLSearchParams(query).get('preview') === '1';
+  }
+
   function handleRouteChange() {
     let hash = window.location.hash || '#/home';
     const queryIdx = hash.indexOf('?');
@@ -45,7 +53,7 @@ window.ChronusRouter = (function() {
     const user = window.ChronusAuth?.getUser();
     const profile = window.ChronusAuth?.getProfile();
 
-    if (routeDef.authRequired && !user) {
+    if (routeDef.authRequired && !user && !allowsLocalLivePreview(cleanHash, hash)) {
       window.ChronusAuth?.showAuthModal('Faça login para acessar sua área de jogador.');
       window.location.hash = '#/home';
       return;
@@ -80,6 +88,8 @@ window.ChronusRouter = (function() {
     }
 
     // Se estiver na rota da ficha, ajusta o body/layout
+    document.body.classList.toggle('in-live-mode', cleanHash === '#/live');
+
     if (cleanHash === '#/sheet') {
       document.body.classList.add('in-sheet-mode');
       const params = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
@@ -97,6 +107,8 @@ window.ChronusRouter = (function() {
       window.ChronusPlayerDashboard?.load();
     } else if (cleanHash === '#/narrator') {
       window.ChronusNarratorPanel?.load();
+    } else if (cleanHash === '#/live') {
+      window.ChronusLiveV140?.load?.();
     } else if (cleanHash === '#/chronicle') {
       window.ChronusChronicle?.load?.();
     } else if (cleanHash === '#/sessions') {

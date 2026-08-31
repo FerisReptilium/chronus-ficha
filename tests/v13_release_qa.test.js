@@ -16,6 +16,7 @@ const routes = [
   ['#/home', 'view-home'],
   ['#/player', 'view-player'],
   ['#/narrator', 'view-narrator'],
+  ['#/live', 'view-live'],
   ['#/sheet', 'view-sheet'],
   ['#/chronicle', 'view-chronicle'],
   ['#/sessions', 'view-sessions'],
