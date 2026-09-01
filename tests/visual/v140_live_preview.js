@@ -62,6 +62,7 @@ async function inspect(page) {
       active: document.getElementById('view-live')?.classList.contains('is-active') || false,
       participants: document.querySelectorAll('.chronus-live-participant').length,
       portraitFallbacks: document.querySelectorAll('.chronus-live-participant .chronus-live-media.is-camera-off').length,
+      emptyPortraits: document.querySelectorAll('.chronus-live-participant .chronus-live-media.is-media-empty').length,
       localMediaState: localCard?.querySelector('.chronus-live-media')?.dataset.mediaState || null,
       stageMediaState: document.querySelector('#chronus-live-stage .chronus-live-media')?.dataset.mediaState || null,
       stageCharacter: document.querySelector('#chronus-live-stage .chronus-live-identity strong')?.textContent.trim() || '',
@@ -109,7 +110,7 @@ async function runMode(browser, mode, viewport) {
   await page.click('[data-participant-id="local"]');
   await page.waitForFunction(() => document.querySelector('#chronus-live-stage .chronus-live-identity strong')?.textContent.includes('Desperto 01'));
   const portrait = await inspect(page);
-  await page.screenshot({ path: path.join(outputDir, `${mode}-portrait-fallback.png`), fullPage: false });
+  await page.screenshot({ path: path.join(outputDir, `${mode}-empty-portrait.png`), fullPage: false });
 
   await page.click('#chronus-live-camera');
   await page.waitForFunction(() => document.querySelector('[data-participant-id="local"] .chronus-live-media')?.dataset.mediaState === 'camera');
@@ -117,7 +118,7 @@ async function runMode(browser, mode, viewport) {
   await page.screenshot({ path: path.join(outputDir, `${mode}-camera-on.png`), fullPage: false });
 
   await page.click('#chronus-live-camera');
-  await page.waitForFunction(() => document.querySelector('[data-participant-id="local"] .chronus-live-media')?.dataset.mediaState === 'portrait');
+  await page.waitForFunction(() => document.querySelector('[data-participant-id="local"] .chronus-live-media')?.dataset.mediaState === 'empty');
   const cameraOff = await inspect(page);
 
   await page.click('#chronus-live-share');
@@ -143,14 +144,15 @@ async function runMode(browser, mode, viewport) {
   if (initial.marker !== 'v1.4.0-prototype' || initial.localPreview !== 'true') throw new Error(`${mode}: preview marker missing`);
   if (!initial.active || initial.participants !== 5) throw new Error(`${mode}: room or participants missing`);
   if (initial.portraitFallbacks < 3) throw new Error(`${mode}: portrait fallbacks missing`);
+  if (initial.emptyPortraits !== 5) throw new Error(`${mode}: participants without sheet photos must remain empty`);
   if (initial.horizontalOverflow || initial.brokenImages.length) throw new Error(`${mode}: initial visual regression`);
   if (initial.boxesOutsideViewport.length || initial.controlsOutsideBar.length || initial.clippedText.length) throw new Error(`${mode}: initial content clipping`);
   if (initial.globalOverlaysVisible.dice || initial.globalOverlaysVisible.audio) throw new Error(`${mode}: global dock overlaps live room`);
   if (mode === 'desktop' && !initial.desktopLiveNavigationVisible) throw new Error('desktop: CHRONUS LIVE navigation link is hidden');
   if (initial.mediaDevicesRequested) throw new Error(`${mode}: prototype requested real media`);
-  if (portrait.stageMediaState !== 'portrait' || portrait.stageCharacter !== 'Desperto 01') throw new Error(`${mode}: portrait spotlight failed`);
+  if (portrait.stageMediaState !== 'empty' || portrait.stageCharacter !== 'Desperto 01') throw new Error(`${mode}: empty portrait spotlight failed`);
   if (cameraOn.localMediaState !== 'camera' || cameraOn.stageMediaState !== 'camera') throw new Error(`${mode}: camera-on simulation failed`);
-  if (cameraOff.localMediaState !== 'portrait' || cameraOff.stageMediaState !== 'portrait') throw new Error(`${mode}: camera-off fallback failed`);
+  if (cameraOff.localMediaState !== 'empty' || cameraOff.stageMediaState !== 'empty') throw new Error(`${mode}: camera-off empty state failed`);
   if (!screenShare.screenShare) throw new Error(`${mode}: screen-share prototype failed`);
   if (!grid.grid) throw new Error(`${mode}: grid layout failed`);
   if (cameraOn.horizontalOverflow || cameraOff.horizontalOverflow || screenShare.horizontalOverflow || grid.horizontalOverflow) throw new Error(`${mode}: interaction caused horizontal overflow`);

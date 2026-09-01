@@ -17,8 +17,8 @@ window.ChronusLiveV140 = (function() {
       characterName: 'Operador da K-17',
       role: 'Narrador',
       detail: 'Controle da crônica',
-      portrait: 'assets/art/v132-hero-berlin.webp',
-      cameraArt: 'assets/art/v132-hero-berlin.webp',
+      portrait: null,
+      cameraArt: null,
       camera: true,
       microphone: true,
       speaking: false
@@ -29,8 +29,8 @@ window.ChronusLiveV140 = (function() {
       characterName: 'Desperto 01',
       role: 'Jogador',
       detail: 'Tradição não definida',
-      portrait: 'assets/art/v132-npc-contact.webp',
-      cameraArt: 'assets/art/v132-npc-contact.webp',
+      portrait: null,
+      cameraArt: null,
       camera: false,
       microphone: true,
       speaking: true,
@@ -42,8 +42,8 @@ window.ChronusLiveV140 = (function() {
       characterName: 'Desperto 02',
       role: 'Jogador',
       detail: 'Contato de campo',
-      portrait: 'assets/art/npc-known.webp',
-      cameraArt: 'assets/art/npc-known.webp',
+      portrait: null,
+      cameraArt: null,
       camera: true,
       microphone: true,
       speaking: false
@@ -54,8 +54,8 @@ window.ChronusLiveV140 = (function() {
       characterName: 'Desperto 03',
       role: 'Jogador',
       detail: 'Especialista em arquivos',
-      portrait: 'assets/art/v132-npc-unknown.webp',
-      cameraArt: 'assets/art/v132-npc-unknown.webp',
+      portrait: null,
+      cameraArt: null,
       camera: false,
       microphone: false,
       speaking: false
@@ -66,8 +66,8 @@ window.ChronusLiveV140 = (function() {
       characterName: 'Desperto 04',
       role: 'Jogador',
       detail: 'Observador do Véu',
-      portrait: 'assets/art/v132-npc-threat.webp',
-      cameraArt: 'assets/art/v132-npc-threat.webp',
+      portrait: null,
+      cameraArt: null,
       camera: false,
       microphone: true,
       speaking: false
@@ -77,6 +77,7 @@ window.ChronusLiveV140 = (function() {
   let initialized = false;
   let rendered = false;
   let portraitObjectUrl = '';
+  let portraitHydrationId = 0;
   let state = createInitialState();
 
   function createInitialState() {
@@ -133,6 +134,17 @@ window.ChronusLiveV140 = (function() {
     const icon = createElement('span', 'chronus-live-control-icon', icons[name] || '✦');
     icon.setAttribute('aria-hidden', 'true');
     return icon;
+  }
+
+  function mediaDescriptor(participant) {
+    const source = participant.camera ? participant.cameraArt : participant.portrait;
+    const hasSource = typeof source === 'string' && source.trim().length > 0;
+    return Object.freeze({
+      source: hasSource ? source : null,
+      hasSource,
+      hasPortrait: Boolean(participant.portrait),
+      state: participant.camera ? 'camera' : (hasSource ? 'portrait' : 'empty')
+    });
   }
 
   function buildShell() {
@@ -224,20 +236,26 @@ window.ChronusLiveV140 = (function() {
   }
 
   function appendMedia(container, participant, compact = false) {
-    const media = createElement('div', `chronus-live-media ${participant.camera ? 'is-camera-on' : 'is-camera-off'}`);
-    media.dataset.mediaState = participant.camera ? 'camera' : 'portrait';
+    const descriptor = mediaDescriptor(participant);
+    const media = createElement('div', `chronus-live-media ${participant.camera ? 'is-camera-on' : 'is-camera-off'}${descriptor.hasSource ? '' : ' is-media-empty'}`);
+    media.dataset.mediaState = descriptor.state;
+    media.dataset.hasPortrait = String(descriptor.hasPortrait);
 
-    const backdrop = document.createElement('img');
-    backdrop.className = 'chronus-live-media-backdrop';
-    backdrop.src = participant.camera ? participant.cameraArt : participant.portrait;
-    backdrop.alt = '';
-    backdrop.setAttribute('aria-hidden', 'true');
-    media.appendChild(backdrop);
+    if (descriptor.hasSource) {
+      const backdrop = document.createElement('img');
+      backdrop.className = 'chronus-live-media-backdrop';
+      backdrop.src = descriptor.source;
+      backdrop.alt = '';
+      backdrop.setAttribute('aria-hidden', 'true');
+      media.appendChild(backdrop);
+    } else {
+      media.appendChild(createElement('span', 'sr-only', `${participant.characterName} ainda não possui foto cadastrada na ficha.`));
+    }
 
     if (participant.camera) {
       const liveTag = createElement('span', 'chronus-live-camera-tag', 'CÂMERA · SIMULAÇÃO');
       media.appendChild(liveTag);
-    } else {
+    } else if (descriptor.hasSource) {
       const portraitFrame = createElement('div', compact ? 'chronus-live-portrait is-compact' : 'chronus-live-portrait');
       const portrait = document.createElement('img');
       portrait.src = participant.portrait;
@@ -383,9 +401,10 @@ window.ChronusLiveV140 = (function() {
       setControlContent(microphone, local.microphone ? 'microphone' : 'microphoneOff', local.microphone ? 'Microfone' : 'Sem áudio', local.microphone ? 'Desligar microfone simulado' : 'Ligar microfone simulado');
     }
     if (camera) {
+      const cameraLabel = local.camera ? 'Câmera' : (local.portrait ? 'Retrato' : 'Sem foto');
       camera.setAttribute('aria-pressed', String(!local.camera));
       camera.classList.toggle('is-off', !local.camera);
-      setControlContent(camera, local.camera ? 'camera' : 'cameraOff', local.camera ? 'Câmera' : 'Retrato', local.camera ? 'Desligar câmera simulada' : 'Ligar câmera simulada');
+      setControlContent(camera, local.camera ? 'camera' : 'cameraOff', cameraLabel, local.camera ? 'Desligar câmera simulada' : 'Ligar câmera simulada');
     }
   }
 
@@ -444,8 +463,11 @@ window.ChronusLiveV140 = (function() {
       state.screenShare = false;
       updateShareControl();
       renderAll();
-      appendFeed(local.characterName, local.camera ? 'Câmera simulada ligada.' : 'Câmera desligada; retrato do personagem exibido.', 'agora');
-      announce(local.camera ? 'Câmera simulada ligada.' : 'Câmera desligada. O retrato do personagem está visível.');
+      const cameraOffMessage = local.portrait
+        ? 'Câmera desligada; retrato cadastrado na ficha exibido.'
+        : 'Câmera desligada; personagem sem foto cadastrada na ficha.';
+      appendFeed(local.characterName, local.camera ? 'Câmera simulada ligada.' : cameraOffMessage, 'agora');
+      announce(local.camera ? 'Câmera simulada ligada.' : cameraOffMessage);
     });
 
     share?.addEventListener('click', () => {
@@ -485,11 +507,28 @@ window.ChronusLiveV140 = (function() {
   }
 
   async function hydrateCurrentParticipant() {
+    const hydrationId = ++portraitHydrationId;
     const user = window.ChronusAuth?.getUser?.();
     const profile = window.ChronusAuth?.getProfile?.();
-    if (!user) return;
-
     const local = participantById('local');
+
+    if (portraitObjectUrl) {
+      URL.revokeObjectURL(portraitObjectUrl);
+      portraitObjectUrl = '';
+    }
+    local.portrait = null;
+    local.cameraArt = null;
+    local.playerName = 'Jogador local';
+    local.characterName = 'Desperto 01';
+    local.role = 'Jogador';
+    local.detail = 'Tradição não definida';
+
+    if (rendered && window.location.hash.startsWith('#/live')) renderAll();
+
+    if (!user) {
+      return;
+    }
+
     local.playerName = profile?.display_name || user.email?.split('@')[0] || 'Jogador';
 
     if (profile?.role === 'narrator') {
@@ -515,6 +554,7 @@ window.ChronusLiveV140 = (function() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
+      if (hydrationId !== portraitHydrationId) return;
 
       const identity = character?.data?.identity || {};
       local.characterName = identity.name || character?.name || local.characterName;
@@ -523,14 +563,21 @@ window.ChronusLiveV140 = (function() {
       const { data: portrait, error: portraitError } = await client.storage
         .from('portraits')
         .download(`${user.id}/portrait`);
-      if (!portraitError && portrait) {
-        if (portraitObjectUrl) URL.revokeObjectURL(portraitObjectUrl);
+      if (hydrationId !== portraitHydrationId) return;
+      if (portraitError) {
+        const missingPortrait = portraitError.statusCode === '404'
+          || portraitError.status === 404
+          || /not found|object not found/i.test(portraitError.message || '');
+        if (!missingPortrait) {
+          console.warn('CHRONUS LIVE: não foi possível carregar a foto da ficha; mantendo o quadro vazio.', portraitError);
+        }
+      } else if (portrait) {
         portraitObjectUrl = URL.createObjectURL(portrait);
         local.portrait = portraitObjectUrl;
         local.cameraArt = portraitObjectUrl;
       }
     } catch (error) {
-      console.warn('CHRONUS LIVE: dados do personagem indisponíveis; usando retrato de demonstração.', error);
+      console.warn('CHRONUS LIVE: dados do personagem indisponíveis; mantendo o quadro sem foto.', error);
     }
 
     if (rendered && window.location.hash.startsWith('#/live')) renderAll();
@@ -559,6 +606,7 @@ window.ChronusLiveV140 = (function() {
   return Object.freeze({
     init,
     load,
+    mediaStateFor: participant => mediaDescriptor(participant).state,
     mode: 'prototype',
     marker: PREVIEW_MARKER
   });

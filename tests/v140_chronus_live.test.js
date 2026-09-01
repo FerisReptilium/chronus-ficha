@@ -37,6 +37,12 @@ assert(source.includes("launcher.click()"), 'existing dice roller integration mi
 assert(source.includes(".from('characters')"), 'existing character data integration missing');
 assert(source.includes(".from('portraits')"), 'existing portrait storage integration missing');
 assert(source.includes(".download(`${user.id}/portrait`)"), 'current-user portrait path missing');
+assert(source.includes("state: participant.camera ? 'camera' : (hasSource ? 'portrait' : 'empty')"), 'missing portraits must render an explicit empty state');
+assert(source.includes("local.portrait = null"), 'portrait hydration must clear stale or demonstration portraits');
+assert(source.includes("local.cameraArt = null"), 'camera simulation must not retain stale or demonstration art');
+assert(source.includes('portraitHydrationId'), 'portrait hydration must reject stale async responses');
+assert(source.includes('personagem sem foto cadastrada na ficha'), 'camera-off messaging must cover the empty-photo state');
+assert(source.includes("local.portrait ? 'Retrato' : 'Sem foto'"), 'camera control must identify the empty-photo state');
 assert(source.includes('textContent'), 'dynamic participant content must use textContent');
 assert(source.includes('aria-live="polite"'), 'live announcements missing');
 
@@ -51,17 +57,18 @@ for (const forbidden of [
   assert(!source.includes(forbidden), `prototype must not contain production media/secret capability: ${forbidden}`);
 }
 
-for (const asset of [
+for (const forbiddenParticipantArt of [
   'assets/art/v132-hero-berlin.webp',
   'assets/art/v132-npc-contact.webp',
   'assets/art/npc-known.webp',
   'assets/art/v132-npc-unknown.webp',
-  'assets/art/v132-npc-threat.webp',
-  'assets/art/v132-documents.webp'
+  'assets/art/v132-npc-threat.webp'
 ]) {
-  assert(source.includes(asset), `prototype asset reference missing: ${asset}`);
-  assert(fs.existsSync(asset), `prototype asset does not exist: ${asset}`);
+  assert(!source.includes(forbiddenParticipantArt), `LIVE must not use demonstration participant art: ${forbiddenParticipantArt}`);
 }
+
+assert(source.includes('assets/art/v132-documents.webp'), 'screen-share demonstration asset missing');
+assert(fs.existsSync('assets/art/v132-documents.webp'), 'screen-share demonstration asset does not exist');
 
 assert(css.includes('#view-live'), 'CHRONUS LIVE stylesheet must be scoped');
 assert(!css.includes('#view-sheet'), 'CHRONUS LIVE styles must not touch the digital sheet');
@@ -69,6 +76,7 @@ assert(css.includes('@media (max-width: 720px)'), 'mobile layout breakpoint miss
 assert(css.includes('@media (prefers-reduced-motion: reduce)'), 'reduced-motion fallback missing');
 assert(css.includes(':focus-visible'), 'keyboard focus treatment missing');
 assert(css.includes('.chronus-live-media.is-camera-off'), 'portrait fallback styling missing');
+assert(css.includes('.chronus-live-media.is-media-empty'), 'empty portrait state styling missing');
 assert(css.includes('.chronus-live-participant.is-speaking'), 'active-speaker styling missing');
 assert(css.includes('body.in-live-mode .chronus-dice-launcher'), 'global dice launcher must not overlap the live room');
 assert(css.includes('body.in-live-mode .chronus-audio-dock'), 'global audio dock must not overlap the live room');
@@ -81,5 +89,8 @@ vm.createContext(context);
 vm.runInContext(source, context);
 assert.strictEqual(context.window.ChronusLiveV140.mode, 'prototype');
 assert.strictEqual(context.window.ChronusLiveV140.marker, 'v1.4.0-prototype');
+assert.strictEqual(context.window.ChronusLiveV140.mediaStateFor({ camera: false, portrait: null, cameraArt: null }), 'empty');
+assert.strictEqual(context.window.ChronusLiveV140.mediaStateFor({ camera: false, portrait: 'blob:sheet-photo', cameraArt: null }), 'portrait');
+assert.strictEqual(context.window.ChronusLiveV140.mediaStateFor({ camera: true, portrait: null, cameraArt: null }), 'camera');
 
 console.log('v1.4.0 CHRONUS LIVE prototype QA: PASS');

@@ -12,7 +12,8 @@ segredos de infraestrutura.
 - exceção de preview limitada a `localhost`/`127.0.0.1` e `preview=1`;
 - sala responsiva para desktop e celular;
 - participante em destaque e visualização em grade;
-- câmera simulada e fallback automático para o retrato do personagem;
+- câmera simulada e fallback automático exclusivamente para o retrato salvo na ficha;
+- quadro vazio quando o personagem ainda não possui retrato, sem arte genérica;
 - indicador visual de participante falando;
 - estados simulados de microfone e compartilhamento de tela;
 - integração com o rolador global, ficha, arquivos e atlas;
@@ -48,7 +49,7 @@ segredos de infraestrutura.
 
 ## Critérios para aprovação do protótipo
 
-- câmera desligada mostra claramente o retrato do personagem;
+- câmera desligada mostra o retrato salvo na ficha ou mantém o quadro vazio;
 - nome do personagem, jogador e estado de mídia permanecem legíveis;
 - o layout funciona sem rolagem horizontal da página em 390 px e 1440 px;
 - navegação por teclado e foco visível funcionam nos controles;

@@ -277,6 +277,12 @@ body.in-live-mode .chronus-audio-dock {
   background: #080909;
 }
 
+.chronus-live-media.is-media-empty {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(184, 148, 85, 0.035), transparent 34%),
+    linear-gradient(145deg, #090a0a, #050606 70%);
+}
+
 .chronus-live-media-backdrop {
   position: absolute;
   inset: 0;
