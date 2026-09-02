@@ -26,9 +26,10 @@ function gitBlobSha(buffer) {
 }
 
 const homeBuffer = fs.readFileSync(homePath);
-const expectedHomeSha = '3b0093f7658426b90a7ca9ca15c5e23dba3658a0';
+// v1.4.2 preserves the approved v1.3 composition while correcting the canon to Berlin 1990.
+const expectedHomeSha = 'dd1504e268af47c52aa386b9180b77a8d7ab409b';
 if (gitBlobSha(homeBuffer) !== expectedHomeSha) {
-  throw new Error('js/modules/home.js differs from the approved v1.3 version');
+  throw new Error('js/modules/home.js differs from the approved v1.4.2 canon version');
 }
 
 for (const file of art) {

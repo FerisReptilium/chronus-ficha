@@ -148,13 +148,20 @@ window.ChronusAuth = (function() {
     const userArea = document.getElementById('nav-user-area');
     const mobileUserArea = document.getElementById('mobile-nav-user-area');
 
-    function buildHtml(isMobile = false) {
+    function createElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined && text !== null) element.textContent = String(text);
+      return element;
+    }
+
+    function buildAuthNode(isMobile = false) {
       if (!user) {
-        return `
-          <button type="button" class="portal-btn portal-btn-gold nav-auth-btn" id="${isMobile ? 'btn-mobile-login' : 'btn-nav-login'}">
-            <span class="btn-icon">✦</span> Entrar
-          </button>
-        `;
+        const login = createElement('button', 'portal-btn portal-btn-gold nav-auth-btn');
+        login.type = 'button';
+        login.id = isMobile ? 'btn-mobile-login' : 'btn-nav-login';
+        login.append(createElement('span', 'btn-icon', '✦'), document.createTextNode(' Entrar'));
+        return login;
       }
 
       const displayName = profile?.display_name || user.email?.split('@')[0] || 'Desperto';
@@ -162,33 +169,37 @@ window.ChronusAuth = (function() {
       const roleLabel = isNarrator ? 'Narrador' : 'Jogador';
       const targetHash = isNarrator ? '#/narrator' : '#/player';
 
-      return `
-        <div class="nav-user-badge">
-          <a href="${targetHash}" class="nav-profile-pill" title="Minha Área (${roleLabel})">
-            <span class="role-icon">${isNarrator ? '👁️' : '🛡️'}</span>
-            <span class="user-name">${displayName}</span>
-            <span class="role-tag role-${profile?.role || 'player'}">${roleLabel}</span>
-          </a>
-          <button type="button" class="nav-btn-icon" id="${isMobile ? 'btn-mobile-logout' : 'btn-nav-logout'}" title="Sair da Conta">
-            ✕
-          </button>
-        </div>
-      `;
+      const badge = createElement('div', 'nav-user-badge');
+      const profileLink = createElement('a', 'nav-profile-pill');
+      profileLink.href = targetHash;
+      profileLink.title = `Minha Área (${roleLabel})`;
+      profileLink.append(
+        createElement('span', 'role-icon', isNarrator ? '👁️' : '🛡️'),
+        createElement('span', 'user-name', displayName),
+        createElement('span', `role-tag role-${isNarrator ? 'narrator' : 'player'}`, roleLabel)
+      );
+
+      const logout = createElement('button', 'nav-btn-icon', '✕');
+      logout.type = 'button';
+      logout.id = isMobile ? 'btn-mobile-logout' : 'btn-nav-logout';
+      logout.title = 'Sair da Conta';
+      badge.append(profileLink, logout);
+      return badge;
     }
 
     if (userArea) {
-      userArea.innerHTML = buildHtml(false);
-      document.getElementById('btn-nav-login')?.addEventListener('click', () => showAuthModal());
-      document.getElementById('btn-nav-logout')?.addEventListener('click', handleLogout);
+      userArea.replaceChildren(buildAuthNode(false));
+      userArea.querySelector('#btn-nav-login')?.addEventListener('click', () => showAuthModal());
+      userArea.querySelector('#btn-nav-logout')?.addEventListener('click', handleLogout);
     }
 
     if (mobileUserArea) {
-      mobileUserArea.innerHTML = buildHtml(true);
-      document.getElementById('btn-mobile-login')?.addEventListener('click', () => {
+      mobileUserArea.replaceChildren(buildAuthNode(true));
+      mobileUserArea.querySelector('#btn-mobile-login')?.addEventListener('click', () => {
         window.ChronusRouter?.closeMobileMenu();
         showAuthModal();
       });
-      document.getElementById('btn-mobile-logout')?.addEventListener('click', handleLogout);
+      mobileUserArea.querySelector('#btn-mobile-logout')?.addEventListener('click', handleLogout);
     }
   }
 

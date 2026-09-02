@@ -99,8 +99,30 @@ async function runMode(browser, mode, viewport) {
   });
 
   const page = await context.newPage();
+  page.setDefaultTimeout(15000);
+
+  // O preview deve ser determinístico e não depender da disponibilidade de
+  // Supabase, YouTube ou qualquer outra rede externa durante o CI.
+  await page.route('https://cdn.jsdelivr.net/**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: `window.supabase = {
+      createClient: () => ({
+        auth: {
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+          getSession: async () => ({ data: { session: null }, error: null })
+        }
+      })
+    };`
+  }));
+  await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: ''
+  }));
+
   const errors = watchErrors(page);
-  const response = await page.goto(`${origin}/#/live?preview=1`, { waitUntil: 'networkidle', timeout: 30000 });
+  const response = await page.goto(`${origin}/#/live?preview=1`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForSelector('.chronus-live-room', { state: 'visible' });
   await page.waitForFunction(() => document.documentElement.dataset.chronusLive === 'v1.4.0-prototype');
 

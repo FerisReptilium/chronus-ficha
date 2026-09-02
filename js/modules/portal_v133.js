@@ -9,12 +9,12 @@ window.ChronusPortalV133 = (function() {
 
   const STYLE_HREF = 'css/portal-v133.css';
   const PAGES = [
-    ['view-chronicle', '01 / Crônica ativa', 'REGISTRO NARRATIVO · BERLIM 1992'],
+    ['view-chronicle', '01 / Crônica ativa', 'REGISTRO NARRATIVO · BERLIM 1990'],
     ['view-sessions', '02 / Diário de campo', 'CRONOLOGIA · ACESSO CONFORME PERFIL'],
     ['view-npcs', '03 / Dossiês humanos', 'PESSOAS DE INTERESSE · K-17'],
     ['view-maps', '04 / Atlas operacional', 'CARTOGRAFIA · TERRITÓRIOS RECONHECIDOS'],
     ['view-files', '05 / Evidências', 'ARQUIVO CONFISCADO · ACESSO CONTROLADO'],
-    ['view-soundtrack', '06 / Paisagem sonora', 'ARQUIVO ANALÓGICO · BERLIM 1992'],
+    ['view-soundtrack', '06 / Paisagem sonora', 'ARQUIVO ANALÓGICO · BERLIM 1990'],
     ['view-system', '07 / Fundamentos', 'PROTOCOLO DE AÇÃO · REALIDADE E RISCO'],
     ['view-library', '08 / Acervo oficial', 'DOCUMENTAÇÃO · ACESSO CONFORME PERFIL']
   ];

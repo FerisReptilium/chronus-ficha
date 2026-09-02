@@ -453,14 +453,18 @@ window.ChronusNarratorPanel = (function() {
       renderNarratorGrid(players || [], newestByUser, pane);
     } catch (err) {
       console.error('CHRONUS: Erro ao carregar painel do narrador:', err);
-      pane.innerHTML = `
-        <div class="editorial-box error-state">
-          <h3>Não foi possível carregar as fichas</h3>
-          <p>${err.message || 'Erro de conexão com o banco de dados.'}</p>
-          <button type="button" class="portal-btn" id="btn-retry-players">Atualizar Fichas</button>
-        </div>
-      `;
-      document.getElementById('btn-retry-players')?.addEventListener('click', () => renderPlayerTable(pane));
+      pane.innerHTML = '';
+      const errorBox = createEl('div', 'editorial-box error-state');
+      const retry = createEl('button', 'portal-btn', 'Atualizar Fichas');
+      retry.type = 'button';
+      retry.id = 'btn-retry-players';
+      retry.addEventListener('click', () => renderPlayerTable(pane));
+      errorBox.append(
+        createEl('h3', null, 'Não foi possível carregar as fichas'),
+        createEl('p', null, err?.message || 'Erro de conexão com o banco de dados.'),
+        retry
+      );
+      pane.appendChild(errorBox);
     }
   }
 
@@ -477,14 +481,35 @@ window.ChronusNarratorPanel = (function() {
       return;
     }
 
-    const cardsHtml = players.map(player => {
+    pane.innerHTML = '';
+
+    const shellHeader = createEl('div', 'narrator-shell-header');
+    const headerCopy = createEl('div');
+    const subtitle = createEl('p', 'narrator-subtitle-desc');
+    subtitle.append(
+      document.createTextNode('Acompanhe o estado das fichas em tempo real. O acesso do Narrador é estritamente '),
+      createEl('strong', null, 'somente leitura'),
+      document.createTextNode(': os jogadores são os únicos com permissão de edição em seus respectivos registros.')
+    );
+    headerCopy.append(createEl('h2', 'narrator-main-title', 'Cabala de Jogadores (Mesa Ativa)'), subtitle);
+
+    const refresh = createEl('button', 'portal-btn portal-btn-secondary', '🔄 Atualizar Mesa');
+    refresh.type = 'button';
+    refresh.id = 'btn-narrator-refresh';
+    refresh.addEventListener('click', () => renderPlayerTable(pane));
+    shellHeader.append(headerCopy, refresh);
+
+    const grid = createEl('div', 'narrator-players-grid');
+
+    players.forEach(player => {
       const character = newestByUser.get(player.id) || null;
-      const safePlayerName = player.display_name || player.email?.split('@')[0] || 'Jogador';
+      const playerName = player.display_name || player.email?.split('@')[0] || 'Jogador';
       const charName = character?.name || 'Ficha ainda não iniciada';
       const concept = character?.data?.identity?.concept ? `"${character.data.identity.concept}"` : 'Sem conceito';
       const tradition = character?.data?.identity?.tradition || 'Tradição não definida';
 
-      let syncBadge = '<span class="status-pill status-empty">Aguardando 1º login</span>';
+      let syncClass = 'status-pill status-empty';
+      let syncText = 'Aguardando 1º login';
       let syncDateStr = 'Nunca';
 
       if (character) {
@@ -493,79 +518,67 @@ window.ChronusNarratorPanel = (function() {
         const diffHours = Math.floor(diffMin / 60);
 
         if (diffMin < 10) {
-          syncBadge = '<span class="status-pill status-online">● Online / Recente</span>';
+          syncClass = 'status-pill status-online';
+          syncText = '● Online / Recente';
         } else if (diffHours < 24) {
-          syncBadge = `<span class="status-pill status-synced">✓ Sincronizado (${diffHours}h atrás)</span>`;
+          syncClass = 'status-pill status-synced';
+          syncText = `✓ Sincronizado (${diffHours}h atrás)`;
         } else {
-          syncBadge = `<span class="status-pill status-stale">⚠ Desatualizado (${Math.floor(diffHours / 24)}d atrás)</span>`;
+          syncClass = 'status-pill status-stale';
+          syncText = `⚠ Desatualizado (${Math.floor(diffHours / 24)}d atrás)`;
         }
         syncDateStr = new Date(character.updated_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
       }
 
-      return `
-        <article class="narrator-player-card" data-user-id="${player.id}">
-          <div class="card-head">
-            <div class="player-avatar-mini" id="narrator-avatar-${player.id}">
-              <span>🛡️</span>
-            </div>
-            <div class="player-titles">
-              <h3 class="player-name-title">${safePlayerName}</h3>
-              <span class="player-email-sub">${player.email || ''}</span>
-            </div>
-          </div>
+      const card = createEl('article', 'narrator-player-card');
+      card.dataset.userId = String(player.id || '');
 
-          <div class="card-body">
-            <div class="char-highlight-block">
-              <div class="char-highlight-name">${charName}</div>
-              <div class="char-highlight-sub">${tradition} • ${concept}</div>
-            </div>
-            <div class="sync-row">
-              <span class="sync-label">Status:</span>
-              ${syncBadge}
-            </div>
-            <div class="sync-row">
-              <span class="sync-label">Última atualização:</span>
-              <span class="sync-time">${syncDateStr}</span>
-            </div>
-          </div>
+      const cardHead = createEl('div', 'card-head');
+      const avatar = createEl('div', 'player-avatar-mini');
+      avatar.id = `narrator-avatar-${player.id}`;
+      avatar.appendChild(createEl('span', null, '🛡️'));
+      const titles = createEl('div', 'player-titles');
+      titles.append(
+        createEl('h3', 'player-name-title', playerName),
+        createEl('span', 'player-email-sub', player.email || '')
+      );
+      cardHead.append(avatar, titles);
 
-          <div class="card-footer">
-            ${character ? `
-              <button type="button" class="portal-btn portal-btn-gold btn-open-readonly-sheet" 
-                data-player-id="${player.id}"
-                data-player-name="${safePlayerName}"
-                data-char-id="${character.id}"
-                data-char-name="${charName}">
-                Abrir Ficha (Somente Leitura)
-              </button>
-            ` : `
-              <button type="button" class="portal-btn" disabled>Aguardando Criação</button>
-            `}
-          </div>
-        </article>
-      `;
-    }).join('');
+      const cardBody = createEl('div', 'card-body');
+      const highlight = createEl('div', 'char-highlight-block');
+      highlight.append(
+        createEl('div', 'char-highlight-name', charName),
+        createEl('div', 'char-highlight-sub', `${tradition} • ${concept}`)
+      );
+      const statusRow = createEl('div', 'sync-row');
+      statusRow.append(createEl('span', 'sync-label', 'Status:'), createEl('span', syncClass, syncText));
+      const updatedRow = createEl('div', 'sync-row');
+      updatedRow.append(
+        createEl('span', 'sync-label', 'Última atualização:'),
+        createEl('span', 'sync-time', syncDateStr)
+      );
+      cardBody.append(highlight, statusRow, updatedRow);
 
-    pane.innerHTML = `
-      <div class="narrator-shell-header">
-        <div>
-          <h2 class="narrator-main-title">Cabala de Jogadores (Mesa Ativa)</h2>
-          <p class="narrator-subtitle-desc">
-            Acompanhe o estado das fichas em tempo real. O acesso do Narrador é estritamente <strong>somente leitura</strong>: 
-            os jogadores são os únicos com permissão de edição em seus respectivos registros.
-          </p>
-        </div>
-        <button type="button" class="portal-btn portal-btn-secondary" id="btn-narrator-refresh">
-          🔄 Atualizar Mesa
-        </button>
-      </div>
+      const footer = createEl('div', 'card-footer');
+      const openButton = character
+        ? createEl('button', 'portal-btn portal-btn-gold btn-open-readonly-sheet', 'Abrir Ficha (Somente Leitura)')
+        : createEl('button', 'portal-btn', 'Aguardando Criação');
+      openButton.type = 'button';
+      if (character) {
+        openButton.dataset.playerId = String(player.id || '');
+        openButton.dataset.playerName = playerName;
+        openButton.dataset.charId = String(character.id || '');
+        openButton.dataset.charName = charName;
+      } else {
+        openButton.disabled = true;
+      }
+      footer.appendChild(openButton);
 
-      <div class="narrator-players-grid">
-        ${cardsHtml}
-      </div>
-    `;
+      card.append(cardHead, cardBody, footer);
+      grid.appendChild(card);
+    });
 
-    document.getElementById('btn-narrator-refresh')?.addEventListener('click', () => renderPlayerTable(pane));
+    pane.append(shellHeader, grid);
 
     pane.querySelectorAll('.btn-open-readonly-sheet').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -602,7 +615,11 @@ window.ChronusNarratorPanel = (function() {
       const { data, error } = await client.storage.from('portraits').download(`${playerId}/portrait`);
       if (!error && data) {
         const url = URL.createObjectURL(data);
-        container.innerHTML = `<img src="${url}" alt="Retrato" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+        const portrait = createEl('img');
+        portrait.src = url;
+        portrait.alt = 'Retrato';
+        portrait.style.cssText = 'width:100%; height:100%; object-fit:cover; border-radius:50%;';
+        container.replaceChildren(portrait);
       }
     } catch (e) {}
   }

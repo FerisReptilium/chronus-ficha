@@ -3,6 +3,11 @@
  * Exibe resumo do personagem, retrato, status de sincronização e atalhos rápidos.
  */
 window.ChronusPlayerDashboard = (function() {
+  function setTextContent(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = String(value ?? '');
+  }
+
   async function load() {
     const user = window.ChronusAuth?.getUser();
     const profile = window.ChronusAuth?.getProfile();
@@ -14,9 +19,12 @@ window.ChronusPlayerDashboard = (function() {
         <div class="editorial-box empty-state">
           <h3>Sessão não identificada</h3>
           <p>Faça login para acessar o santuário do seu personagem.</p>
-          <button type="button" class="portal-btn portal-btn-gold" onclick="window.ChronusAuth.showAuthModal()">Entrar</button>
+          <button type="button" class="portal-btn portal-btn-gold" id="btn-dashboard-login">Entrar</button>
         </div>
       `;
+      document.getElementById('btn-dashboard-login')?.addEventListener('click', () => {
+        window.ChronusAuth.showAuthModal();
+      });
       return;
     }
 
@@ -45,10 +53,12 @@ window.ChronusPlayerDashboard = (function() {
       container.innerHTML = `
         <div class="editorial-box error-state">
           <h3>Falha ao carregar registros</h3>
-          <p>${err.message || 'Verifique sua conexão com a internet.'}</p>
-          <button type="button" class="portal-btn" onclick="window.ChronusPlayerDashboard.load()">Tentar Novamente</button>
+          <p id="dashboard-load-error"></p>
+          <button type="button" class="portal-btn" id="btn-dashboard-retry">Tentar Novamente</button>
         </div>
       `;
+      setTextContent('dashboard-load-error', err?.message || 'Verifique sua conexão com a internet.');
+      document.getElementById('btn-dashboard-retry')?.addEventListener('click', () => load());
     }
   }
 
@@ -79,28 +89,28 @@ window.ChronusPlayerDashboard = (function() {
         <div class="character-details">
           <div class="character-meta-top">
             <span class="badge-occult">DESPERTO</span>
-            <span class="sync-status-text">✦ Sincronização: ${lastSyncStr}</span>
+            <span class="sync-status-text" id="dashboard-sync-status"></span>
           </div>
 
-          <h2 class="character-name-heading">${charName}</h2>
-          <p class="character-concept-lead">"${charConcept}"</p>
+          <h2 class="character-name-heading" id="dashboard-character-name"></h2>
+          <p class="character-concept-lead" id="dashboard-character-concept"></p>
 
           <div class="character-tags-grid">
             <div class="tag-item">
               <span class="tag-label">Jogador</span>
-              <span class="tag-val">${playerName}</span>
+              <span class="tag-val" id="dashboard-player-name"></span>
             </div>
             <div class="tag-item">
               <span class="tag-label">Tradição / Convenção</span>
-              <span class="tag-val">${charTradition}</span>
+              <span class="tag-val" id="dashboard-character-tradition"></span>
             </div>
             <div class="tag-item">
               <span class="tag-label">Profissão</span>
-              <span class="tag-val">${charProfession}</span>
+              <span class="tag-val" id="dashboard-character-profession"></span>
             </div>
             <div class="tag-item">
               <span class="tag-label">Crônica</span>
-              <span class="tag-val">${identity.chronicle || 'Ecologia Sobrenatural'}</span>
+              <span class="tag-val" id="dashboard-character-chronicle"></span>
             </div>
           </div>
 
@@ -154,6 +164,14 @@ window.ChronusPlayerDashboard = (function() {
         </div>
       </div>
     `;
+
+    setTextContent('dashboard-sync-status', `✦ Sincronização: ${lastSyncStr}`);
+    setTextContent('dashboard-character-name', charName);
+    setTextContent('dashboard-character-concept', `"${charConcept}"`);
+    setTextContent('dashboard-player-name', playerName);
+    setTextContent('dashboard-character-tradition', charTradition);
+    setTextContent('dashboard-character-profession', charProfession);
+    setTextContent('dashboard-character-chronicle', identity.chronicle || 'Ecologia Sobrenatural');
 
     document.getElementById('btn-dashboard-change-pwd')?.addEventListener('click', () => {
       window.ChronusAuth.showPasswordModal('change');
