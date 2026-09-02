@@ -39,7 +39,7 @@ window.ChronusHomeV132 = (function() {
     const title = content.querySelector('.hero-main-title');
     const subtitle = content.querySelector('.hero-subtitle');
     const quote = content.querySelector('.hero-quote');
-    if (badge) badge.textContent = 'Berlim · 1992';
+    if (badge) badge.textContent = 'Berlim · 1990';
     if (title) title.textContent = 'CHRONUS';
     if (subtitle) subtitle.textContent = 'Ecologia Sobrenatural';
     if (quote) quote.textContent = 'O mundo não mudou. Você apenas começou a enxergá-lo.';
@@ -79,13 +79,13 @@ window.ChronusHomeV132 = (function() {
             <span class="v132-index">01 / A cidade depois do Muro</span>
             <p class="v132-kicker">Crônica em andamento</p>
             <h2 id="v132-opening-title">Berlim nunca voltou a ser uma cidade inteira.</h2>
-            <p class="v132-lead">Em 1992, liberdade e ruína dividem as mesmas ruas. Bunkers esquecidos, arquivos da Stasi e clubes clandestinos escondem sinais de uma ecologia sobrenatural que voltou a respirar.</p>
+            <p class="v132-lead">Em 1990, liberdade e ruína dividem as mesmas ruas. Bunkers esquecidos, arquivos da Stasi e clubes clandestinos escondem sinais de uma ecologia sobrenatural que voltou a respirar.</p>
             <p>CHRONUS acompanha os Despertos que atravessam esse território — reunindo pistas, enfrentando consequências e descobrindo quem se beneficiou quando o Véu começou a ceder.</p>
             <a class="v132-text-link" href="#/chronicle">Ler a crônica <span aria-hidden="true">→</span></a>
           </div>
           <figure class="v132-opening-art">
             <img src="assets/art/v132-atlas.webp" width="1448" height="1086" alt="Mapa urbano de Berlim e materiais de investigação do Atlas CHRONUS">
-            <figcaption><span>Atlas 1992</span><strong>Uma cidade dividida por memórias e territórios invisíveis.</strong></figcaption>
+            <figcaption><span>Atlas 1990</span><strong>Uma cidade dividida por memórias e territórios invisíveis.</strong></figcaption>
           </figure>
         </section>
 
@@ -121,9 +121,9 @@ window.ChronusHomeV132 = (function() {
             <h2 id="v132-session-title">Cada encontro deixa um vestígio.</h2>
             <p>Datas, pistas, decisões e feridas permanecem organizadas em uma cronologia única. O diário mostra somente o que a mesa testemunhou — sem antecipar os segredos do Narrador.</p>
             <ol class="v132-session-list">
-              <li><time datetime="1992-05-07">07 mai 1992</time><span>Marcas na cidade</span></li>
-              <li><time datetime="1992-05-09">09 mai 1992</time><span>Arquivos interrompidos</span></li>
-              <li><time datetime="1992-05-12">12 mai 1992</time><span>Distorções</span></li>
+              <li><time datetime="1990-05-07">07 mai 1990</time><span>Marcas na cidade</span></li>
+              <li><time datetime="1990-05-09">09 mai 1990</time><span>Arquivos interrompidos</span></li>
+              <li><time datetime="1990-05-12">12 mai 1990</time><span>Distorções</span></li>
             </ol>
             <a class="v132-text-link" href="#/sessions">Abrir diário de sessões <span aria-hidden="true">→</span></a>
           </div>

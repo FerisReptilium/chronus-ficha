@@ -57,7 +57,7 @@ window.ChronusHome = (function() {
     if (!content.querySelector('.hero-v13-context')) {
       const context = document.createElement('p');
       context.className = 'hero-v13-context';
-      context.textContent = 'Berlim · 1992 · O véu está cedendo';
+      context.textContent = 'Berlim · 1990 · O véu está cedendo';
       content.prepend(context);
     }
     if (!hero.querySelector('.hero-v13-scroll')) {
@@ -106,7 +106,7 @@ window.ChronusHome = (function() {
             <div class="chronicle-scene-meta-item"><strong>Consequências</strong><span>O mundo reage à mesa</span></div>
           </div>
         </div>
-        <div class="chronicle-scene-media" role="img" aria-label="Berlim noturna e chuvosa, cenário da Crônica CHRONUS em 1992"><div class="chronicle-scene-stamp" aria-hidden="true">Arquivo<br>Chronus</div><p class="chronicle-scene-caption">Berlim, 1992. Fotografias, mapas e fragmentos de uma cidade onde o sobrenatural se esconde à vista de todos.</p></div>`;
+        <div class="chronicle-scene-media" role="img" aria-label="Berlim noturna e chuvosa, cenário da Crônica CHRONUS em 1990"><div class="chronicle-scene-stamp" aria-hidden="true">Arquivo<br>Chronus</div><p class="chronicle-scene-caption">Berlim, 1990. Fotografias, mapas e fragmentos de uma cidade onde o sobrenatural se esconde à vista de todos.</p></div>`;
       hero.insertAdjacentElement('afterend', scene);
     }
 
@@ -142,9 +142,9 @@ window.ChronusHome = (function() {
           <div class="sessions-scene-index">02 · O que realmente aconteceu</div><div class="sessions-scene-kicker">Diário de investigação</div><h2 class="sessions-scene-title" id="sessions-scene-title">Sessões</h2>
           <p class="sessions-scene-lead">Cada encontro deixa vestígios: datas, pistas, decisões, feridas e contradições. O diário reúne os fatos que a mesa testemunhou — e os detalhes que só fazem sentido quando vistos em sequência.</p>
           <div class="sessions-timeline" aria-label="Exemplo visual da cronologia das sessões">
-            <div class="sessions-timeline-item"><time datetime="1992-05-07">07 · MAI · 1992</time><strong>Marcas na cidade</strong><span>Símbolos desconhecidos surgem nos muros.</span></div>
-            <div class="sessions-timeline-item"><time datetime="1992-05-09">09 · MAI · 1992</time><strong>Arquivos interrompidos</strong><span>Documentos antigos apontam para algo que deveria ter permanecido enterrado.</span></div>
-            <div class="sessions-timeline-item"><time datetime="1992-05-12">12 · MAI · 1992</time><strong>Distorções</strong><span>Relatos incompatíveis começam a formar um mesmo padrão.</span></div>
+            <div class="sessions-timeline-item"><time datetime="1990-05-07">07 · MAI · 1990</time><strong>Marcas na cidade</strong><span>Símbolos desconhecidos surgem nos muros.</span></div>
+            <div class="sessions-timeline-item"><time datetime="1990-05-09">09 · MAI · 1990</time><strong>Arquivos interrompidos</strong><span>Documentos antigos apontam para algo que deveria ter permanecido enterrado.</span></div>
+            <div class="sessions-timeline-item"><time datetime="1990-05-12">12 · MAI · 1990</time><strong>Distorções</strong><span>Relatos incompatíveis começam a formar um mesmo padrão.</span></div>
           </div>
           <a class="sessions-scene-link" href="#/sessions" aria-label="Abrir o Diário de Sessões do CHRONUS"><span aria-hidden="true">▣</span> Abrir Diário de Sessões <span aria-hidden="true">→</span></a>
         </div>`;
@@ -189,14 +189,14 @@ window.ChronusHome = (function() {
       scene.className = 'locations-scene-v13';
       scene.setAttribute('aria-labelledby', 'locations-scene-title');
       scene.innerHTML = `
-        <div class="locations-atlas-stamp" aria-hidden="true">Atlas de Campo · Berlim 1992</div>
+        <div class="locations-atlas-stamp" aria-hidden="true">Atlas de Campo · Berlim 1990</div>
         <div class="locations-scene-head">
           <div><div class="locations-scene-index">04 · Onde tudo está acontecendo</div><div class="locations-scene-kicker">Atlas oculto de Berlim</div><h2 class="locations-scene-title" id="locations-scene-title">Locais</h2></div>
           <p class="locations-scene-intro">Berlim não é apenas cenário. É uma malha de cicatrizes, fronteiras, ruínas e zonas de influência. O atlas registra pontos conhecidos, áreas instáveis e lugares onde o Véu parece mais fino do que deveria.</p>
         </div>
         <div class="locations-atlas-shell">
           <div class="locations-atlas-map" role="img" aria-label="Atlas de campo estilizado de Berlim com setores, zonas de risco e pontos de interesse">
-            <div class="locations-map-header"><span class="locations-map-chip">Berlim · Arquivo 04</span><span class="locations-map-chip">Camada: campo</span><span class="locations-map-chip">Escala: urbana</span><span class="locations-map-chip">Atualização: 1992</span></div>
+            <div class="locations-map-header"><span class="locations-map-chip">Berlim · Arquivo 04</span><span class="locations-map-chip">Camada: campo</span><span class="locations-map-chip">Escala: urbana</span><span class="locations-map-chip">Atualização: 1990</span></div>
             <div class="locations-map-crosshair" aria-hidden="true"></div>
             <span class="locations-map-node" data-label="Setor central">01</span><span class="locations-map-node is-risk" data-label="Zona anômala">02</span><span class="locations-map-node" data-label="Ponto histórico">03</span><span class="locations-map-node is-unknown" data-label="Não catalogado">04</span><span class="locations-map-node is-risk" data-label="Acesso restrito">05</span>
             <div class="locations-map-coordinate">52°31′N · 13°24′E · CAMADA CHRONUS</div>
@@ -252,7 +252,7 @@ window.ChronusHome = (function() {
               <article class="files-evidence-item"><span class="files-evidence-id">44-D</span><div><h3>Recorte de jornal</h3><p>Notícia pública que ganha outro significado quando comparada às demais peças do caso.</p></div><span class="files-evidence-status">Público</span></article>
             </div>
             <div class="files-access-note">Trechos censurados existem para representar informação ainda não liberada à mesa. O painel não expõe segredos de Narrador.</div>
-            <div class="files-scene-footer"><span class="files-case-code">ARQ/BER/1992 · NÍVEL DE CAMPO</span><a class="files-scene-link" href="#/files" aria-label="Examinar os Arquivos da Crônica CHRONUS">Examinar Evidências <span aria-hidden="true">→</span></a></div>
+            <div class="files-scene-footer"><span class="files-case-code">ARQ/BER/1990 · NÍVEL DE CAMPO</span><a class="files-scene-link" href="#/files" aria-label="Examinar os Arquivos da Crônica CHRONUS">Examinar Evidências <span aria-hidden="true">→</span></a></div>
           </aside>
         </div>`;
       locationsScene.insertAdjacentElement('afterend', scene);

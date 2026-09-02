@@ -57,7 +57,7 @@
 }
 
 #view-chronicle .section-head-editorial::after {
-  content: 'ARQUIVO NARRATIVO · BERLIM 1992';
+  content: 'ARQUIVO NARRATIVO · BERLIM 1990';
   position: absolute;
   right: clamp(20px, 5vw, 72px);
   top: clamp(24px, 6vw, 64px);
