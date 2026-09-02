@@ -5,9 +5,7 @@ on:
     branches:
       - editorial-v1.3
       - hotfix/v1.3.1-art-pack
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,0 +1,131 @@
+name: CHRONUS CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chronus-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-regression:
+    name: Static, security and regression QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Patch hygiene
+        if: github.event_name == 'pull_request'
+        run: git diff --check "origin/${{ github.base_ref }}...HEAD"
+
+      - name: JavaScript syntax
+        run: |
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find js tests -type f -name '*.js' -print0 | sort -z)
+
+      - name: Complete regression suite
+        run: |
+          for test_file in tests/*.test.js; do
+            node "$test_file"
+          done
+
+      - name: Critical asset smoke test
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chronus-ci-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          server_ready=0
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              server_ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$server_ready" -ne 1 ]; then
+            cat /tmp/chronus-ci-http.log
+            exit 1
+          fi
+
+          for path in \
+            / \
+            /index.html \
+            /js/app.js \
+            /js/services/auth.js \
+            /js/modules/player_dashboard.js \
+            /js/modules/narrator_panel.js \
+            /js/modules/chronus_live_v140.js \
+            /css/chronus-live-v140.css \
+            /assets/art/hero-berlin-1992.webp \
+            /assets/video/v135-hero-berlin-loop.webm; do
+            curl --fail --silent --show-error "http://127.0.0.1:4173${path}" >/dev/null
+          done
+
+          echo "CHRONUS critical asset smoke: PASS"
+
+  browser-regression:
+    name: Chromium desktop and mobile QA
+    needs: static-regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pinned browser
+        run: |
+          npm install --no-save playwright@1.61.1
+          npx playwright install --with-deps chromium
+
+      - name: Start preview server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chronus-browser-http.log 2>&1 &
+          echo $! > /tmp/chronus-browser-http.pid
+
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/chronus-browser-http.log
+          exit 1
+
+      - name: Validate CHRONUS LIVE on desktop and mobile
+        run: node tests/visual/v140_live_preview.js
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronus-browser-qa
+          path: artifacts/v140-live-preview
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -f /tmp/chronus-browser-http.pid ]; then
+            kill "$(cat /tmp/chronus-browser-http.pid)" 2>/dev/null || true
+          fi
