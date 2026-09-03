@@ -444,6 +444,31 @@
   text-decoration: underline;
 }
 
+/* Na Área do Jogador, os utilitários globais ficam compactos para não
+   esconder dados ou ações do briefing em nenhuma largura de tela. */
+body.in-player-mode .chronus-audio-dock {
+  width: 54px;
+  min-height: 54px;
+}
+
+body.in-player-mode .chronus-audio-toggle {
+  grid-template-columns: 36px;
+  padding: 8px;
+}
+
+body.in-player-mode .chronus-audio-copy,
+body.in-player-mode .chronus-audio-status,
+body.in-player-mode .chronus-audio-source,
+body.in-player-mode .chronus-dice-launcher > span:last-child {
+  display: none;
+}
+
+body.in-player-mode .chronus-dice-launcher {
+  min-height: 54px;
+  grid-template-columns: 36px;
+  padding: 8px;
+}
+
 @media (max-width: 900px) {
   .briefing-card,
   .briefing-objective-card {
@@ -458,6 +483,7 @@
 @media (max-width: 768px) {
   .player-dashboard-section {
     padding-top: 30px;
+    padding-bottom: 100px;
   }
 
   .character-hero-card {
@@ -473,6 +499,15 @@
 
   .character-cta-row {
     justify-content: center;
+  }
+
+  .character-tags-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    text-align: left;
+  }
+
+  body.in-player-mode .chronus-dice-launcher {
+    bottom: 12px;
   }
 
   .dashboard-briefing-head,
@@ -504,5 +539,11 @@
   .briefing-card,
   .dashboard-related {
     padding: 18px;
+  }
+}
+
+@media (max-width: 340px) {
+  .character-tags-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -114,6 +114,28 @@ async function inspect(page) {
         return box.left < -1 || box.right > viewportWidth + 1 || box.width > viewportWidth + 1;
       })
       .map(element => element.className);
+    const visibleRects = selector => [...document.querySelectorAll(selector)]
+      .filter(element => {
+        const style = getComputedStyle(element);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+      })
+      .map(element => ({ element, rect: element.getBoundingClientRect() }));
+    const contentRects = visibleRects([
+      '.character-cta-row a',
+      '.character-cta-row button',
+      '.card-link',
+      '.dashboard-related-list a',
+      '.dashboard-quick-links a'
+    ].join(', '));
+    const fixedOverlayCollisions = visibleRects('.chronus-dice-launcher, .chronus-audio-dock')
+      .flatMap(overlay => contentRects
+        .filter(content => (
+          overlay.rect.left < content.rect.right &&
+          overlay.rect.right > content.rect.left &&
+          overlay.rect.top < content.rect.bottom &&
+          overlay.rect.bottom > content.rect.top
+        ))
+        .map(content => `${overlay.element.className} -> ${content.element.className}`));
 
     return {
       marker: document.documentElement.dataset.chronusPlayerDashboard || null,
@@ -132,6 +154,7 @@ async function inspect(page) {
       xssElements: root.querySelectorAll('[data-xss], script, [onerror]').length,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       boxesOutsideViewport,
+      fixedOverlayCollisions,
       brokenImages: [...root.querySelectorAll('img[src]')]
         .filter(image => !image.complete || image.naturalWidth === 0)
         .map(image => image.getAttribute('src'))
@@ -181,6 +204,7 @@ async function runMode(browser, mode, viewport) {
   if (state.relationGroups !== 3 || state.relationLinks !== 3 || state.quickLinks !== 4) throw new Error(`${mode}: briefing relations or navigation incomplete`);
   if (state.xssElements !== 0) throw new Error(`${mode}: stored text created executable DOM`);
   if (state.horizontalOverflow || state.boxesOutsideViewport.length) throw new Error(`${mode}: horizontal layout regression`);
+  if (state.fixedOverlayCollisions.length) throw new Error(`${mode}: global controls overlap dashboard content: ${state.fixedOverlayCollisions.join(', ')}`);
   if (state.brokenImages.length) throw new Error(`${mode}: broken dashboard images`);
   if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected: ${JSON.stringify(errors)}`);
 

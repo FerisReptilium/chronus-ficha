@@ -8,6 +8,8 @@ const vm = require('vm');
 const root = path.join(__dirname, '..');
 const contentSource = fs.readFileSync(path.join(root, 'js/services/content.js'), 'utf8');
 const dashboardSource = fs.readFileSync(path.join(root, 'js/modules/player_dashboard.js'), 'utf8');
+const routerSource = fs.readFileSync(path.join(root, 'js/router.js'), 'utf8');
+const dashboardCss = fs.readFileSync(path.join(root, 'css/dashboard.css'), 'utf8');
 const editorialSource = fs.readFileSync(path.join(root, 'js/services/editorial.js'), 'utf8');
 const narratorSource = fs.readFileSync(path.join(root, 'js/modules/narrator_panel.js'), 'utf8');
 const migrationSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260903013409_add_session_current_objective.sql'), 'utf8');
@@ -124,6 +126,9 @@ function createHarness(sessionRows = null) {
   assert(!dashboardSource.includes('${active.current_objective}'), 'objective must never be interpolated into HTML');
   assert(!dashboardSource.includes('${last.summary}'), 'session summary must never be interpolated into HTML');
   assert(!dashboardSource.includes('${group.getName(item)}'), 'related record names must never be interpolated into HTML');
+  assert(routerSource.includes("classList.toggle('in-player-mode', cleanHash === '#/player')"), 'router must expose Player Area layout state');
+  assert(dashboardCss.includes('body.in-player-mode .chronus-audio-dock'), 'mobile dashboard must compact the ambient audio control');
+  assert(dashboardCss.includes('body.in-player-mode .chronus-dice-launcher'), 'mobile dashboard must compact the dice control');
 
   console.log('v1.4.3 dynamic player dashboard regression: PASS');
 })().catch(error => {

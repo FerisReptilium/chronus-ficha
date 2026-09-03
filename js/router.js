@@ -89,6 +89,7 @@ window.ChronusRouter = (function() {
 
     // Se estiver na rota da ficha, ajusta o body/layout
     document.body.classList.toggle('in-live-mode', cleanHash === '#/live');
+    document.body.classList.toggle('in-player-mode', cleanHash === '#/player');
 
     if (cleanHash === '#/sheet') {
       document.body.classList.add('in-sheet-mode');
