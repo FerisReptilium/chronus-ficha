@@ -12,6 +12,14 @@
 window.ChronusContent = (function() {
   'use strict';
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const SESSION_STATUSES = Object.freeze(['planned', 'in_progress', 'completed', 'canceled']);
+  const SESSION_COLUMNS = [
+    'id', 'session_number', 'title', 'slug', 'session_date', 'in_game_date',
+    'summary', 'current_objective', 'events_log', 'clues_uncovered', 'status',
+    'cover_image_path', 'visibility', 'sort_order', 'published', 'published_at'
+  ].join(', ');
+
   /**
    * Obtém a instância ativa do cliente Supabase.
    * @private
@@ -38,6 +46,35 @@ window.ChronusContent = (function() {
       return Math.max(1, Math.min(100, Math.floor(num)));
     }
     return defaultLimit;
+  }
+
+  function sanitizeSessionStatuses(statuses) {
+    if (!Array.isArray(statuses)) return [];
+    return [...new Set(statuses.filter(status => SESSION_STATUSES.includes(status)))];
+  }
+
+  function compareSessionNumber(a, b, descending = false) {
+    const left = Number(a?.session_number);
+    const right = Number(b?.session_number);
+    const safeLeft = Number.isFinite(left) ? left : 0;
+    const safeRight = Number.isFinite(right) ? right : 0;
+    return descending ? safeRight - safeLeft : safeLeft - safeRight;
+  }
+
+  function compareSessionDate(a, b, descending = false) {
+    const left = typeof a?.session_date === 'string' ? Date.parse(`${a.session_date}T00:00:00Z`) : NaN;
+    const right = typeof b?.session_date === 'string' ? Date.parse(`${b.session_date}T00:00:00Z`) : NaN;
+    const leftValid = Number.isFinite(left);
+    const rightValid = Number.isFinite(right);
+
+    if (leftValid && rightValid && left !== right) return descending ? right - left : left - right;
+    if (leftValid !== rightValid) return leftValid ? -1 : 1;
+    return compareSessionNumber(a, b, descending);
+  }
+
+  function normalizeEmbeddedRelation(value) {
+    if (Array.isArray(value)) return value[0] || null;
+    return value && typeof value === 'object' ? value : null;
   }
 
   /**
@@ -69,15 +106,23 @@ window.ChronusContent = (function() {
    * Consulta o diário de sessões da campanha.
    * @param {Object} [options]
    * @param {number} [options.limit=50] - Quantidade máxima de registros (1-100)
+   * @param {Array<string>} [options.statuses] - Filtro opcional por status permitido
    * @returns {Promise<Array<Object>>} Lista de sessões ou array vazio
    */
   async function getSessions(options = {}) {
     const client = getClient();
     const limit = sanitizeLimit(options.limit, 50);
+    const statuses = sanitizeSessionStatuses(options.statuses);
 
-    const { data, error } = await client
+    let query = client
       .from('campaign_sessions')
-      .select('id, session_number, title, slug, session_date, in_game_date, summary, events_log, clues_uncovered, status, cover_image_path, visibility, sort_order, published, published_at')
+      .select(SESSION_COLUMNS);
+
+    if (statuses.length > 0) {
+      query = query.in('status', statuses);
+    }
+
+    const { data, error } = await query
       .order('sort_order', { ascending: true })
       .order('session_number', { ascending: true })
       .limit(limit);
@@ -88,6 +133,99 @@ window.ChronusContent = (function() {
     }
 
     return data || [];
+  }
+
+  /**
+   * Retorna os NPCs, locais e documentos que o RLS permite consultar para uma
+   * sessão. Os joins usam as foreign keys existentes e nunca contornam RLS.
+   * @param {string} sessionId UUID da sessão
+   * @param {Object} [options]
+   * @param {number} [options.limit=6]
+   * @returns {Promise<{npcs:Array<Object>,locations:Array<Object>,documents:Array<Object>}>}
+   */
+  async function getSessionRelations(sessionId, options = {}) {
+    if (typeof sessionId !== 'string' || !UUID_REGEX.test(sessionId.trim())) {
+      throw new Error('CHRONUS: UUID de sessão inválido para consulta de relações.');
+    }
+
+    const client = getClient();
+    const cleanSessionId = sessionId.trim();
+    const limit = sanitizeLimit(options.limit, 6);
+
+    const [npcResult, locationResult, documentResult] = await Promise.all([
+      client
+        .from('session_npcs')
+        .select('role_in_session, npc:npcs!session_npcs_npc_id_fkey(id, name, slug, role_occupation, status)')
+        .eq('session_id', cleanSessionId)
+        .limit(limit),
+      client
+        .from('session_locations')
+        .select('notes, location:locations!session_locations_location_id_fkey(id, name, slug, type, district_region)')
+        .eq('session_id', cleanSessionId)
+        .limit(limit),
+      client
+        .from('session_documents')
+        .select('discovery_context, document:campaign_documents!session_documents_document_id_fkey(id, title, slug, type)')
+        .eq('session_id', cleanSessionId)
+        .limit(limit)
+    ]);
+
+    const failed = [npcResult, locationResult, documentResult].find(result => result.error);
+    if (failed) {
+      console.error('CHRONUS [ContentService]: Falha ao buscar relações da sessão:', failed.error);
+      throw failed.error;
+    }
+
+    const npcs = (npcResult.data || []).map(row => {
+      const npc = normalizeEmbeddedRelation(row.npc);
+      return npc ? { ...npc, relation_note: row.role_in_session || null } : null;
+    }).filter(Boolean).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
+
+    const locations = (locationResult.data || []).map(row => {
+      const location = normalizeEmbeddedRelation(row.location);
+      return location ? { ...location, relation_note: row.notes || null } : null;
+    }).filter(Boolean).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
+
+    const documents = (documentResult.data || []).map(row => {
+      const document = normalizeEmbeddedRelation(row.document);
+      return document ? { ...document, relation_note: row.discovery_context || null } : null;
+    }).filter(Boolean).sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR'));
+
+    return { npcs, locations, documents };
+  }
+
+  /**
+   * Monta o briefing da Área do Jogador a partir de registros já autorizados
+   * pelo RLS: missão atual, próxima sessão, último resumo e relações da missão.
+   */
+  async function getPlayerBriefing() {
+    const sessions = await getSessions({
+      limit: 100,
+      statuses: ['in_progress', 'planned', 'completed']
+    });
+
+    const inProgress = sessions
+      .filter(session => session.status === 'in_progress')
+      .sort((a, b) => compareSessionNumber(a, b, true))[0] || null;
+    const nextSession = sessions
+      .filter(session => session.status === 'planned')
+      .sort((a, b) => compareSessionDate(a, b, false))[0] || null;
+    const lastSession = sessions
+      .filter(session => session.status === 'completed')
+      .sort((a, b) => compareSessionDate(a, b, true))[0] || null;
+    const activeSession = inProgress || nextSession;
+    const relationSession = activeSession || lastSession;
+    const relations = relationSession
+      ? await getSessionRelations(relationSession.id, { limit: 6 })
+      : { npcs: [], locations: [], documents: [] };
+
+    return {
+      activeSession,
+      nextSession,
+      lastSession,
+      relationSession,
+      relations
+    };
   }
 
   /**
@@ -218,6 +356,8 @@ window.ChronusContent = (function() {
   return {
     getChapters,
     getSessions,
+    getSessionRelations,
+    getPlayerBriefing,
     getNpcs,
     getLocations,
     getDocuments,
