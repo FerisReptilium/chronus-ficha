@@ -136,11 +136,14 @@ async function runMode(browser, mode, viewport) {
   const launchOptions = { headless: true };
   if (process.env.CHRONUS_CHROMIUM_EXECUTABLE) launchOptions.executablePath = process.env.CHRONUS_CHROMIUM_EXECUTABLE;
   const browser = await chromium.launch(launchOptions);
-  const results = {};
-  for (const [mode, viewport] of Object.entries(viewports)) results[mode] = await runMode(browser, mode, viewport);
-  await browser.close();
-  fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
-  console.log('v1.4.4 sheet-to-dice desktop/mobile visual QA: PASS');
+  try {
+    const results = {};
+    for (const [mode, viewport] of Object.entries(viewports)) results[mode] = await runMode(browser, mode, viewport);
+    fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
+    console.log('v1.4.4 sheet-to-dice desktop/mobile visual QA: PASS');
+  } finally {
+    await browser.close();
+  }
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
