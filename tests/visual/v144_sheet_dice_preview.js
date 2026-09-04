@@ -92,7 +92,7 @@ async function runMode(browser, mode, viewport) {
   await page.locator('#dice-guided-personality').selectOption({ index: 1 });
   await page.locator('#dice-guided-skill').selectOption({ index: 1 });
   await page.locator('[data-group="guided-difficulty"][data-value="6"]').click();
-  await page.locator('#dice-guided-determination').check();
+  await page.locator('label.dice-toggle:has(#dice-guided-determination)').click();
 
   const before = await page.evaluate(() => ({
     summary: document.getElementById('dice-guided-summary').textContent,
