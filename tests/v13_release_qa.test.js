@@ -106,13 +106,14 @@ assert(totalCinematicCssBytes < 190 * 1024, `Cinematic CSS source budget exceede
 const heroStat = fs.statSync('assets/art/hero-berlin-1992.webp');
 assert(heroStat.size < 100 * 1024, `Hero art exceeds 100 KB budget: ${heroStat.size} bytes`);
 
-// Digital sheet release invariant: the isolated engine and stylesheet are byte-for-byte Git-blob stable vs v1.2 baseline.
+// Digital sheet release invariant: the engine includes the approved v1.4.4 roller bridge,
+// while the high-fidelity stylesheet remains byte-for-byte stable from v1.2.
 function gitBlobSha(filePath) {
   const buf = fs.readFileSync(filePath);
   const header = Buffer.from(`blob ${buf.length}\0`);
   return crypto.createHash('sha1').update(header).update(buf).digest('hex');
 }
-assert.strictEqual(gitBlobSha('js/modules/sheet_engine.js'), '969c20562a40edaefaed8cc4a7238d79498c0655', 'sheet_engine.js changed from stable v1.2 baseline');
+assert.strictEqual(gitBlobSha('js/modules/sheet_engine.js'), '084c2b9f1879a3a5d24093fd4fcea825ce0d67ec', 'sheet_engine.js changed from approved v1.4.4 integration baseline');
 assert.strictEqual(gitBlobSha('css/sheet.css'), 'b6b299f2fd1dfd26e8f27d1632a855374d4cd43a', 'sheet.css changed from stable v1.2 baseline');
 assert(/<section id="view-sheet" class="portal-view">/.test(index), 'Digital sheet must remain outside portal-shell');
 

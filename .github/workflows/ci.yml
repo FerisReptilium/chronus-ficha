@@ -111,10 +111,11 @@ jobs:
           cat /tmp/chronus-browser-http.log
           exit 1
 
-      - name: Validate CHRONUS LIVE and Player Area on desktop and mobile
+      - name: Validate Live, Player Area and sheet-to-dice on desktop and mobile
         run: |
           node tests/visual/v140_live_preview.js
           node tests/visual/v143_player_dashboard_preview.js
+          node tests/visual/v144_sheet_dice_preview.js
 
       - name: Upload browser evidence
         if: always()
@@ -124,6 +125,7 @@ jobs:
           path: |
             artifacts/v140-live-preview
             artifacts/v143-player-dashboard
+            artifacts/v144-sheet-dice
           if-no-files-found: warn
           retention-days: 7
 

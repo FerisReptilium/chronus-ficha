@@ -51,6 +51,7 @@ window.ChronusDiceRollerV135 = (function() {
   let history = [];
   let lastRecord = null;
   let animationTimer = 0;
+  let sheetProfile = null;
 
   function ensureStylesheet() {
     if (document.querySelector('link[data-chronus-v135="dice-roller"]')) return;
@@ -205,16 +206,19 @@ window.ChronusDiceRollerV135 = (function() {
                 <div class="dice-field"><label for="dice-guided-kind">Tipo de teste</label><select id="dice-guided-kind">
                   <option value="normal">Teste normal</option><option value="combat">Ataque ou defesa</option><option value="improvised">Magia improvisada</option><option value="formula">Fórmula de Desperto</option><option value="technocratic">Fórmula tecnocrática</option>
                 </select></div>
-                <fieldset class="dice-fieldset"><legend>Dado-base</legend><div class="dice-choice-grid dice-type-grid">${dieButtons('guided', false)}</div></fieldset>
-                <div class="dice-guided-sources">
-                  <label class="dice-source-check"><input id="dice-guided-first" type="checkbox" checked><span aria-hidden="true">+</span><strong id="dice-guided-first-label">Personalidade se aplica</strong></label>
-                  <label class="dice-source-check"><input id="dice-guided-second" type="checkbox" checked><span aria-hidden="true">+</span><strong id="dice-guided-second-label">Habilidade se aplica</strong></label>
+                <div id="dice-sheet-status" class="dice-sheet-status" role="status"></div>
+                <div class="dice-field"><label for="dice-guided-action">Ação <small>opcional</small></label><input id="dice-guided-action" type="text" maxlength="64" placeholder="Ex.: Examinar o arquivo da Stasi"></div>
+                <div class="dice-sheet-grid">
+                  <div class="dice-field"><label for="dice-guided-attribute">Atributo da ficha</label><select id="dice-guided-attribute"><option value="">Selecionar atributo</option></select></div>
+                  <div class="dice-field"><label for="dice-guided-personality">Personalidade</label><select id="dice-guided-personality"><option value="">Não aplicar</option></select></div>
+                  <div class="dice-field"><label for="dice-guided-skill">Habilidade</label><select id="dice-guided-skill"><option value="">Não aplicar</option></select></div>
                 </div>
+                <fieldset id="dice-guided-manual-die" class="dice-fieldset"><legend>Dado-base manual</legend><div class="dice-choice-grid dice-type-grid">${dieButtons('guided', false)}</div></fieldset>
                 <fieldset class="dice-fieldset"><legend>Dificuldade-base</legend><div class="dice-choice-grid dice-difficulty-grid">${difficultyButtons('guided')}</div></fieldset>
                 <div class="dice-field"><label for="dice-guided-adjustment">Ajuste da situação</label><select id="dice-guided-adjustment">
                   <option value="0">Sem ajuste</option><option value="-1">−1 · preparação ou ajuda</option><option value="-2">−2 · ajuste autorizado pelo Narrador</option><option value="1">+1 · alcance médio ou cobertura parcial</option><option value="2">+2 · alcance longo ou cobertura forte</option>
                 </select></div>
-                <label class="dice-toggle"><input id="dice-guided-determination" type="checkbox"><span></span><strong>Gastar Determinação</strong><small>Adiciona +1d12 fora do limite</small></label>
+                <label class="dice-toggle"><input id="dice-guided-determination" type="checkbox"><span></span><strong>Gastar Determinação</strong><small id="dice-guided-determination-note">Adiciona +1d12 fora do limite</small></label>
                 <p id="dice-guided-warning" class="dice-rule-warning" hidden></p>
                 <div id="dice-guided-summary" class="dice-roll-summary"></div>
                 <button type="button" id="dice-guided-roll" class="dice-roll-button"><span>Rolar teste</span><strong>→</strong></button>
@@ -222,6 +226,7 @@ window.ChronusDiceRollerV135 = (function() {
 
               <section id="dice-panel-paradox" class="chronus-dice-panel" role="tabpanel" aria-labelledby="dice-tab-paradox" data-dice-panel="paradox" hidden>
                 <div class="dice-paradox-intro"><span>Exceção do sistema</span><p>Cada dado que igualar ou superar a dificuldade conta como um sucesso individual.</p></div>
+                <div id="dice-paradox-sheet-status" class="dice-sheet-status" role="status"></div>
                 <div class="dice-field"><label for="dice-paradox-value">Paradoxo acumulado</label><input id="dice-paradox-value" type="number" min="1" max="99" inputmode="numeric" value="1"></div>
                 <div id="dice-paradox-summary" class="dice-roll-summary dice-paradox-summary"></div>
                 <button type="button" id="dice-paradox-roll" class="dice-roll-button dice-roll-button-paradox"><span>Liberar Descarga</span><strong>⚠</strong></button>
@@ -270,6 +275,77 @@ window.ChronusDiceRollerV135 = (function() {
     return `${count}d${sides}${determination ? ' + 1d12' : ''}`;
   }
 
+  function hasSheetData(profile) {
+    return Boolean(profile && (profile.characterName || profile.attributes?.length || profile.personalities?.length || profile.skills?.length || profile.determination || profile.paradox));
+  }
+
+  function fillSheetSelect(id, items, placeholder, getValue, getLabel) {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const previous = select.value;
+    select.replaceChildren();
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = placeholder;
+    select.appendChild(empty);
+    items.forEach(item => {
+      const option = document.createElement('option');
+      option.value = String(getValue(item));
+      option.textContent = String(getLabel(item));
+      select.appendChild(option);
+    });
+    if ([...select.options].some(option => option.value === previous)) select.value = previous;
+  }
+
+  function refreshSheetIntegration() {
+    const api = window.ChronusSheetEngine;
+    sheetProfile = typeof api?.getRollProfile === 'function' ? api.getRollProfile() : null;
+    const status = document.getElementById('dice-sheet-status');
+    const paradoxStatus = document.getElementById('dice-paradox-sheet-status');
+    const determination = document.getElementById('dice-guided-determination');
+    const quickDetermination = document.getElementById('dice-quick-determination');
+    const determinationNote = document.getElementById('dice-guided-determination-note');
+    const attributes = sheetProfile?.attributes || [];
+    const personalities = sheetProfile?.personalities || [];
+    const skills = sheetProfile?.skills || [];
+
+    fillSheetSelect('dice-guided-attribute', attributes, attributes.length ? 'Selecionar atributo' : 'Nenhum atributo preenchido', item => item.name, item => `${item.name} · ${item.die}`);
+    fillSheetSelect('dice-guided-personality', personalities, personalities.length ? 'Não aplicar' : 'Nenhuma Personalidade preenchida', item => item, item => item);
+    fillSheetSelect('dice-guided-skill', skills, skills.length ? 'Não aplicar' : 'Nenhuma Habilidade preenchida', item => item, item => item);
+    const attributeSelect = document.getElementById('dice-guided-attribute');
+    if (attributes.length && !attributeSelect.value) attributeSelect.value = attributes[0].name;
+    document.getElementById('dice-guided-manual-die').hidden = attributes.length > 0;
+
+    if (status) {
+      status.classList.toggle('is-linked', hasSheetData(sheetProfile));
+      status.textContent = hasSheetData(sheetProfile)
+        ? `Ficha conectada${sheetProfile.characterName ? ` · ${sheetProfile.characterName}` : ''}`
+        : 'Preencha a ficha para montar a reserva automaticamente. O modo manual continua disponível.';
+    }
+    if (determination) {
+      determination.disabled = sheetProfile?.readOnly === true || (hasSheetData(sheetProfile) && sheetProfile.determination < 1);
+      if (determination.disabled) determination.checked = false;
+    }
+    if (quickDetermination) {
+      quickDetermination.disabled = sheetProfile?.readOnly === true || (hasSheetData(sheetProfile) && sheetProfile.determination < 1);
+      if (quickDetermination.disabled) quickDetermination.checked = false;
+    }
+    if (determinationNote) determinationNote.textContent = hasSheetData(sheetProfile)
+      ? `${sheetProfile.determination} ponto${sheetProfile.determination === 1 ? '' : 's'} ${sheetProfile.determination === 1 ? 'disponível' : 'disponíveis'} · adiciona +1d12`
+      : 'Adiciona +1d12 fora do limite';
+    if (hasSheetData(sheetProfile) && sheetProfile.paradox > 0) {
+      document.getElementById('dice-paradox-value').value = String(sheetProfile.paradox);
+    }
+    if (paradoxStatus) {
+      paradoxStatus.classList.toggle('is-linked', hasSheetData(sheetProfile));
+      paradoxStatus.textContent = hasSheetData(sheetProfile)
+        ? `Ficha conectada · Paradoxo ${sheetProfile.paradox}`
+        : 'Sem Paradoxo vinculado à ficha; informe o valor manualmente.';
+    }
+    updateGuidedSummary();
+    updateParadoxSummary();
+  }
+
   function showMechanicalWarning(target, maxFace, difficulty) {
     if (!target) return;
     target.hidden = true;
@@ -294,22 +370,45 @@ window.ChronusDiceRollerV135 = (function() {
     saveSettings();
   }
 
+  function buildGuidedSpec(input) {
+    const kind = GUIDED_KINDS[input.kind] ? input.kind : 'normal';
+    const sides = [4, 6, 8, 10].includes(Number(input.sides)) ? Number(input.sides) : 8;
+    const personality = String(input.personality || '').trim();
+    const skill = String(input.skill || '').trim();
+    const baseDifficulty = Math.max(1, Number(input.baseDifficulty) || 5);
+    const adjustment = Math.max(-2, Math.min(2, Number(input.adjustment) || 0));
+    return {
+      kind,
+      title: String(input.action || '').trim() || GUIDED_KINDS[kind].title,
+      sides,
+      count: 1 + Number(Boolean(personality)) + Number(Boolean(skill)),
+      baseDifficulty,
+      adjustment,
+      difficulty: Math.max(1, baseDifficulty + adjustment),
+      determination: input.determination === true,
+      attributeName: String(input.attributeName || '').trim(),
+      personality,
+      skill,
+      characterName: String(input.characterName || '').trim()
+    };
+  }
+
   function guidedSpec() {
     const kind = document.getElementById('dice-guided-kind')?.value || 'normal';
-    const sides = selected('guided-sides') || 8;
-    const count = 1 + Number(document.getElementById('dice-guided-first')?.checked) + Number(document.getElementById('dice-guided-second')?.checked);
+    const attributeName = document.getElementById('dice-guided-attribute')?.value || '';
+    const attribute = sheetProfile?.attributes?.find(item => item.name === attributeName);
+    const personality = document.getElementById('dice-guided-personality')?.value || '';
+    const skill = document.getElementById('dice-guided-skill')?.value || '';
+    const action = document.getElementById('dice-guided-action')?.value.trim() || '';
     const baseDifficulty = selected('guided-difficulty') || 5;
     const adjustment = Number(document.getElementById('dice-guided-adjustment')?.value || 0);
-    const difficulty = Math.max(1, baseDifficulty + adjustment);
     const determination = document.getElementById('dice-guided-determination')?.checked === true;
-    return { kind, title: GUIDED_KINDS[kind].title, sides, count, baseDifficulty, adjustment, difficulty, determination };
+    return buildGuidedSpec({ kind, action, sides: attribute?.sides || selected('guided-sides') || 8, baseDifficulty, adjustment, determination, attributeName, personality, skill, characterName: sheetProfile?.characterName || '' });
   }
 
   function updateGuidedLabels() {
     const kind = document.getElementById('dice-guided-kind')?.value || 'normal';
-    const config = GUIDED_KINDS[kind];
-    document.getElementById('dice-guided-first-label').textContent = config.first;
-    document.getElementById('dice-guided-second-label').textContent = config.second;
+    if (!GUIDED_KINDS[kind]) return;
     updateGuidedSummary();
   }
 
@@ -317,7 +416,8 @@ window.ChronusDiceRollerV135 = (function() {
     const spec = guidedSpec();
     const summary = document.getElementById('dice-guided-summary');
     const adjustment = spec.adjustment === 0 ? '' : ` <small>(${spec.adjustment > 0 ? '+' : '−'}${Math.abs(spec.adjustment)})</small>`;
-    if (summary) summary.innerHTML = `<span>${escapeHtml(spec.title)}</span><strong>${poolExpression(spec.sides, spec.count, spec.determination)}</strong><i></i><span>Dificuldade final</span><strong>${spec.difficulty}${adjustment}</strong>`;
+    const sources = [spec.attributeName, spec.personality, spec.skill].filter(Boolean).join(' + ');
+    if (summary) summary.innerHTML = `<span>${escapeHtml(sources || spec.title)}</span><strong>${poolExpression(spec.sides, spec.count, spec.determination)}</strong><i></i><span>Dificuldade final</span><strong>${spec.difficulty}${adjustment}</strong>`;
     showMechanicalWarning(document.getElementById('dice-guided-warning'), spec.determination ? 12 : spec.sides, spec.difficulty);
   }
 
@@ -473,30 +573,86 @@ window.ChronusDiceRollerV135 = (function() {
     }).join('') || '<li class="is-empty">Nenhuma rolagem registrada.</li>';
   }
 
+  function consumeDeterminationIfNeeded(determination) {
+    if (!determination || !hasSheetData(sheetProfile)) return true;
+    if (sheetProfile.readOnly) {
+      window.alert('A ficha está em modo somente leitura. A Determinação não pode ser consumida.');
+      return false;
+    }
+    if (sheetProfile.determination < 1) {
+      window.alert('Não há pontos de Determinação disponíveis na ficha.');
+      return false;
+    }
+    const confirmed = window.confirm(`Consumir 1 ponto de Determinação de ${sheetProfile.characterName || 'sua ficha'} para adicionar 1d12?`);
+    if (!confirmed) return false;
+    const result = window.ChronusSheetEngine?.spendDetermination?.();
+    if (!result?.ok) {
+      window.alert(result?.error || 'Não foi possível atualizar a Determinação da ficha.');
+      return false;
+    }
+    refreshSheetIntegration();
+    return true;
+  }
+
   function rollQuick() {
     const sides = selected('quick-sides') || 8;
     const count = selected('quick-count') || 3;
     const difficulty = selected('quick-difficulty') || 5;
     const determination = document.getElementById('dice-quick-determination').checked;
     const action = document.getElementById('dice-quick-action').value.trim();
+    if (!consumeDeterminationIfNeeded(determination)) return;
     saveSettings();
-    renderRecord(createStandardRecord({ mode: 'Rolagem rápida', title: action || 'Teste CHRONUS', sides, count, difficulty, determination }));
+    const title = [hasSheetData(sheetProfile) ? sheetProfile.characterName : '', action || 'Teste CHRONUS'].filter(Boolean).join(' · ');
+    renderRecord(createStandardRecord({ mode: 'Rolagem rápida', title, sides, count, difficulty, determination }));
   }
 
   function rollGuided() {
     const spec = guidedSpec();
-    renderRecord(createStandardRecord({ mode: 'Teste guiado', title: spec.title, sides: spec.sides, count: spec.count, difficulty: spec.difficulty, determination: spec.determination, guidedKind: spec.kind, adjustment: spec.adjustment }));
+    if (!consumeDeterminationIfNeeded(spec.determination)) return;
+    const title = [spec.characterName, spec.title].filter(Boolean).join(' · ');
+    renderRecord(createStandardRecord({ mode: 'Teste guiado', title, sides: spec.sides, count: spec.count, difficulty: spec.difficulty, determination: spec.determination, guidedKind: spec.kind, adjustment: spec.adjustment, attributeName: spec.attributeName, personality: spec.personality, skill: spec.skill }));
   }
 
   function rollParadox() {
-    const paradox = document.getElementById('dice-paradox-value').value;
-    renderRecord(createParadoxRecord(paradox));
+    const paradox = Math.max(1, Number(document.getElementById('dice-paradox-value').value) || 1);
+    const record = createParadoxRecord(paradox);
+    if (hasSheetData(sheetProfile) && sheetProfile.paradox === paradox) {
+      if (sheetProfile.readOnly) {
+        window.alert('A ficha está em modo somente leitura. O Paradoxo não pode ser alterado.');
+        return;
+      }
+      const confirmed = window.confirm(`Liberar a Descarga de Paradoxo ${paradox} e atualizar a ficha para ${record.pool.after}?`);
+      if (!confirmed) return;
+      const result = window.ChronusSheetEngine?.dischargeParadox?.(paradox, record.pool.after);
+      if (!result?.ok) {
+        window.alert(result?.error || 'Não foi possível atualizar o Paradoxo da ficha.');
+        return;
+      }
+    }
+    renderRecord(record);
+    refreshSheetIntegration();
   }
 
   function repeatLast() {
     if (!lastRecord?.spec) return;
-    if (lastRecord.spec.mode === 'paradox') renderRecord(createParadoxRecord(lastRecord.spec.paradox));
-    else renderRecord(createStandardRecord(lastRecord.spec));
+    if (lastRecord.spec.mode === 'paradox') {
+      refreshSheetIntegration();
+      if (hasSheetData(sheetProfile)) {
+        if (sheetProfile.paradox < 1) {
+          window.alert('A ficha não possui Paradoxo acumulado para uma nova Descarga.');
+          return;
+        }
+        document.getElementById('dice-paradox-value').value = String(sheetProfile.paradox);
+        rollParadox();
+      } else {
+        renderRecord(createParadoxRecord(lastRecord.spec.paradox));
+      }
+    }
+    else {
+      refreshSheetIntegration();
+      if (!consumeDeterminationIfNeeded(lastRecord.spec.determination)) return;
+      renderRecord(createStandardRecord(lastRecord.spec));
+    }
   }
 
   async function copyLast() {
@@ -519,6 +675,7 @@ window.ChronusDiceRollerV135 = (function() {
   function openDialog() {
     const overlay = document.getElementById('chronus-dice-overlay');
     previousFocus = document.activeElement;
+    refreshSheetIntegration();
     overlay.hidden = false;
     document.body.classList.add('is-dice-dialog-open');
     window.requestAnimationFrame(() => overlay.classList.add('is-open'));
@@ -561,8 +718,10 @@ window.ChronusDiceRollerV135 = (function() {
     document.getElementById('dice-quick-determination').addEventListener('change', updateQuickSummary);
     document.getElementById('dice-quick-action').addEventListener('change', saveSettings);
     document.getElementById('dice-guided-kind').addEventListener('change', updateGuidedLabels);
-    document.getElementById('dice-guided-first').addEventListener('change', updateGuidedSummary);
-    document.getElementById('dice-guided-second').addEventListener('change', updateGuidedSummary);
+    document.getElementById('dice-guided-action').addEventListener('input', updateGuidedSummary);
+    document.getElementById('dice-guided-attribute').addEventListener('change', updateGuidedSummary);
+    document.getElementById('dice-guided-personality').addEventListener('change', updateGuidedSummary);
+    document.getElementById('dice-guided-skill').addEventListener('change', updateGuidedSummary);
     document.getElementById('dice-guided-adjustment').addEventListener('change', updateGuidedSummary);
     document.getElementById('dice-guided-determination').addEventListener('change', updateGuidedSummary);
     document.getElementById('dice-paradox-value').addEventListener('input', updateParadoxSummary);
@@ -590,12 +749,14 @@ window.ChronusDiceRollerV135 = (function() {
     updateGuidedLabels();
     updateParadoxSummary();
     renderHistory();
+    refreshSheetIntegration();
+    window.addEventListener('chronus:sheet-updated', refreshSheetIntegration);
     document.documentElement.dataset.chronusDice = 'v1.3.5-preview';
     return true;
   }
 
   return {
     init,
-    engine: { secureDie, rollDice, evaluateStandard, getParadoxPool, paradoxIntensity }
+    engine: { secureDie, rollDice, evaluateStandard, getParadoxPool, paradoxIntensity, buildGuidedSpec }
   };
 })();
