@@ -78,7 +78,7 @@ window.ChronusEditorial = (function() {
       contentType: 'session',
       allowedFields: Object.freeze([
         'session_number', 'title', 'slug', 'session_date', 'in_game_date',
-        'summary', 'events_log', 'clues_uncovered', 'cover_image_path',
+        'summary', 'current_objective', 'events_log', 'clues_uncovered', 'cover_image_path',
         'status', 'visibility', 'sort_order', 'published'
       ]),
       requiredCreate: Object.freeze(['session_number', 'title', 'slug', 'summary'])
@@ -462,6 +462,7 @@ window.ChronusEditorial = (function() {
       case 'subtitle':
       case 'summary':
       case 'content':
+      case 'current_objective':
       case 'events_log':
       case 'clues_uncovered':
       case 'public_description':

@@ -109,6 +109,7 @@ window.ChronusNarratorPanel = (function() {
         { name: 'session_date', label: 'Data Real da Sessão (AAAA-MM-DD)', type: 'date', required: false, gridFull: false, placeholder: 'Ex: 2026-08-25' },
         { name: 'in_game_date', label: 'Data no Jogo / Narrativa (Opcional)', type: 'text', required: false, gridFull: false, placeholder: 'Ex: 12 de Outubro de 1923' },
         { name: 'sort_order', label: 'Ordem de Exibição (sort_order) *', type: 'number', required: true, gridFull: false, step: 1, defaultValue: '0' },
+        { name: 'current_objective', label: 'Objetivo Atual para os Jogadores (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Ex: Localizar o arquivo KASSANDRA antes que a Stasi recupere o material…' },
         { name: 'summary', label: 'Resumo da Sessão *', type: 'textarea', required: true, rows: 3, gridFull: true, placeholder: 'Síntese narrativa do que ocorreu na sessão…' },
         { name: 'events_log', label: 'Registro de Eventos / Log de Fatos (Opcional)', type: 'textarea', required: false, rows: 5, gridFull: true, placeholder: 'Cronologia detalhada dos acontecimentos da mesa…' },
         { name: 'clues_uncovered', label: 'Pistas e Evidências Reveladas (Opcional)', type: 'textarea', required: false, rows: 3, gridFull: true, placeholder: 'Pistas que os jogadores encontraram…' }

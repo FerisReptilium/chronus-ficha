@@ -8,7 +8,9 @@ const content = fs.readFileSync('js/services/content.js', 'utf8');
 assert(sessions.includes("const STYLESHEET = 'css/cinematic-sessions-page-v13.css'"), 'Sessions page stylesheet must be isolated');
 assert(sessions.includes("window.ChronusContent.getSessions()"), 'Sessions page must use the existing read-only content service');
 assert(content.includes("from('campaign_sessions')"), 'Content service must keep campaign_sessions as source');
-assert(content.includes('events_log, clues_uncovered'), 'Session events and clues must remain part of the read model');
+for (const field of ['events_log', 'clues_uncovered', 'current_objective']) {
+  assert(content.includes(`'${field}'`), `Session field must remain part of the read model: ${field}`);
+}
 assert(sessions.includes("window.ChronusAssets?.getSignedUrl?.('campaign-images'"), 'Private covers must use signed URLs');
 assert(sessions.includes("window.ChronusRouter?.getCurrentRoute?.() === '#/sessions'"), 'Race guard must validate the active Sessions route');
 assert(sessions.includes('content.textContent = text'), 'Events/clues must be rendered as textContent');

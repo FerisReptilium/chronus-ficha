@@ -16,6 +16,7 @@ assert(ci.includes('for test_file in tests/*.test.js'), 'unified CI must run the
 assert(ci.includes('/js/modules/chronus_live_v140.js'), 'critical smoke must include the live room module');
 assert(ci.includes('playwright@1.61.1'), 'browser QA must use a pinned Playwright version');
 assert(ci.includes('node tests/visual/v140_live_preview.js'), 'browser QA must validate the live room on desktop and mobile');
+assert(ci.includes('node tests/visual/v143_player_dashboard_preview.js'), 'browser QA must validate the Player Area on desktop and mobile');
 assert(ci.includes('actions/upload-artifact@v4'), 'browser evidence must be retained as an artifact');
 
 for (const workflow of legacyPullRequestWorkflows) {

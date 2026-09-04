@@ -142,46 +142,293 @@
   flex-wrap: wrap;
 }
 
-/* Grid de Acompanhamento */
-.dashboard-tracking-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+/* Briefing dinâmico da crônica */
+.dashboard-briefing {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid rgba(201, 154, 69, 0.38);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(126, 23, 31, 0.18), transparent 38%),
+    linear-gradient(155deg, rgba(22, 16, 12, 0.98), rgba(11, 8, 7, 0.98));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+}
+
+.dashboard-briefing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0 49.8%, rgba(201, 154, 69, 0.035) 50%, transparent 50.2%);
+  background-size: 48px 100%;
+  opacity: 0.45;
+}
+
+.dashboard-briefing > * {
+  position: relative;
+}
+
+.dashboard-briefing-head,
+.dashboard-related-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: 20px;
 }
 
-.tracking-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-gold);
-  border-radius: 8px;
-  padding: 22px;
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+.dashboard-briefing-head {
+  padding-bottom: 20px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid rgba(201, 154, 69, 0.22);
 }
 
-.tracking-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--gold-primary);
-}
-
-.card-icon {
-  font-size: 1.6rem;
-  line-height: 1;
-}
-
-.card-info h4 {
+.dashboard-briefing-kicker,
+.briefing-card-code {
+  display: block;
+  color: var(--gold-primary);
   font-family: var(--font-title);
-  font-size: 1.05rem;
-  color: var(--gold-highlight);
-  margin-bottom: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.card-info p {
-  font-size: 0.84rem;
+.dashboard-briefing-head h2 {
+  margin: 5px 0 0;
+  color: var(--gold-highlight);
+  font-family: var(--font-title);
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  line-height: 1.15;
+}
+
+.dashboard-briefing-security,
+.dashboard-related-session,
+.briefing-status {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid rgba(201, 154, 69, 0.3);
+  border-radius: 3px;
+  color: #c7b58e;
+  background: rgba(8, 6, 5, 0.72);
+  font-family: var(--font-title);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dashboard-briefing-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.briefing-card {
+  grid-column: span 5;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid rgba(201, 154, 69, 0.24);
+  border-radius: 8px;
+  background: rgba(17, 12, 9, 0.82);
+  box-shadow: inset 0 1px rgba(255, 238, 191, 0.025);
+}
+
+.briefing-objective-card {
+  grid-column: span 7;
+  border-color: rgba(184, 68, 68, 0.42);
+  background:
+    linear-gradient(90deg, rgba(103, 17, 24, 0.18), transparent 52%),
+    rgba(17, 12, 9, 0.88);
+}
+
+.briefing-summary-card {
+  grid-column: 1 / -1;
+}
+
+.briefing-card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.briefing-card h3,
+.dashboard-related-head h3,
+.dashboard-related-group h4 {
+  color: var(--gold-highlight);
+  font-family: var(--font-title);
+  overflow-wrap: anywhere;
+}
+
+.briefing-card h3 {
+  margin: 10px 0 9px;
+  font-size: clamp(1.05rem, 1.8vw, 1.3rem);
+  line-height: 1.3;
+}
+
+.briefing-objective-text,
+.briefing-summary-text,
+.briefing-card-primary,
+.briefing-card-secondary {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.briefing-objective-text {
+  margin-bottom: 18px;
+  color: #e2d2b0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.08rem, 1.8vw, 1.32rem);
+  line-height: 1.55;
+}
+
+.briefing-summary-text {
+  margin-bottom: 16px;
   color: var(--ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.briefing-card-primary {
+  color: #e0cfaa;
+  font-weight: 600;
   line-height: 1.5;
-  margin-bottom: 10px;
+}
+
+.briefing-card-secondary {
+  margin-top: 7px;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.dashboard-related {
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid rgba(201, 154, 69, 0.22);
+  border-radius: 8px;
+  background: rgba(8, 6, 5, 0.66);
+}
+
+.dashboard-related-head {
+  align-items: center;
+  margin-bottom: 17px;
+}
+
+.dashboard-related-head h3 {
+  margin: 5px 0 0;
+  font-size: 1.12rem;
+}
+
+.dashboard-related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-related-group {
+  min-width: 0;
+  padding: 16px;
+  border-left: 2px solid rgba(201, 154, 69, 0.35);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.dashboard-related-group h4 {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-related-icon {
+  color: #a43c45;
+}
+
+.dashboard-related-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-related-list a {
+  display: block;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink-main);
+  text-decoration: none;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.dashboard-related-list a:hover,
+.dashboard-related-list a:focus-visible {
+  border-color: rgba(201, 154, 69, 0.32);
+  background: rgba(201, 154, 69, 0.06);
+  outline: none;
+}
+
+.dashboard-related-list strong,
+.dashboard-related-list span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-related-list strong {
+  color: #dfcb9f;
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.dashboard-related-list span {
+  margin-top: 2px;
+  color: #9e9485;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.dashboard-related-empty {
+  margin: 0;
+  color: #8f8679;
+  font-size: 0.78rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.dashboard-quick-links {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.dashboard-quick-links a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid rgba(201, 154, 69, 0.2);
+  border-radius: 5px;
+  color: #c8b991;
+  background: rgba(8, 6, 5, 0.64);
+  font-family: var(--font-title);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.dashboard-quick-links a:hover,
+.dashboard-quick-links a:focus-visible {
+  color: var(--gold-highlight);
+  border-color: var(--gold-primary);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .card-link {
@@ -197,15 +444,106 @@
   text-decoration: underline;
 }
 
+/* Na Área do Jogador, os utilitários globais ficam compactos para não
+   esconder dados ou ações do briefing em nenhuma largura de tela. */
+body.in-player-mode .chronus-audio-dock {
+  width: 54px;
+  min-height: 54px;
+}
+
+body.in-player-mode .chronus-audio-toggle {
+  grid-template-columns: 36px;
+  padding: 8px;
+}
+
+body.in-player-mode .chronus-audio-copy,
+body.in-player-mode .chronus-audio-status,
+body.in-player-mode .chronus-audio-source,
+body.in-player-mode .chronus-dice-launcher > span:last-child {
+  display: none;
+}
+
+body.in-player-mode .chronus-dice-launcher {
+  min-height: 54px;
+  grid-template-columns: 36px;
+  padding: 8px;
+}
+
+@media (max-width: 900px) {
+  .briefing-card,
+  .briefing-objective-card {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
+  .player-dashboard-section {
+    padding-top: 30px;
+    padding-bottom: 100px;
+  }
+
   .character-hero-card {
     flex-direction: column;
     text-align: center;
+    padding: 28px 20px;
+    gap: 24px;
   }
+
   .character-meta-top {
     justify-content: center;
   }
+
   .character-cta-row {
     justify-content: center;
+  }
+
+  .character-tags-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    text-align: left;
+  }
+
+  body.in-player-mode .chronus-dice-launcher {
+    bottom: 12px;
+  }
+
+  .dashboard-briefing-head,
+  .dashboard-related-head,
+  .briefing-card-topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-briefing-security,
+  .dashboard-related-session,
+  .briefing-status {
+    white-space: normal;
+  }
+
+  .dashboard-quick-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .character-portrait-frame {
+    width: 154px;
+    height: 188px;
+    min-width: 154px;
+  }
+
+  .dashboard-briefing,
+  .briefing-card,
+  .dashboard-related {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 340px) {
+  .character-tags-grid {
+    grid-template-columns: 1fr;
   }
 }
