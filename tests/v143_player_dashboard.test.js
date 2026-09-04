@@ -12,7 +12,7 @@ const routerSource = fs.readFileSync(path.join(root, 'js/router.js'), 'utf8');
 const dashboardCss = fs.readFileSync(path.join(root, 'css/dashboard.css'), 'utf8');
 const editorialSource = fs.readFileSync(path.join(root, 'js/services/editorial.js'), 'utf8');
 const narratorSource = fs.readFileSync(path.join(root, 'js/modules/narrator_panel.js'), 'utf8');
-const migrationSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260903013409_add_session_current_objective.sql'), 'utf8');
+const migrationSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260904160729_add_session_current_objective.sql'), 'utf8');
 
 const ids = {
   active: '11111111-1111-4111-8111-111111111111',
