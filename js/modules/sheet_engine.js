@@ -198,6 +198,7 @@ window.ChronusSheetEngine = (function() {
 
   function scheduleSave() {
     if (narratorReadOnly) return;
+    window.dispatchEvent(new CustomEvent('chronus:sheet-updated'));
     setSaveStatus('Salvando…', 'saving');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -209,6 +210,55 @@ window.ChronusSheetEngine = (function() {
         setSaveStatus('Salvo neste dispositivo');
       }
     }, 180);
+  }
+
+  function getRollProfile() {
+    const attributes = Object.entries(state.attributes || {})
+      .map(([name, die]) => ({ name, die: String(die || '').toLowerCase(), sides: Number(String(die || '').replace('d', '')) }))
+      .filter(attribute => [4, 6, 8, 10].includes(attribute.sides));
+    const personalities = (state.personalities || [])
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    const skills = (state.lists?.skills || [])
+      .map(item => String(item?.text || '').trim())
+      .filter(Boolean);
+    const determination = [0, 1, 2].filter(index => state.markers?.[`determination.${index}`] === 'filled').length;
+
+    return clone({
+      characterName: String(state.identity?.name || '').trim(),
+      attributes,
+      personalities,
+      skills,
+      determination,
+      paradox: Math.max(0, Number(state.paradox) || 0),
+      readOnly: narratorReadOnly
+    });
+  }
+
+  function spendDetermination() {
+    if (narratorReadOnly) return { ok: false, error: 'Ficha em modo somente leitura.' };
+    const spentIndex = [2, 1, 0].find(index => state.markers?.[`determination.${index}`] === 'filled');
+    if (spentIndex === undefined) return { ok: false, error: 'Sem Determinação disponível.' };
+    state.markers[`determination.${spentIndex}`] = 'empty';
+    const marker = document.querySelector(`[aria-label="determination.${spentIndex}"]`);
+    if (marker) marker.dataset.state = 'empty';
+    scheduleSave();
+    return { ok: true, remaining: getRollProfile().determination };
+  }
+
+  function dischargeParadox(expectedValue, nextValue) {
+    if (narratorReadOnly) return { ok: false, error: 'Ficha em modo somente leitura.' };
+    const expected = Math.max(0, Number(expectedValue) || 0);
+    const next = Math.max(0, Number(nextValue) || 0);
+    if ((Number(state.paradox) || 0) !== expected) return { ok: false, error: 'O Paradoxo da ficha mudou. Atualize o rolador.' };
+    state.paradox = next;
+    document.querySelectorAll('#paradoxLayer .paradox-hit').forEach(marker => {
+      const label = marker.getAttribute('aria-label')?.replace('Paradoxo ', '');
+      const value = label === '21+' ? 21 : Number(label);
+      marker.classList.toggle('is-active', value === next);
+    });
+    scheduleSave();
+    return { ok: true, paradox: next };
   }
 
   function getByPath(obj, path) { return path.split('.').reduce((a,k) => a?.[k], obj); }
@@ -1060,6 +1110,9 @@ window.ChronusSheetEngine = (function() {
       const dirtyKey = getScopedKey('dirty');
       return localStorage.getItem(dirtyKey) === '1';
     },
+    getRollProfile,
+    spendDetermination,
+    dischargeParadox,
     getState: () => clone(state),
     loadState
   };
