@@ -403,7 +403,7 @@ body.is-dice-dialog-open { overflow: hidden; }
 
 @media (max-width: 900px) {
   .chronus-dice-dialog { max-height: calc(100vh - 24px); }
-  .chronus-dice-body { grid-template-columns: 1fr; overflow: auto; }
+  .chronus-dice-body { display: block; overflow: auto; }
   .chronus-dice-controls,.chronus-dice-result { overflow: visible; }
   .chronus-dice-result { min-height: 360px; border-left: 0; border-top: 1px solid var(--dice-line); }
   .dice-history { margin-top: 26px; }
