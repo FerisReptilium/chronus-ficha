@@ -197,6 +197,17 @@ async function runMode(browser, mode, viewport) {
   }));
 
   const errors = watchErrors(page);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Network.enable');
+  errors.documentInitiators = [];
+  cdp.on('Network.requestWillBeSent', event => {
+    if (event.type !== 'Document') return;
+    errors.documentInitiators.push({
+      url: event.request.url,
+      loaderId: event.loaderId,
+      initiator: event.initiator
+    });
+  });
   await page.addInitScript(() => {
     const key = '__chronus_v143_navigation_trace';
     const read = () => { try { return JSON.parse(sessionStorage.getItem(key) || '[]'); } catch (_) { return []; } };
