@@ -236,7 +236,7 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Offline • salvo local', 'offline');
       return;
     }
-    cloudSaveTimer = setTimeout(() => pushStateToCloud(), delay);
+    cloudSaveTimer = setTimeout(() => { cloudSaveTimer = 0; pushStateToCloud(); }, delay);
   }
 
   function scheduleSave() {
@@ -245,6 +245,7 @@ window.ChronusSheetEngine = (function() {
     setSaveStatus('Salvando…', 'saving');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
+      saveTimer = 0;
       persistLocalState(true);
       if (cloudUser) {
         setSaveStatus(navigator.onLine ? 'Salvo local • sincronizando…' : 'Offline • salvo local', navigator.onLine ? 'saving' : 'offline');
@@ -1285,7 +1286,22 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Offline • salvo local', 'offline');
       return { ok: false, error: 'Dispositivo offline' };
     }
+    if (cloudSaving) {
+      return { ok: false, error: 'Já existe uma sincronização em andamento. Tente novamente.' };
+    }
 
+    // O logout pode acontecer antes do debounce local/cloud. Persiste e envia
+    // imediatamente o estado atual, sem deixar timers gravarem após o signOut.
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+      persistLocalState(true);
+    }
+    if (cloudSaveTimer) {
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = 0;
+    }
+    cloudSaving = true;
     setSaveStatus('Sincronizando…', 'saving');
     try {
       const dirtyKey = getScopedKey('dirty');
@@ -1335,6 +1351,13 @@ window.ChronusSheetEngine = (function() {
       localStorage.setItem(dirtyKey, '1');
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
       return { ok: false, error: e.message || e };
+    } finally {
+      cloudSaving = false;
+      cloudSaveAgain = false;
+      if (cloudSaveTimer) {
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = 0;
+      }
     }
   }
 
@@ -1389,7 +1412,7 @@ window.ChronusSheetEngine = (function() {
     pushStateToCloud: pushStateToCloudConfirmed,
     isDirty: () => {
       const dirtyKey = getScopedKey('dirty');
-      return localStorage.getItem(dirtyKey) === '1';
+      return Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === '1');
     },
     getRollProfile,
     spendDetermination,
