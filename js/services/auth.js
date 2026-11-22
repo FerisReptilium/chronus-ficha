@@ -216,6 +216,31 @@ window.ChronusAuth = (function() {
     return { user: currentUser, profile: currentProfile };
   }
 
+  async function handleSignup(displayName, email, password) {
+    const client = window.ChronusSupabase.getClient();
+    if (!client) throw new Error('Conexão Supabase não disponível.');
+
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { display_name: displayName }
+      }
+    });
+    if (error) throw error;
+
+    if (data.session && data.user) {
+      currentUser = data.user;
+      currentProfile = await fetchProfile(data.user);
+      updateNavAuthUi(currentUser, currentProfile);
+      notifyAuthListeners(currentUser, currentProfile);
+      hideAuthModal();
+      return { user: currentUser, profile: currentProfile, confirmationRequired: false };
+    }
+
+    return { user: data.user, profile: null, confirmationRequired: true };
+  }
+
   async function handleResetPassword(email) {
     const client = window.ChronusSupabase.getClient();
     if (!client) throw new Error('Conexão Supabase não disponível.');
@@ -338,6 +363,7 @@ window.ChronusAuth = (function() {
     getProfile: () => currentProfile,
     onAuthChange,
     handleLogin,
+    handleSignup,
     handleLogout,
     handleResetPassword,
     handleUpdatePassword,

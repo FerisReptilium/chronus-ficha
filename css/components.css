@@ -681,3 +681,8 @@
   min-height: 1.2em;
   text-align: center;
 }
+
+/* Respeita o atributo hidden mesmo com estilos explícitos dos campos do modal. */
+.auth-card [hidden] {
+  display: none !important;
+}
