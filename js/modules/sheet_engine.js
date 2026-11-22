@@ -1296,6 +1296,7 @@ window.ChronusSheetEngine = (function() {
   async function migrateLegacyStorageForUser(userId) {
     if (!userId) return false;
     const cfg = window.CHRONUS_CONFIG;
+    const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';
     const scopedKey = cfg.getStorageKey(userId);
     const legacyKey = (cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])
       .find(key => Boolean(localStorage.getItem(key)));
@@ -1306,7 +1307,7 @@ window.ChronusSheetEngine = (function() {
     // Nunca copie cache ou retrato global de outra conta para o usuário que acabou
     // de entrar neste navegador.
     let migratedLegacyCache = false;
-    if (legacyData && !scopedData && (!localOwner || localOwner === userId)) {
+    if (!isNarratorView && legacyData && !scopedData && (!localOwner || localOwner === userId)) {
       localStorage.setItem(scopedKey, legacyData);
       const legacyDirty = localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true;
       localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
@@ -1316,7 +1317,7 @@ window.ChronusSheetEngine = (function() {
     }
 
     let migratedLegacyPortrait = false;
-    if (!localOwner || localOwner === userId) {
+    if (!isNarratorView && (!localOwner || localOwner === userId)) {
       const scopedPortrait = await dbGet(portraitStorageKey(userId)).catch(() => null);
       const anonymousPortrait = !localOwner ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
       const legacyPortrait = scopedPortrait ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
@@ -1339,12 +1340,17 @@ window.ChronusSheetEngine = (function() {
     // Em uma primeira entrada sem cache legado, não há estado anterior a reidratar:
     // a própria hidratação remota faz a única recarga necessária.
     const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
+    if (isNarratorView && !activeSessionUser) {
+      localStorage.setItem(CLOUD_USER_KEY, userId);
+      sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+      setAccountHydrationPending(true);
+      return true;
+    }
     const accountChanged = Boolean(
       (localOwner && localOwner !== userId) ||
       (activeSessionUser && activeSessionUser !== userId) ||
       (!activeSessionUser && scopedData)
     );
-    const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';
     // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
     // Em narratorView, o snapshot do personagem selecionado pelo Narrador é a fonte correta.
     if (accountChanged && !isNarratorView) {
