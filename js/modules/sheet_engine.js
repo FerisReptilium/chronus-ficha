@@ -909,6 +909,15 @@ window.ChronusSheetEngine = (function() {
     return true;
   }
 
+  function setAccountHydrationPending(pending) {
+    window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = Boolean(pending);
+    const sheet = document.getElementById('view-sheet');
+    if (sheet) {
+      sheet.style.visibility = pending ? 'hidden' : '';
+      sheet.style.pointerEvents = pending ? 'none' : '';
+    }
+  }
+
   async function bootstrapCloudForUser(user) {
     if (!supabaseClient || !user || bootstrapInProgress) return;
     bootstrapInProgress = true;
@@ -1017,7 +1026,7 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       bootstrapInProgress = false;
-      window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false;
+      setAccountHydrationPending(false);
     }
   }
 
@@ -1350,7 +1359,7 @@ window.ChronusSheetEngine = (function() {
       const accountPortrait = await loadPortrait(userId).catch(() => null);
       if (accountPortrait) window.__chronusShowPortrait?.(accountPortrait);
     }
-    window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true;
+    setAccountHydrationPending(true);
     return false;
   }
 
@@ -1448,6 +1457,7 @@ window.ChronusSheetEngine = (function() {
         supabaseClient = window.ChronusSupabase.getClient();
       }
       if (user) {
+        setAccountHydrationPending(true);
         if (await migrateLegacyStorageForUser(user.id)) {
           location.reload();
           return;
@@ -1476,6 +1486,7 @@ window.ChronusSheetEngine = (function() {
         clearNarratorModes();
         updateAccountUi(null);
         if (hadAuthenticatedCache) {
+          setAccountHydrationPending(true);
           location.reload();
           return;
         }
