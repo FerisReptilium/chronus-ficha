@@ -70,11 +70,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('CHRONUS v1.3.4: trilha ambiente indisponível; mantendo o portal silencioso.', error);
   }
 
-  // 3.5. Carrega a classificação narrativa canônica antes do rolador.
+  // 3.5. Carrega as regras narrativas e a ponte segura de sincronização da mesa.
   try {
     await loadScriptOnce('js/rules/narrative_resolution.js');
+    await loadScriptOnce('js/services/narrative_live.js');
   } catch (error) {
-    console.error('CHRONUS: motor de autoridade narrativa indisponível.', error);
+    console.error('CHRONUS: regras narrativas ou sincronização ao vivo indisponíveis.', error);
   }
 
   // 3.6. Rolador global; a classificação narrativa é fornecida pelo motor canônico.
