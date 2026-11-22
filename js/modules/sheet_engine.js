@@ -298,7 +298,7 @@ window.ChronusSheetEngine = (function() {
   function getRollProfile() {
     const attributes = Object.entries(state.attributes || {})
       .map(([name, die]) => ({ name, die: String(die || '').toLowerCase(), sides: Number(String(die || '').replace('d', '')) }))
-      .filter(attribute => [4, 6, 8, 10].includes(attribute.sides));
+      .filter(attribute => [4, 6, 8, 10, 12].includes(attribute.sides));
     const personalities = (state.personalities || [])
       .map(value => String(value || '').trim())
       .filter(Boolean);
