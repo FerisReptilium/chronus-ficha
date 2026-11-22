@@ -207,3 +207,6 @@ assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbac
 assert(sheetSource.includes('if (!scopedFallback && legacyFallback)'), 'legacy portrait fallback must migrate even when an older IndexedDB portrait exists');
 assert(sheetSource.includes('|| migratedLegacyPortrait'), 'migrated portrait data must refresh the active account portrait preview');
 assert(sheetSource.includes("preview.hidden=true;input.value='';button.classList.remove('has-portrait')"), 'account switch must clear a previously selected local portrait file');
+assert(sheetSource.includes('function portraitTombstoneKey(userId=portraitOwnerId())'), 'deleted portrait tombstones must prevent stale IndexedDB images from reappearing');
+assert(sheetSource.includes("localStorage.getItem(portraitTombstoneKey(userId))==='1'"), 'portrait reads must honor deletion tombstones before IndexedDB fallback');
+assert(sheetSource.includes('const localPortraitClearOk = await clearPortrait()'), 'reset must verify local portrait deletion as well as remote deletion');
