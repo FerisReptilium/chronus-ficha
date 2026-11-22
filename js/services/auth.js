@@ -6,8 +6,11 @@ window.ChronusAuth = (function() {
   let currentUser = null;
   let currentProfile = null;
   let passwordRecoveryAuthorized = false;
+  let authInitialized = false;
   let isLoggingOut = false;
   const authListeners = [];
+
+  function isInitialized() { return authInitialized; }
 
   function onAuthChange(cb) {
     if (typeof cb === 'function') {
@@ -77,6 +80,7 @@ window.ChronusAuth = (function() {
   async function init() {
     const client = window.ChronusSupabase.getClient();
     if (!client) {
+      authInitialized = true;
       updateNavAuthUi(null, null);
       notifyAuthListeners(null, null);
       return;
@@ -92,6 +96,7 @@ window.ChronusAuth = (function() {
         showPasswordModal('recovery');
       }
       if (event === 'SIGNED_OUT') {
+        authInitialized = true;
         currentUser = null;
         currentProfile = null;
         updateNavAuthUi(null, null);
@@ -126,11 +131,13 @@ window.ChronusAuth = (function() {
     try {
       const { data: { session }, error } = await client.auth.getSession();
       if (session?.user) {
+        authInitialized = true;
         currentUser = session.user;
         currentProfile = await fetchProfile(session.user);
         updateNavAuthUi(currentUser, currentProfile);
         notifyAuthListeners(currentUser, currentProfile);
       } else {
+        authInitialized = true;
         updateNavAuthUi(null, null);
         notifyAuthListeners(null, null);
         if (window.location.hash === '#/login') {
@@ -139,6 +146,7 @@ window.ChronusAuth = (function() {
       }
     } catch (e) {
       console.warn('CHRONUS: Erro ao checar sessão inicial:', e);
+      authInitialized = true;
       updateNavAuthUi(null, null);
       notifyAuthListeners(null, null);
     }
@@ -361,6 +369,7 @@ window.ChronusAuth = (function() {
     init,
     getUser: () => currentUser,
     getProfile: () => currentProfile,
+    isInitialized,
     onAuthChange,
     handleLogin,
     handleSignup,
