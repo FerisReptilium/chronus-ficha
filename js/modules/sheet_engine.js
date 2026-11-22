@@ -97,10 +97,30 @@ window.ChronusSheetEngine = (function() {
     if (!s.attributes || typeof s.attributes !== 'object') s.attributes = {};
     Object.keys(ATTRIBUTE_POINTS).forEach(name => {
       const value = String(s.attributes[name] || '').toLowerCase();
-      s.attributes[name] = ['d4','d6','d8','d10'].includes(value) ? value : '';
+      s.attributes[name] = ['d4','d6','d8','d10','d12'].includes(value) ? value : '';
     });
 
     if (!s.markers || typeof s.markers !== 'object') s.markers = {};
+    const dieValue = value => Number(String(value || '').replace('d', '')) || 0;
+    const initialDetermination = Math.min(dieValue(s.attributes.Perseverança), dieValue(s.attributes.Vontade));
+    const initialMana = ({d4:10,d6:15,d8:25,d10:40,d12:60})[s.illumination] || 10;
+    const initialWounds = 5 + dieValue(s.attributes.Vigor);
+    if (!s.resources || typeof s.resources !== 'object') s.resources = {};
+    if (!Number.isFinite(Number(s.resources.determination))) {
+      const legacy = [0,1,2].filter(i => s.markers[`determination.${i}`] === 'filled').length;
+      s.resources.determination = legacy ? legacy : initialDetermination;
+    }
+    if (!Number.isFinite(Number(s.resources.mana))) {
+      const legacy = Object.keys(s.markers).filter(key => /^mana\\.\\d+$/.test(key) && s.markers[key] === 'filled').length;
+      s.resources.mana = legacy || initialMana;
+    }
+    if (!Number.isFinite(Number(s.resources.wounds))) {
+      s.resources.wounds = Object.keys(s.markers).filter(key => key.startsWith('wounds.') && s.markers[key] !== 'empty').length;
+    }
+    s.resources.determination = Math.max(0, Math.min(initialDetermination, Number(s.resources.determination)));
+    s.resources.mana = Math.max(0, Math.min(initialMana, Number(s.resources.mana)));
+    s.resources.wounds = Math.max(0, Math.min(initialWounds, Number(s.resources.wounds)));
+    s.resources.max = { determination: initialDetermination, mana: initialMana, wounds: initialWounds };
     Object.entries(s.markers).forEach(([key,value]) => {
       if (key.startsWith('wounds.')) {
         s.markers[key] = WOUND_STATES.includes(value) ? value : 'empty';
@@ -212,6 +232,69 @@ window.ChronusSheetEngine = (function() {
     }, 180);
   }
 
+  function getResourceMaxima() {
+    const sides = name => Number(String(state.attributes?.[name] || '').replace('d', '')) || 0;
+    return {
+      determination: Math.min(sides('Perseverança'), sides('Vontade')),
+      wounds: 5 + sides('Vigor'),
+      mana: ({d4:10,d6:15,d8:25,d10:40,d12:60})[state.illumination] || 10
+    };
+  }
+
+  function reconcileResourceMaxima(previous) {
+    const next = getResourceMaxima();
+    ['determination','mana','wounds'].forEach(key => {
+      const current = Math.max(0, Number(state.resources?.[key]) || 0);
+      const oldMax = Number(previous?.[key]) || 0;
+      state.resources[key] = current >= oldMax ? next[key] : Math.min(current, next[key]);
+    });
+    state.resources.max = next;
+  }
+
+  function updateResourceCounters() {
+    const maxima = getResourceMaxima();
+    document.querySelectorAll('[data-resource-counter]').forEach(host => {
+      const key = host.dataset.resourceCounter;
+      const input = host.querySelector('input');
+      const maxLabel = host.querySelector('[data-resource-max]');
+      if (!input || !maxLabel) return;
+      const max = maxima[key] || 0;
+      const current = Math.max(0, Math.min(max, Number(state.resources?.[key]) || 0));
+      state.resources[key] = current;
+      input.max = String(max);
+      input.value = String(current);
+      maxLabel.textContent = `/ ${max}`;
+      input.disabled = narratorReadOnly;
+    });
+    state.resources.max = maxima;
+  }
+
+  function renderResourceCounter(host, key, label, x, y, width, height) {
+    const wrap = document.createElement('div');
+    wrap.className = 'resource-counter';
+    wrap.dataset.resourceCounter = key;
+    placeBox(wrap, x, y, width, height);
+    const caption = document.createElement('span');
+    caption.className = 'resource-counter-label';
+    caption.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.inputMode = 'numeric';
+    input.setAttribute('aria-label', label + ' atual');
+    input.addEventListener('change', () => {
+      const max = getResourceMaxima()[key];
+      state.resources[key] = Math.max(0, Math.min(max, Math.floor(Number(input.value) || 0)));
+      updateResourceCounters();
+      scheduleSave();
+    });
+    const maxLabel = document.createElement('span');
+    maxLabel.className = 'resource-counter-max';
+    maxLabel.dataset.resourceMax = '';
+    wrap.append(caption, input, maxLabel);
+    host.append(wrap);
+  }
+
   function getRollProfile() {
     const attributes = Object.entries(state.attributes || {})
       .map(([name, die]) => ({ name, die: String(die || '').toLowerCase(), sides: Number(String(die || '').replace('d', '')) }))
@@ -222,7 +305,8 @@ window.ChronusSheetEngine = (function() {
     const skills = (state.lists?.skills || [])
       .map(item => String(item?.text || '').trim())
       .filter(Boolean);
-    const determination = [0, 1, 2].filter(index => state.markers?.[`determination.${index}`] === 'filled').length;
+    const determination = Number(state.resources?.determination) || 0;
+    const maxima = getResourceMaxima();
 
     return clone({
       characterName: String(state.identity?.name || '').trim(),
@@ -230,6 +314,11 @@ window.ChronusSheetEngine = (function() {
       personalities,
       skills,
       determination,
+      determinationMax: maxima.determination,
+      mana: Number(state.resources?.mana) || 0,
+      manaMax: maxima.mana,
+      wounds: Number(state.resources?.wounds) || 0,
+      woundsMax: maxima.wounds,
       paradox: Math.max(0, Number(state.paradox) || 0),
       readOnly: narratorReadOnly
     });
@@ -237,11 +326,9 @@ window.ChronusSheetEngine = (function() {
 
   function spendDetermination() {
     if (narratorReadOnly) return { ok: false, error: 'Ficha em modo somente leitura.' };
-    const spentIndex = [2, 1, 0].find(index => state.markers?.[`determination.${index}`] === 'filled');
-    if (spentIndex === undefined) return { ok: false, error: 'Sem Determinação disponível.' };
-    state.markers[`determination.${spentIndex}`] = 'empty';
-    const marker = document.querySelector(`[aria-label="determination.${spentIndex}"]`);
-    if (marker) marker.dataset.state = 'empty';
+    if ((Number(state.resources?.determination) || 0) <= 0) return { ok: false, error: 'Sem Determinação disponível.' };
+    state.resources.determination -= 1;
+    updateResourceCounters();
     scheduleSave();
     return { ok: true, remaining: getRollProfile().determination };
   }
@@ -332,25 +419,34 @@ window.ChronusSheetEngine = (function() {
       select.className='attribute-die-select';
       select.setAttribute('aria-label',`${name}: dado do atributo`);
       placeBox(select,centerX-35,centerY-22,70,44);
-      select.innerHTML='<option value="">—</option><option value="d4">d4</option><option value="d6">d6</option><option value="d8">d8</option><option value="d10">d10</option>';
+      select.innerHTML='<option value="">—</option><option value="d4">d4</option><option value="d6">d6</option><option value="d8">d8</option><option value="d10">d10</option><option value="d12">d12</option>';
       select.value=state.attributes[name] || '';
-      select.addEventListener('change',()=>{state.attributes[name]=select.value;scheduleSave();});
+      select.addEventListener('change',()=>{
+        const previous = getResourceMaxima();
+        state.attributes[name]=select.value;
+        reconcileResourceMaxima(previous);
+        updateResourceCounters();
+        scheduleSave();
+      });
       host.append(select);
     });
   }
 
   function renderResources() {
     const host=document.getElementById('resourceLayer');
-    [[87,1143],[148,1143],[208,1143]].forEach((p,i) => host.append(binaryMarker({x:p[0],y:p[1],size:48,key:`determination.${i}`,shape:'diamond'})));
+    renderResourceCounter(host, 'determination', 'Determinação', 55, 1118, 205, 58);
 
-    const illum = [['d4',291.5],['d6',341.5],['d8',388.5],['d10',431.5]];
+    const illum = [['d4',291.5],['d6',341.5],['d8',388.5],['d10',431.5],['d12',480]];
     illum.forEach(([value,x]) => {
       const b=document.createElement('button'); b.type='button'; b.className='illumination-hit';
       placeBox(b,x-18,1138,36,36); b.classList.toggle('is-active',state.illumination===value);
       b.setAttribute('aria-label',`Iluminação ${value}`);
       b.addEventListener('click',()=>{
+        const previous = getResourceMaxima();
         state.illumination=value;
+        reconcileResourceMaxima(previous);
         host.querySelectorAll('.illumination-hit').forEach(n=>n.classList.toggle('is-active',n.getAttribute('aria-label')===`Iluminação ${value}`));
+        updateResourceCounters();
         scheduleSave();
       }); host.append(b);
     });
@@ -358,13 +454,13 @@ window.ChronusSheetEngine = (function() {
 
   function renderMana() {
     const host=document.getElementById('manaLayer');
-    MANA_POINTS.forEach((p,i)=>host.append(binaryMarker({x:p[0],y:p[1],size:31,key:`mana.${i}`})));
+    renderResourceCounter(host, 'mana', 'Mana', 1000, 925, 375, 70);
+    updateResourceCounters();
   }
 
   function renderWounds() {
     const host=document.getElementById('woundsLayer');
-    const centers=[78.5,103.5,129.5,155,179.5,205,231,256.5,280.5,304.5];
-    centers.forEach((x,i)=>host.append(woundMarker({x,y:1316,size:28,key:`wounds.${i}`})));
+    renderResourceCounter(host, 'wounds', 'Feridas', 65, 1290, 250, 58);
     const pain=document.createElement('button'); pain.type='button'; pain.className='pain-hit'; placeBox(pain,167,1368,34,38);
     pain.classList.toggle('is-active',!!state.pain); pain.setAttribute('aria-label','Dor');
     pain.addEventListener('click',()=>{state.pain=!state.pain; pain.classList.toggle('is-active',state.pain); scheduleSave();}); host.append(pain);
@@ -973,6 +1069,7 @@ window.ChronusSheetEngine = (function() {
     renderResources();
     renderMana();
     renderWounds();
+    updateResourceCounters();
     renderList('skillsLayer', SKILL_Y, 'skills');
     renderList('advantagesLayer', ADV_Y, 'advantages');
     renderParadox();
