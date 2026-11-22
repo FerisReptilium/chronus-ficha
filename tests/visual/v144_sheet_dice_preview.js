@@ -162,6 +162,7 @@ async function runMode(browser, mode, viewport) {
   await selectAttribute('Vontade', 'd12');
   const determinationD12 = { current: await readResource('determination'), max: await readResourceMax('determination') };
 
+  await setResource('mana', 10); // Restore the full d4 pool before checking full-resource expansion.
   await selectIllumination('d8');
   const manaExpanded = { current: await readResource('mana'), max: await readResourceMax('mana') };
   await setResource('mana', 7);
