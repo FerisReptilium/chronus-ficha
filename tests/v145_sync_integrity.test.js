@@ -79,7 +79,7 @@ function section(source, start, end, label) {
 // 4) A confirmed overwrite is explicit, rereads the latest revision, and still
 // uses CAS. A stale second writer must be rejected and retained locally.
 {
-  const confirmed = section(sheet, 'async function pushStateToCloudConfirmed()', 'function showAuthGate', 'confirmed cloud save');
+  const confirmed = section(sheet, 'async function pushStateToCloudConfirmed()', '// Inicializar o DOM da ficha assim que carregado', 'confirmed cloud save');
   assert(confirmed.includes('if (cloudConflict && !window.confirm('), 'conflict resolution must require explicit user confirmation');
   assert(confirmed.includes(".select('revision')"), 'overwrite must read the current remote revision');
   assert(confirmed.includes(".eq('revision', expectedVersion)"), 'confirmed overwrite must still use CAS');
