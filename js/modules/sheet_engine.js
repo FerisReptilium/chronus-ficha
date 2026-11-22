@@ -323,6 +323,7 @@ window.ChronusSheetEngine = (function() {
       input.value = String(current);
       maxLabel.textContent = `/ ${max}`;
       input.disabled = narratorReadOnly;
+      host.querySelectorAll('.resource-counter-step').forEach(button => { button.disabled = narratorReadOnly; });
     });
     state.resources.max = maxima;
   }
