@@ -101,3 +101,5 @@ console.log('v1.4.4 sheet-to-dice integration regression: PASS');
 
 assert(sheetSource.includes("localStorage.setItem(conflictKey, '1')"), 'conflict state must survive reloads and other tabs');
 assert(sheetSource.includes('window.confirm('), 'overwriting a newer remote version must require explicit confirmation');
+
+assert(sheetSource.includes("event.key.startsWith(CLOUD_CONFLICT_KEY"), 'conflict state must propagate across open tabs');
