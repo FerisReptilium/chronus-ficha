@@ -335,21 +335,38 @@ window.ChronusSheetEngine = (function() {
     const caption = document.createElement('span');
     caption.className = 'resource-counter-label';
     caption.textContent = label;
+    const controls = document.createElement('div');
+    controls.className = 'resource-counter-controls';
+    const decrease = document.createElement('button');
+    decrease.type = 'button';
+    decrease.className = 'resource-counter-step';
+    decrease.textContent = '−';
+    decrease.setAttribute('aria-label', 'Diminuir ' + label);
     const input = document.createElement('input');
     input.type = 'number';
     input.min = '0';
+    input.step = '1';
     input.inputMode = 'numeric';
     input.setAttribute('aria-label', label + ' atual');
-    input.addEventListener('change', () => {
+    const increase = document.createElement('button');
+    increase.type = 'button';
+    increase.className = 'resource-counter-step';
+    increase.textContent = '+';
+    increase.setAttribute('aria-label', 'Aumentar ' + label);
+    const commit = value => {
       const max = getResourceMaxima()[key];
-      state.resources[key] = Math.max(0, Math.min(max, Math.floor(Number(input.value) || 0)));
+      state.resources[key] = Math.max(0, Math.min(max, Math.floor(Number(value) || 0)));
       updateResourceCounters();
       scheduleSave();
-    });
+    };
+    input.addEventListener('change', () => commit(input.value));
+    decrease.addEventListener('click', () => commit((Number(state.resources?.[key]) || 0) - 1));
+    increase.addEventListener('click', () => commit((Number(state.resources?.[key]) || 0) + 1));
     const maxLabel = document.createElement('span');
     maxLabel.className = 'resource-counter-max';
     maxLabel.dataset.resourceMax = '';
-    wrap.append(caption, input, maxLabel);
+    controls.append(decrease, input, increase);
+    wrap.append(caption, controls, maxLabel);
     host.append(wrap);
   }
 
