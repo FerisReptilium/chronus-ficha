@@ -111,7 +111,7 @@ window.ChronusSheetEngine = (function() {
       s.resources.determination = legacy ? legacy : initialDetermination;
     }
     if (!Number.isFinite(Number(s.resources.mana))) {
-      const legacy = Object.keys(s.markers).filter(key => /^mana\\.\\d+$/.test(key) && s.markers[key] === 'filled').length;
+      const legacy = Object.keys(s.markers).filter(key => /^mana\.\d+$/.test(key) && s.markers[key] === 'filled').length;
       s.resources.mana = legacy || initialMana;
     }
     if (!Number.isFinite(Number(s.resources.wounds))) {
