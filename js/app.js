@@ -145,6 +145,32 @@ function loadScriptOnce(src) {
 }
 
 function setupAuthForms() {
+  let authMode = 'login';
+  const signupName = document.getElementById('authDisplayName');
+  const modeToggle = document.getElementById('authModeToggle');
+  const authTitle = document.querySelector('#authForm h2');
+  const authSubtitle = document.querySelector('#authForm .auth-subtitle');
+  const forgotBtn = document.getElementById('authForgotButton');
+  const loginButton = document.getElementById('authLoginButton');
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    const isSignup = mode === 'signup';
+    if (signupName) signupName.hidden = !isSignup;
+    if (signupName) signupName.required = isSignup;
+    if (forgotBtn) forgotBtn.hidden = isSignup;
+    if (authTitle) authTitle.textContent = isSignup ? 'Criar conta' : 'CHRONUS';
+    if (authSubtitle) authSubtitle.textContent = isSignup
+      ? 'Crie sua conta de jogador para acessar sua ficha.'
+      : 'Acesso exclusivo aos jogadores cadastrados e ao Narrador.';
+    if (loginButton) loginButton.textContent = isSignup ? 'Criar minha conta' : 'Entrar';
+    if (modeToggle) modeToggle.textContent = isSignup ? 'Já tenho uma conta — Entrar' : 'Ainda não tenho conta — Criar conta';
+    const msg = document.getElementById('authMessage');
+    if (msg) { msg.textContent = ''; msg.classList.remove('is-error'); }
+  }
+
+  modeToggle?.addEventListener('click', () => setAuthMode(authMode === 'login' ? 'signup' : 'login'));
+
   const loginForm = document.getElementById('authForm');
   const loginEmail = document.getElementById('authEmail');
   const loginPassword = document.getElementById('authPassword');
@@ -185,11 +211,27 @@ function setupAuthForms() {
     if (loginBtn) loginBtn.disabled = true;
 
     try {
-      const res = await window.ChronusAuth.handleLogin(email, pass);
-      if (res.profile?.role === 'narrator') {
-        window.ChronusRouter.navigateTo('#/narrator');
-      } else {
+      if (authMode === 'signup') {
+        const displayName = signupName?.value.trim();
+        if (!displayName) {
+          if (msg) { msg.textContent = 'Informe seu nome para criar a conta.'; msg.classList.add('is-error'); }
+          return;
+        }
+        const res = await window.ChronusAuth.handleSignup(displayName, email, pass);
+        if (res.confirmationRequired) {
+          if (msg) {
+            msg.textContent = 'Conta criada, mas o Supabase ainda exige confirmação por e-mail. O Narrador precisa desativar essa exigência nas configurações de Auth antes que você possa entrar.';
+          }
+          return;
+        }
         window.ChronusRouter.navigateTo('#/player');
+      } else {
+        const res = await window.ChronusAuth.handleLogin(email, pass);
+        if (res.profile?.role === 'narrator') {
+          window.ChronusRouter.navigateTo('#/narrator');
+        } else {
+          window.ChronusRouter.navigateTo('#/player');
+        }
       }
     } catch (err) {
       if (msg) { msg.textContent = 'Falha no acesso: ' + (err.message || err); msg.classList.add('is-error'); }
