@@ -45,7 +45,7 @@ jobs:
           cp supabase/migrations/006_chronus_roll_events.sql .chronus-db-ci/supabase/migrations/20261121000700_chronus_roll_events.sql
           cp supabase/migrations/007_chronus_roll_events_privileges.sql .chronus-db-ci/supabase/migrations/20261121000800_chronus_roll_events_privileges.sql
           cp supabase/migrations/008_chronus_roll_events_immutable_grants.sql .chronus-db-ci/supabase/migrations/20261121000900_chronus_roll_events_immutable_grants.sql
-          cp supabase/migrations/20261122000000_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122000000_character_revision_cas.sql
+          cp supabase/migrations/20261122165137_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122165137_character_revision_cas.sql
           cd .chronus-db-ci
           supabase init
 
@@ -93,7 +93,7 @@ jobs:
               '20261121000000','20261121000100','20261121000200',
               '20261121000300','20261121000400','20261121000500',
               '20261121000600','20261121000700','20261121000800','20261121000900',
-              '20261122000000'
+              '20261122165137'
             );
             IF v_count <> 11 THEN
               RAISE EXCEPTION 'Expected 11 recorded migrations, found %', v_count;
