@@ -19,7 +19,7 @@ assert(app.includes("loadScriptOnce('js/services/narrative_live.js')"), 'live sy
 assert(narrativeRules.includes("exceptional_success"), 'exceptional success outcome missing');
 assert(narrativeRules.includes("partial_success"), 'partial success outcome missing');
 assert(narrativeRules.includes("critical_failure"), 'critical failure outcome missing');
-assert(source.includes("O Narrador não realiza rolagens"), 'Narrator must be blocked from the dice roller');
+assert(source.includes("Narrador não realiza rolagens"), 'Narrator must be blocked from the dice roller');
 assert(source.includes("' + 1d12'"), 'Determination d12 expression missing');
 assert(source.includes('Math.min(3, paradox - 10)'), 'Paradox 13+ must cap at 3d12');
 assert(source.includes('value >= pool.difficulty'), 'Paradox must count every die meeting difficulty');
