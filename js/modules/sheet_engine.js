@@ -104,8 +104,10 @@ window.ChronusSheetEngine = (function() {
 
     if (!s.markers || typeof s.markers !== 'object') s.markers = {};
     const dieValue = value => Number(String(value || '').replace('d', '')) || 0;
+    const illumination = String(s.illumination || 'd4').toLowerCase();
+    s.illumination = ['d4','d6','d8','d10','d12'].includes(illumination) ? illumination : 'd4';
     const initialDetermination = Math.min(dieValue(s.attributes.Perseverança), dieValue(s.attributes.Vontade));
-    const initialMana = ({d4:10,d6:15,d8:25,d10:40,d12:60})[s.illumination] || 10;
+    const initialMana = ({d4:10,d6:15,d8:25,d10:40,d12:60})[s.illumination];
     const initialWounds = 5 + dieValue(s.attributes.Vigor);
     if (!s.resources || typeof s.resources !== 'object') s.resources = {};
     if (!Number.isFinite(Number(s.resources.determination))) {
