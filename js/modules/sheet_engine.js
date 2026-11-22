@@ -902,11 +902,12 @@ window.ChronusSheetEngine = (function() {
     if (cloudSaving) { cloudSaveAgain = true; return; }
     if (cloudConflict) { setSaveStatus('Conflito de sincronização • alterações preservadas neste dispositivo', 'offline'); return; }
     if (!cloudVersion) {
-      localStorage.setItem(getScopedKey('dirty'), '1');
+      markSheetDirty(cloudUser.id, true);
       setSaveStatus('Sincronização pausada • versão remota não confirmada', 'offline');
       return;
     }
 
+    const snapshot = JSON.stringify(state);
     cloudSaving = true;
     setSaveStatus('Sincronizando…', 'saving');
     try {
@@ -914,7 +915,7 @@ window.ChronusSheetEngine = (function() {
       // version this tab loaded. A stale tab must never overwrite newer data.
       const { data, error } = await supabaseClient
         .from('characters')
-        .update({ name: cloudCharacterName(), data: clone(state) })
+        .update({ name: cloudCharacterName(), data: JSON.parse(snapshot) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
         .eq('revision', cloudVersion)
@@ -925,7 +926,7 @@ window.ChronusSheetEngine = (function() {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
-        localStorage.setItem(getScopedKey('dirty'), '1');
+        markSheetDirty(cloudUser.id, true);
         setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
         return;
       }
@@ -935,12 +936,13 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      localStorage.setItem(getScopedKey('dirty'), '0');
-      localStorage.setItem(getScopedKey('synced'), cloudVersion);
+      markSheetDirty(cloudUser.id, false);
+      try { localStorage.setItem(getScopedKey('synced'), cloudVersion); } catch {}
+      void markSheetBackupSynced(cloudUser.id, snapshot).catch(error => console.warn('CHRONUS: backup local ainda pendente de confirmação', error));
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
     } catch (e) {
       console.error('CHRONUS: erro de sincronização', e);
-      localStorage.setItem(getScopedKey('dirty'), '1');
+      markSheetDirty(cloudUser.id, true);
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       cloudSaving = false;
@@ -1680,6 +1682,7 @@ window.ChronusSheetEngine = (function() {
     try {
       const dirtyKey = getScopedKey('dirty');
       const syncedKey = getScopedKey('synced');
+      const snapshot = JSON.stringify(state);
 
       if (cloudConflict && !window.confirm('Existe uma versão mais recente na nuvem. Deseja substituir essa versão pelas alterações locais deste dispositivo? Esta ação não pode ser desfeita.')) {
         return { ok: false, conflict: true, error: 'Conflito mantido; alterações locais preservadas' };
@@ -1693,7 +1696,7 @@ window.ChronusSheetEngine = (function() {
       if (!expectedVersion) return { ok: false, conflict: true, error: 'Versão remota não confirmada' };
       const { data, error } = await supabaseClient
         .from('characters')
-        .update({ name: cloudCharacterName(), data: clone(state) })
+        .update({ name: cloudCharacterName(), data: JSON.parse(snapshot) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
         .eq('revision', expectedVersion)
@@ -1705,7 +1708,7 @@ window.ChronusSheetEngine = (function() {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
-        localStorage.setItem(dirtyKey, '1');
+        markSheetDirty(cloudUser.id, true);
         setSaveStatus('Conflito de sincronização • alterações locais preservadas', 'offline');
         return { ok: false, conflict: true, error: 'A versão remota mudou durante a confirmação' };
       }
@@ -1715,14 +1718,15 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      localStorage.setItem(dirtyKey, '0');
-      localStorage.setItem(syncedKey, cloudVersion);
+      markSheetDirty(cloudUser.id, false);
+      try { localStorage.setItem(syncedKey, cloudVersion); } catch {}
+      void markSheetBackupSynced(cloudUser.id, snapshot).catch(error => console.warn('CHRONUS: backup local ainda pendente de confirmação', error));
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
       return { ok: true, revision: cloudVersion };
     } catch (e) {
       console.error('CHRONUS: Erro ao sincronizar ficha na nuvem:', e);
       const dirtyKey = getScopedKey('dirty');
-      localStorage.setItem(dirtyKey, '1');
+      markSheetDirty(cloudUser.id, true);
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
       return { ok: false, error: e.message || e };
     } finally {
