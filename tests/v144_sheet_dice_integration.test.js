@@ -126,6 +126,9 @@ assert(sheetSource.includes('if (cloudSaving) {\n      return { ok: false'), 'lo
 assert(sheetSource.includes('Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === \'1\')'), 'dirty detection must include pending debounce timers and in-flight saves');
 assert(sheetSource.includes('const legacyRaw = (!knownOwner && !ownerId)'), 'logged-out or switched accounts must not fall back to a previous account legacy cache');
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
+
+assert(sheetSource.includes('(cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])'), 'all supported legacy sheet versions must be migrated into the account cache');
+assert(sheetSource.includes("localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true"), 'unowned legacy drafts must remain dirty until the server confirms their adoption');
 assert(sheetSource.includes('if (accountChanged) {') && sheetSource.includes('const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));'), 'account changes must replace in-memory state with only the authenticated account cache');
 assert(sheetSource.includes('const hasPriorLocalState = Boolean(localOwner || scopedData || migratedLegacyCache || migratedLegacyPortrait)'), 'first-time accounts without prior local data must avoid an unnecessary reload');
 assert(sheetSource.includes('cfg.getStorageKey(userId)'), 'remote snapshots must persist to the account-scoped cache');
