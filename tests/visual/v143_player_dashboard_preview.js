@@ -196,7 +196,22 @@ async function runMode(browser, mode, viewport) {
     window.ChronusAuth?.getUser?.()?.id &&
     window.ChronusRouter?.getCurrentRoute?.() === '#/home'
   ), { timeout: 20000 });
-  await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
+  try {
+    await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
+  } catch (error) {
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    const diagnostic = await page.evaluate(() => ({
+      href: location.href,
+      route: location.hash,
+      readyState: document.readyState,
+      userId: window.ChronusAuth?.getUser?.()?.id || null,
+      profileRole: window.ChronusAuth?.getProfile?.()?.role || null,
+      routerRoute: window.ChronusRouter?.getCurrentRoute?.() || null,
+      dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+      logoutButtonCount: document.querySelectorAll('#btn-nav-logout, #btn-mobile-logout').length
+    })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
+    throw new Error(`Dashboard navigation interrupted: ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+  }
   await page.waitForFunction(() => (
     window.location.hash === '#/player' &&
     window.ChronusRouter?.getCurrentRoute?.() === '#/player' &&
