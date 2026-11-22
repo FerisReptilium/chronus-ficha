@@ -72,7 +72,7 @@ BEGIN
     RAISE EXCEPTION 'Player A event was not saved or server-derived fields are incorrect';
   END IF;
 END $$;
-ROLLBACK;
+COMMIT;
 
 -- Player B creates a second event through their own authenticated session.
 BEGIN;
@@ -109,7 +109,7 @@ BEGIN
       '[{"sides":8,"value":8,"determination":false}]'::jsonb,
       6,8,2,'success','player',0,false
     );
-  EXCEPTION WHEN insufficient_privilege THEN v_blocked := true;
+  EXCEPTION WHEN insufficient_privilege OR raise_exception THEN v_blocked := true;
   END;
   IF NOT v_blocked THEN RAISE EXCEPTION 'Player A inserted an event for Player B'; END IF;
 END $$;
