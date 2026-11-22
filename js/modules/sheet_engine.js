@@ -1236,7 +1236,8 @@ window.ChronusSheetEngine = (function() {
       }
     }
 
-    const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY);
+    const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
+      || localStorage.getItem(cfg.getPortraitDirtyKey(null));
     const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
     if (legacyPortraitDirty && !scopedPortraitDirty && (!localOwner || localOwner === userId)) {
       localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
