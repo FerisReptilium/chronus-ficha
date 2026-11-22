@@ -443,3 +443,31 @@ body.is-dice-dialog-open { overflow: hidden; }
 @media print {
   .chronus-dice-root,.chronus-dice-stage { display: none !important; }
 }
+
+/* Autoridade narrativa canônica do CHRONUS */
+.dice-result-narrative {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--dice-line);
+  border-left: 3px solid var(--dice-gold, #b89a5a);
+  border-radius: 10px;
+  background: rgba(184, 154, 90, .08);
+  color: var(--dice-text, inherit);
+}
+.dice-result-narrative strong { display: block; margin-bottom: 7px; }
+.dice-result-narrative p { margin: 0; line-height: 1.55; }
+.dice-result-narrative small { display: block; margin-top: 8px; opacity: .82; }
+.dice-result-verdict.is-exceptional_success { border-color: #c49a45; }
+.dice-result-verdict.is-partial_success { border-color: #c49a45; }
+.dice-result-verdict.is-critical_failure { border-color: #a33b3b; }
+
+.narrator-narrative-guide {
+  margin: 0 0 22px;
+  padding: 20px 22px;
+  border: 1px solid var(--border-color, rgba(184,154,90,.35));
+  border-left: 3px solid #b89a5a;
+  border-radius: 12px;
+  background: var(--surface-card, rgba(20,20,25,.55));
+}
+.narrator-narrative-guide h3 { margin: 0 0 10px; }
+.narrator-narrative-guide p { margin: 7px 0; line-height: 1.5; }
