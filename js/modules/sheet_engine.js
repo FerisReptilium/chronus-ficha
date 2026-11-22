@@ -1175,7 +1175,7 @@ window.ChronusSheetEngine = (function() {
       }
       await loadNarratorDashboard();
     } finally {
-      window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false;
+      setAccountHydrationPending(false);
     }
   }
 
