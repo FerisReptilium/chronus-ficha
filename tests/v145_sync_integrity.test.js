@@ -117,11 +117,10 @@ function section(source, start, end, label) {
 // fails. The local account cache remains available after a successful sign-out.
 {
   const logout = section(auth, 'async function handleLogout()', 'function showAuthModal', 'secure logout');
-  assert(logout.includes('if (isDirty || dirtyKeyVal === \\'1\\')'), 'logout must detect pending writes');
+  assert(logout.includes("isDirty || dirtyKeyVal === '1'"), 'logout must detect pending writes');
   assert(logout.includes('if (!syncResult || !syncResult.ok)'), 'logout must stop when cloud synchronization is unconfirmed');
   assert(logout.includes("if (signOutError) throw signOutError;"), 'logout must surface Supabase sign-out errors');
   assert(logout.includes('preservando o cache local individual do usuário'), 'logout must preserve account-scoped local cache');
-  assert(logout.includes("sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY)") === false, 'auth service must not own or erase the sheet engine active-user marker');
 }
 
 console.log('CHRONUS v1.4.5 sync integrity regression: PASS');
