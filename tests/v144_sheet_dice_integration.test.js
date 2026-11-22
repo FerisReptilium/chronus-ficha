@@ -195,3 +195,5 @@ assert(sheetSource.includes("if (!isNarratorView && legacyData && !scopedData"),
 assert(sheetSource.includes("if (!isNarratorView && (!localOwner || localOwner === userId))"), 'narrator view must not migrate anonymous portrait data into the narrator account');
 assert(sheetSource.includes("if (isNarratorView && !activeSessionUser)"), 'first-time narrator view must reload after establishing the authenticated session so its snapshot is loaded');
 assert(sheetSource.includes("const illumination = String(s.illumination || 'd4').toLowerCase()"), 'legacy or malformed Illumination values must normalize before Mana maximum calculation');
+assert(sheetSource.includes("const hasValidResourceValue = value => ("), 'malformed null or blank resource values must use derived defaults instead of silently becoming zero');
+assert(sheetSource.includes('Math.floor(Number(s.resources.determination))') && sheetSource.includes('Math.floor(Number(s.resources.mana))') && sheetSource.includes('Math.floor(Number(s.resources.wounds))'), 'resource counters must normalize persisted values to whole numbers');
