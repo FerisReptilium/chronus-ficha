@@ -88,7 +88,10 @@ const supabaseMock = `
 `;
 
 function watchErrors(page) {
-  const errors = { console: [], page: [] };
+  const errors = { console: [], page: [], navigations: [] };
+  page.on('framenavigated', frame => {
+    if (frame === page.mainFrame()) errors.navigations.push(frame.url());
+  });
   page.on('console', message => {
     if (message.type() === 'error') errors.console.push(message.text());
   });
@@ -218,7 +221,22 @@ async function runMode(browser, mode, viewport) {
     throw new Error(`${mode}: dashboard relations did not render within 8s; ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
   }
 
-  const state = await inspect(page);
+  let state;
+  try {
+    state = await inspect(page);
+  } catch (error) {
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    const diagnostic = await page.evaluate(() => ({
+      href: location.href,
+      route: location.hash,
+      readyState: document.readyState,
+      dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+      playerViewHidden: document.getElementById('view-player')?.hidden ?? null,
+      playerViewActive: document.getElementById('view-player')?.classList.contains('is-active') ?? false,
+      relationGroupCount: document.querySelectorAll('.dashboard-related-group').length
+    })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
+    throw new Error(`${mode}: page navigated while inspecting dashboard; ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+  }
   await page.screenshot({ path: path.join(outputDir, `${mode}-player-dashboard.png`), fullPage: true });
 
   if (response?.status() !== 200) throw new Error(`${mode}: preview HTTP ${response?.status()}`);
