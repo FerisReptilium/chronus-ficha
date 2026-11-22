@@ -83,6 +83,22 @@ async function interceptLocalConfig(page) {
   });
 }
 
+async function waitForAuthFormReady(page) {
+  const title = page.locator('#authForm h2');
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    await page.locator('#authModeToggle').click();
+    if ((await title.textContent())?.trim() === 'Criar conta') {
+      await page.locator('#authModeToggle').click();
+      await page.waitForFunction(() =>
+        document.querySelector('#authForm h2')?.textContent?.trim() === 'CHRONUS'
+      );
+      return;
+    }
+    await page.waitForTimeout(100);
+  }
+  throw new Error('Auth form handlers did not initialize before the browser login test');
+}
+
 async function openAuthModalThroughUi(page) {
   await page.locator('#btn-nav-login').click();
   await page.evaluate(() => {
@@ -92,6 +108,7 @@ async function openAuthModalThroughUi(page) {
     window.ChronusAuth.showAuthModal();
   });
   await page.locator('#authGate').waitFor({ state: 'visible' });
+  await waitForAuthFormReady(page);
 }
 
 async function loginThroughUi(page, user) {
