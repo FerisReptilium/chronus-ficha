@@ -108,12 +108,12 @@ window.ChronusSheetEngine = (function() {
     if (!Number.isFinite(Number(s.resources.determination))) {
       const hasLegacy = [0,1,2].some(i => Object.prototype.hasOwnProperty.call(s.markers, `determination.${i}`));
       const legacy = [0,1,2].filter(i => s.markers[`determination.${i}`] === 'filled').length;
-      s.resources.determination = hasLegacy ? legacy : initialDetermination;
+      s.resources.determination = hasLegacy ? (legacy === 3 ? initialDetermination : legacy) : initialDetermination;
     }
     if (!Number.isFinite(Number(s.resources.mana))) {
       const manaKeys = Object.keys(s.markers).filter(key => /^mana\.\d+$/.test(key));
       const legacy = manaKeys.filter(key => s.markers[key] === 'filled').length;
-      s.resources.mana = manaKeys.length ? legacy : initialMana;
+      s.resources.mana = manaKeys.length ? (legacy === manaKeys.length ? initialMana : legacy) : initialMana;
     }
     if (!Number.isFinite(Number(s.resources.wounds))) {
       s.resources.wounds = Object.keys(s.markers).filter(key => key.startsWith('wounds.') && s.markers[key] !== 'empty').length;
