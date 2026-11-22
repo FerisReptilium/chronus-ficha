@@ -200,14 +200,31 @@ async function runMode(browser, mode, viewport) {
   await page.addInitScript(() => {
     const key = '__chronus_v143_navigation_trace';
     const read = () => { try { return JSON.parse(sessionStorage.getItem(key) || '[]'); } catch (_) { return []; } };
-    const trace = read();
-    trace.push({ phase: 'document-start', href: location.href, readyState: document.readyState, navigationType: performance.getEntriesByType('navigation')[0]?.type || null, time: Date.now() });
-    try { sessionStorage.setItem(key, JSON.stringify(trace.slice(-12))); } catch (_) {}
-    window.addEventListener('beforeunload', () => {
+    const write = entry => {
       const latest = read();
-      latest.push({ phase: 'beforeunload', href: location.href, hash: location.hash, time: Date.now() });
-      try { sessionStorage.setItem(key, JSON.stringify(latest.slice(-12))); } catch (_) {}
-    });
+      latest.push({ ...entry, time: Date.now() });
+      try { sessionStorage.setItem(key, JSON.stringify(latest.slice(-30))); } catch (_) {}
+    };
+    write({ phase: 'document-start', href: location.href, readyState: document.readyState, navigationType: performance.getEntriesByType('navigation')[0]?.type || null });
+    window.addEventListener('beforeunload', () => write({ phase: 'beforeunload', href: location.href, hash: location.hash }));
+    window.addEventListener('click', event => write({
+      phase: 'click',
+      target: event.target?.closest?.('button,a,[role="button"]')?.outerHTML?.slice(0, 240) || event.target?.tagName || null
+    }), true);
+    const originalConfirm = window.confirm.bind(window);
+    window.confirm = message => {
+      write({ phase: 'confirm', message: String(message).slice(0, 180), stack: new Error('confirm caller').stack });
+      return originalConfirm(message);
+    };
+    try {
+      const originalReload = Location.prototype.reload;
+      Location.prototype.reload = function(...args) {
+        write({ phase: 'reload-called', stack: new Error('location.reload caller').stack });
+        return originalReload.apply(this, args);
+      };
+    } catch (error) {
+      write({ phase: 'reload-instrumentation-error', message: error.message });
+    }
   });
   // Inicializa primeiro na rota pública. Só navega para a área protegida
   // depois de Auth e Router concluírem o bootstrap, reproduzindo o fluxo real
