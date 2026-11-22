@@ -56,7 +56,7 @@ assert(sheetSource.includes(".eq('revision', cloudVersion)"), 'cloud writes must
 assert(sheetSource.includes(".select('revision')"), 'cloud writes must receive the next database revision');
 assert(sheetSource.includes("String(data.revision)"), 'revision values must remain lossless strings across JavaScript bigint boundaries');
 assert(sheetSource.includes("select('revision')"), 'conflict resolution must read the latest monotonic revision');
-assert(revisionMigration.includes('revision bigint NOT NULL DEFAULT 1'), 'character revision must be a non-null bigint initialized for existing rows');
+assert(revisionMigration.includes('revision BIGINT NOT NULL DEFAULT 1'), 'character revision must be a non-null bigint initialized for existing rows');
 assert(revisionMigration.includes('NEW.revision := OLD.revision + 1'), 'database trigger must increment revision atomically on every update');
 assert(revisionMigration.includes('NEW.revision := 1'), 'database trigger must own initial revision values');
 assert(sheetSource.includes(".maybeSingle()"), 'a stale cloud write must be detectable as a zero-row update');
