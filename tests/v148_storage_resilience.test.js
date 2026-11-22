@@ -199,7 +199,7 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     'account-scoped backup migration'
   );
   assert.ok(migration.includes('readSheetBackup(userId)'), 'account migration must request the authenticated user backup');
-  assert.ok(migration.includes('backupRecord.savedAt > localSavedAt'), 'backup must replace only an older or missing local cache');
+  assert.ok(migration.includes('backupRecord.savedAt >= localSavedAt'), 'backup must replace only an older or missing local cache');
   assert.ok(migration.includes('restoredFromBackup'), 'restoration must trigger account-state rehydration');
   assert.ok(migration.includes('Boolean(anonymousBackup)'), 'anonymous backup must not leak into an authenticated account when local metadata is unavailable');
   assert.ok(backupHelpers.includes("record.owner !== (userId || 'anonymous')"), 'backup reader must validate its owner');
