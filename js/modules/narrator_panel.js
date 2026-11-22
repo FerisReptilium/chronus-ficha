@@ -590,7 +590,10 @@ window.ChronusNarratorPanel = (function() {
       createEl('p', null, 'Falha crítica: o Narrador descreve uma consequência desastrosa e horrível.')
     );
 
-    pane.append(shellHeader, narrativeGuide, grid);
+    const liveRolls = createEl('section', 'narrator-live-rolls');
+    liveRolls.id = 'narrator-live-rolls';
+    pane.append(shellHeader, narrativeGuide, liveRolls, grid);
+    window.ChronusNarrativeLive?.mountNarratorFeed?.(liveRolls);
 
     pane.querySelectorAll('.btn-open-readonly-sheet').forEach(btn => {
       btn.addEventListener('click', () => {
