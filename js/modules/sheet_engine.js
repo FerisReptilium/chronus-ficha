@@ -238,6 +238,25 @@ window.ChronusSheetEngine = (function() {
     }
   });
 
+  // Retoma gravações locais pendentes quando a conexão retorna. A revisão CAS
+  // continua sendo a autoridade: conflitos nunca são reenviados automaticamente.
+  window.addEventListener('offline', () => {
+    if (cloudUser) setSaveStatus('Offline • alterações salvas neste dispositivo', 'offline');
+  });
+
+  window.addEventListener('online', () => {
+    if (!cloudReady || !cloudUser || !cloudCharacterId || cloudConflict) return;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+      persistLocalState(true);
+    }
+    if (localStorage.getItem(getScopedKey('dirty')) === '1') {
+      setSaveStatus('Conexão restabelecida • retomando sincronização…', 'saving');
+      scheduleCloudSave(500);
+    }
+  });
+
   function setSaveStatus(text, mode='') {
     if (!indicator) return;
     let clean=String(text||'').replace(/^Offline\s*[•·-]\s*/i,'').replace(/^Online\s*[•·-]\s*/i,'');
