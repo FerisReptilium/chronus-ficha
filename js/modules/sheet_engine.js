@@ -596,6 +596,10 @@ window.ChronusSheetEngine = (function() {
   }
 
 
+  function cloudSessionBaseKey(userId=cloudUser?.id, characterId=cloudCharacterId) {
+    return userId && characterId ? `chronus.cloud.base.${userId}.${characterId}` : '';
+  }
+
   function cloudConflictStorageKey(userId=cloudUser?.id, characterId=cloudCharacterId) {
     return userId && characterId ? `${CLOUD_CONFLICT_KEY}.${userId}.${characterId}` : '';
   }
@@ -638,6 +642,8 @@ window.ChronusSheetEngine = (function() {
         return;
       }
       cloudVersion = data.updated_at;
+      const baseKey = cloudSessionBaseKey();
+      if (baseKey) sessionStorage.setItem(baseKey, cloudVersion);
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
@@ -816,6 +822,8 @@ window.ChronusSheetEngine = (function() {
     localStorage.setItem(CLOUD_DIRTY_KEY, '0');
     localStorage.setItem(CLOUD_SYNCED_KEY, updatedAt || new Date().toISOString());
     cloudVersion = updatedAt || null;
+    const baseKey = cloudSessionBaseKey(userId, characterId);
+    if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
     cloudConflict = false;
     localStorage.removeItem(cloudConflictStorageKey(userId, characterId));
 
@@ -869,6 +877,8 @@ window.ChronusSheetEngine = (function() {
         if (insertError) throw insertError;
         cloudCharacterId = created.id;
         cloudVersion = created.updated_at || null;
+        const baseKey = cloudSessionBaseKey(user.id, created.id);
+        if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
         cloudConflict = false;
         localStorage.removeItem(cloudConflictStorageKey(user.id, created.id));
         localStorage.setItem(CLOUD_USER_KEY, user.id);
@@ -884,7 +894,10 @@ window.ChronusSheetEngine = (function() {
       } else {
         cloudCharacterId = row.id;
         cloudVersion = row.updated_at || null;
-        cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1';
+        const baseKey = cloudSessionBaseKey(user.id, row.id);
+        const localBaseVersion = baseKey ? sessionStorage.getItem(baseKey) : null;
+        cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1'
+          || (localStorage.getItem(CLOUD_DIRTY_KEY) === '1' && localBaseVersion !== cloudVersion);
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
         if (localOwner && localOwner !== user.id) {
@@ -1234,6 +1247,8 @@ window.ChronusSheetEngine = (function() {
         return { ok: false, conflict: true, error: 'A versão remota mudou durante a confirmação' };
       }
       cloudVersion = data.updated_at;
+      const baseKey = cloudSessionBaseKey();
+      if (baseKey) sessionStorage.setItem(baseKey, cloudVersion);
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
