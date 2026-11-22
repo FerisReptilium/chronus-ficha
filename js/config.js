@@ -3,8 +3,8 @@
  * Configurações Globais e Chaves de Armazenamento com Escopo por Usuário
  */
 window.CHRONUS_CONFIG = {
-  SUPABASE_URL: 'https://phxqtkdumgwacrqsflqe.supabase.co',
-  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_nl4ksY4d4ZFWENQ1_93wQQ_MXHih6uK',
+  SUPABASE_URL: 'https://lazbcbppjcmlknvxiipk.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_Czx2VTodrxkN7sIeqAgT4w_7VuhDnbI',
   
   // Chaves Legadas para Migração Transparente
   LEGACY_STORAGE_KEY: 'chronus.sheet.v4',
