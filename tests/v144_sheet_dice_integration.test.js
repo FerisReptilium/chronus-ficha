@@ -204,7 +204,7 @@ assert(sheetSource.includes("s.page2.formulas = s.page2.formulas.slice(0,12).map
 assert(sheetSource.includes("narratorReadOnly = false;\n    document.querySelectorAll('.workspace input,.workspace textarea,.workspace select,.workspace button')"), 'player account must regain editable controls after narrator read-only mode');
 assert(sheetSource.includes('async function dataUrlToBlob(dataUrl)'), 'portrait fallback data URLs must be converted to Blob before Storage upload');
 assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbackKey(userId));\n    if(fallback){'), 'latest local portrait fallback must take precedence over an older IndexedDB record');
-assert(sheetSource.includes('if (!scopedFallback && legacyFallback)'), 'legacy portrait fallback must migrate even when an older IndexedDB portrait exists');
+assert(sheetSource.includes('if (!targetPortraitDeleted && !scopedFallback && legacyFallback)'), 'legacy portrait fallback must migrate when needed but never override an explicit deletion');
 assert(sheetSource.includes('|| migratedLegacyPortrait'), 'migrated portrait data must refresh the active account portrait preview');
 assert(sheetSource.includes("preview.hidden=true;input.value='';button.classList.remove('has-portrait')"), 'account switch must clear a previously selected local portrait file');
 assert(sheetSource.includes('function portraitTombstoneKey(userId=portraitOwnerId())'), 'deleted portrait tombstones must prevent stale IndexedDB images from reappearing');
