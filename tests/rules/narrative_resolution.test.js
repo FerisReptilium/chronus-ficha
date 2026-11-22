@@ -33,5 +33,8 @@ assert.strictEqual(
 );
 assert.throws(() => resolve([], 6), /ao menos um resultado/);
 assert.throws(() => resolve([0, 6], 6), /entre 1 e 12/);
+assert.throws(() => resolve([6], 3), /4, 5, 6 ou 7/);
+assert.throws(() => resolve([6], 8), /4, 5, 6 ou 7/);
+assert.throws(() => resolve([6, 6, 6, 6, 6], 6), /no máximo três dados básicos/);
 
 console.log('CHRONUS narrative authority tests: PASS');
