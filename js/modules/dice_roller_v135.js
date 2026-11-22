@@ -373,19 +373,20 @@ window.ChronusDiceRollerV135 = (function() {
 
   function buildGuidedSpec(input) {
     const kind = GUIDED_KINDS[input.kind] ? input.kind : 'normal';
-    const sides = [4, 6, 8, 10].includes(Number(input.sides)) ? Number(input.sides) : 8;
+    const sides = [4, 6, 8, 10, 12].includes(Number(input.sides)) ? Number(input.sides) : 8;
     const personality = String(input.personality || '').trim();
     const skill = String(input.skill || '').trim();
-    const baseDifficulty = Math.max(1, Number(input.baseDifficulty) || 5);
+    const baseDifficulty = Math.max(4, Math.min(7, Number(input.baseDifficulty) || 5));
     const adjustment = Math.max(-2, Math.min(2, Number(input.adjustment) || 0));
     return {
+      mode: 'Teste guiado',
       kind,
       title: String(input.action || '').trim() || GUIDED_KINDS[kind].title,
       sides,
       count: 1 + Number(Boolean(personality)) + Number(Boolean(skill)),
       baseDifficulty,
       adjustment,
-      difficulty: Math.max(1, baseDifficulty + adjustment),
+      difficulty: Math.max(4, Math.min(7, baseDifficulty + adjustment)),
       determination: input.determination === true,
       attributeName: String(input.attributeName || '').trim(),
       personality,
@@ -713,6 +714,10 @@ window.ChronusDiceRollerV135 = (function() {
   }
 
   function openDialog() {
+    if (window.ChronusAuth?.getProfile?.()?.role === 'narrator') {
+      window.alert('No CHRONUS, o Narrador não realiza rolagens. Os testes são feitos exclusivamente pelos jogadores.');
+      return;
+    }
     const overlay = document.getElementById('chronus-dice-overlay');
     previousFocus = document.activeElement;
     refreshSheetIntegration();
