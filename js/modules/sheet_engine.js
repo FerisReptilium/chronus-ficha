@@ -1344,9 +1344,10 @@ window.ChronusSheetEngine = (function() {
       (activeSessionUser && activeSessionUser !== userId) ||
       (!activeSessionUser && scopedData)
     );
+    const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';
     // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
-    // O DOM é reconstruído sem duplicar controles nem manter campos do usuário anterior.
-    if (accountChanged) {
+    // Em narratorView, o snapshot do personagem selecionado pelo Narrador é a fonte correta.
+    if (accountChanged && !isNarratorView) {
       let scopedState = null;
       try { scopedState = scopedData ? JSON.parse(scopedData) : null; }
       catch (error) { console.warn('CHRONUS: cache da conta inválido; usando estado limpo.', error); }
@@ -1359,8 +1360,10 @@ window.ChronusSheetEngine = (function() {
     sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
     if (accountChanged) {
       window.__chronusClearPortrait?.();
-      const accountPortrait = await loadPortrait(userId).catch(() => null);
-      if (accountPortrait) window.__chronusShowPortrait?.(accountPortrait);
+      if (!isNarratorView) {
+        const accountPortrait = await loadPortrait(userId).catch(() => null);
+        if (accountPortrait) window.__chronusShowPortrait?.(accountPortrait);
+      }
     }
     setAccountHydrationPending(true);
     return false;
