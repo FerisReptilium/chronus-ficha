@@ -206,3 +206,4 @@ assert(sheetSource.includes('async function dataUrlToBlob(dataUrl)'), 'portrait 
 assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbackKey(userId));\n    if(fallback){'), 'latest local portrait fallback must take precedence over an older IndexedDB record');
 assert(sheetSource.includes('if (!scopedFallback && legacyFallback)'), 'legacy portrait fallback must migrate even when an older IndexedDB portrait exists');
 assert(sheetSource.includes('|| migratedLegacyPortrait'), 'migrated portrait data must refresh the active account portrait preview');
+assert(sheetSource.includes("preview.hidden=true;input.value='';button.classList.remove('has-portrait')"), 'account switch must clear a previously selected local portrait file');
