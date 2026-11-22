@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
 const origin = process.env.CHRONUS_PREVIEW_ORIGIN || 'http://127.0.0.1:4173';
 const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronus-v149-profile-'));
 
-const supabaseMock = String.raw\`
+const supabaseMock = String.raw`
 (() => {
   const currentUser = () => {
     const id = localStorage.getItem('chronus.e2e.identity') || 'account-A';
@@ -77,7 +77,7 @@ const supabaseMock = String.raw\`
   };
   window.supabase = { createClient: () => client };
 })();
-\`;
+`;
 
 async function prepareContext(context, identity, failLocalStorage = false) {
   await context.addInitScript(({ identity, failLocalStorage }) => {
