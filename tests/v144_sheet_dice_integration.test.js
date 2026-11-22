@@ -7,6 +7,7 @@ const { webcrypto } = require('crypto');
 
 const diceSource = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const sheetSource = fs.readFileSync('js/modules/sheet_engine.js', 'utf8');
+const authSource = fs.readFileSync('js/services/auth.js', 'utf8');
 const css = fs.readFileSync('css/dice-roller-v135.css', 'utf8');
 
 for (const marker of [
@@ -120,15 +121,20 @@ assert(sheetSource.includes('cloudSaveTimer = 0; pushStateToCloud();'), 'complet
 assert(sheetSource.includes('if (saveTimer) {\n      clearTimeout(saveTimer);\n      saveTimer = 0;\n      persistLocalState(true);'), 'logout sync must flush pending edits to account-scoped local storage');
 assert(sheetSource.includes('if (cloudSaving) {\n      return { ok: false'), 'logout must not race an in-flight automatic cloud save');
 assert(sheetSource.includes('Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === \'1\')'), 'dirty detection must include pending debounce timers and in-flight saves');
-assert(sheetSource.includes('const legacyRaw = ownerId ? null'), 'loadState must not fall back to a global legacy cache when an account owner is already known');
+assert(sheetSource.includes('const legacyRaw = (!knownOwner && !ownerId)'), 'logged-out or switched accounts must not fall back to a previous account legacy cache');
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
-assert(sheetSource.includes('migratedLegacyCache || (scopedData && localOwner !== userId)'), 'a newly migrated legacy cache must trigger controlled rehydration before rendering');
+assert(sheetSource.includes('localOwner !== userId || activeSessionUser !== userId || migratedLegacyCache || migratedLegacyPortrait'), 'account changes and cache migrations must trigger controlled rehydration');
 assert(sheetSource.includes('cfg.getStorageKey(userId)'), 'remote snapshots must persist to the account-scoped cache');
 assert(sheetSource.includes('cfg.getDirtyKey(userId)'), 'remote dirty flags must be account-scoped');
 assert(sheetSource.includes('cfg.getSyncedKey(userId)'), 'remote sync timestamps must be account-scoped');
 assert(sheetSource.includes('cfg.getPortraitDirtyKey(userId)'), 'portrait dirty state must be account-scoped');
 assert(sheetSource.includes('(!localOwner || localOwner === userId)'), 'legacy cache migration must not copy another account cache');
-assert(sheetSource.includes('migratedLegacyCache || (scopedData && localOwner !== userId)'), 'switching accounts must restore that account own local cache and reload after legacy migration');
-assert(sheetSource.includes('if (migrateLegacyStorageForUser(user.id))'), 'switching account caches must trigger a controlled reload before rendering');
+assert(sheetSource.includes('activeSessionUser !== userId || migratedLegacyCache || migratedLegacyPortrait'), 'switching accounts must rehydrate only the authenticated account cache');
+assert(sheetSource.includes('if (await migrateLegacyStorageForUser(user.id))'), 'switching account caches must await migration before controlled reload');
 assert(sheetSource.includes('localOwner && localOwner !== user.id && !dirty'), 'switching accounts must not discard a pending draft with a valid base');
 assert(sheetSource.includes('const fresh=normalizeState(clone(defaultState))'), 'reset must initialize calculated resource state');
+
+assert(sheetSource.includes("sessionStorage.getItem(ACTIVE_USER_SESSION_KEY)"), 'private sheet cache must require an authenticated tab session');
+assert(sheetSource.includes("window.ChronusAuth?.isInitialized?.() === true && Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY))"), 'initial null auth callback must not clear a valid session before getSession resolves');
+assert(sheetSource.includes("sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY)"), 'sign-out must revoke access to the account-scoped cache in this tab');
+assert(authSource.includes('function isInitialized() { return authInitialized; }'), 'auth service must expose a reliable initialization boundary');
