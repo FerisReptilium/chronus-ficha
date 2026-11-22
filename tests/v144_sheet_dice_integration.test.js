@@ -212,3 +212,4 @@ assert(sheetSource.includes("localStorage.getItem(portraitTombstoneKey(userId))=
 assert(sheetSource.includes('const localPortraitClearOk = await clearPortrait()'), 'reset must verify local portrait deletion as well as remote deletion');
 assert(sheetSource.includes("if(localStorage.getItem(portraitTombstoneKey('legacy'))==='1')"), 'legacy portrait deletion tombstones must suppress old global IndexedDB records');
 assert(sheetSource.includes("localStorage.setItem(portraitTombstoneKey('legacy'), '1')"), 'migrated legacy portraits must no longer be visible through anonymous storage');
+assert(sheetSource.includes("if (!localOwner) localStorage.setItem(cfg.getPortraitDirtyKey(userId), '1')"), 'unowned legacy portraits must be uploaded to the first authenticated account instead of being silently overwritten');
