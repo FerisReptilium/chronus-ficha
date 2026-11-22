@@ -133,9 +133,12 @@
       determination: die.determination === true
     }));
     const outcome = record.outcome || record.key;
+    const titleParts = String(record.title || 'Teste CHRONUS').split(' · ');
+    const characterName = record.spec?.characterName || (titleParts.length > 1 ? titleParts.shift() : '');
+    const actionLabel = titleParts.join(' · ') || String(record.title || 'Teste CHRONUS');
     const payload = {
-      character_name: record.spec?.characterName || '',
-      action_label: String(record.title || 'Teste CHRONUS').slice(0, 160),
+      character_name: characterName,
+      action_label: actionLabel.slice(0, 160),
       roll_mode: record.mode === 'Rolagem rápida' ? 'Rolagem rápida' : 'Teste guiado',
       dice,
       difficulty: Number(record.difficulty),
