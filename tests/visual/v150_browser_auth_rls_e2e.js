@@ -132,7 +132,7 @@ async function visibleCharacterIds(page, expectedUserId) {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      await page.waitForFunction(expected => 
+      await page.waitForFunction(expected =>
         window.ChronusAuth?.getUser()?.id === expected
         && typeof window.ChronusSupabase?.getClient === 'function'
       , expectedUserId, { timeout: 10000 });
