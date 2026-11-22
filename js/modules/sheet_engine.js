@@ -585,7 +585,17 @@ window.ChronusSheetEngine = (function() {
   async function dbDelete(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   function blobToDataUrl(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});}
   async function savePortrait(blob,userId=portraitOwnerId()){const fallbackKey=portraitFallbackKey(userId);try{await dbPut(blob,portraitStorageKey(userId));localStorage.removeItem(fallbackKey);}catch{try{localStorage.setItem(fallbackKey,await blobToDataUrl(blob));}catch{}}}
-  async function loadPortrait(userId=portraitOwnerId()){try{const scoped=await dbGet(portraitStorageKey(userId));if(scoped)return scoped;if(!userId)return await dbGet('portrait');return null;}catch{const scoped=localStorage.getItem(portraitFallbackKey(userId));if(scoped)return scoped;return !userId ? localStorage.getItem('chronus.portrait.fallback') : null;}}
+  async function loadPortrait(userId=portraitOwnerId()){
+    const scoped=await dbGet(portraitStorageKey(userId)).catch(()=>null);
+    if(scoped)return scoped;
+    const fallback=localStorage.getItem(portraitFallbackKey(userId));
+    if(fallback)return fallback;
+    if(!userId){
+      const legacy=await dbGet('portrait').catch(()=>null);
+      return legacy || localStorage.getItem('chronus.portrait.fallback') || null;
+    }
+    return null;
+  }
   async function clearPortrait(userId=portraitOwnerId()){try{await dbDelete(portraitStorageKey(userId));}catch{}localStorage.removeItem(portraitFallbackKey(userId));if(!userId)localStorage.removeItem('chronus.portrait.fallback');}
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
@@ -1236,8 +1246,10 @@ window.ChronusSheetEngine = (function() {
     let migratedLegacyPortrait = false;
     if (!localOwner || localOwner === userId) {
       const scopedPortrait = await dbGet(portraitStorageKey(userId)).catch(() => null);
-      const legacyPortrait = scopedPortrait ? null : await dbGet('portrait').catch(() => null);
-      const legacyFallback = localStorage.getItem('chronus.portrait.fallback');
+      const anonymousPortrait = !localOwner ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
+      const legacyPortrait = scopedPortrait ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
+      const anonymousFallback = !localOwner ? localStorage.getItem(portraitFallbackKey(null)) : null;
+      const legacyFallback = anonymousFallback || localStorage.getItem('chronus.portrait.fallback');
       if (!scopedPortrait && (legacyPortrait || legacyFallback)) {
         if (legacyPortrait) await dbPut(legacyPortrait, portraitStorageKey(userId));
         else localStorage.setItem(portraitFallbackKey(userId), legacyFallback);
