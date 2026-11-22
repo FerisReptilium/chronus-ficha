@@ -862,7 +862,12 @@ window.ChronusSheetEngine = (function() {
   }
 
   async function pushPortraitToCloud(fileOrBlob) {
-    if (!supabaseClient || !cloudUser || !navigator.onLine) return false;
+    if (!supabaseClient || !cloudUser) return false;
+    if (!navigator.onLine) {
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      setSaveStatus('Retrato aguardando conexão para envio', 'offline');
+      return false;
+    }
     try {
       const { error } = await supabaseClient.storage
         .from('portraits')
