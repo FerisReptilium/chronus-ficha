@@ -122,6 +122,9 @@ DECLARE
   v_count integer;
   v_rows integer;
   v_blocked boolean := false;
+  v_character_id uuid;
+  v_version timestamptz;
+  v_new_version timestamptz;
 BEGIN
   SELECT count(*) INTO v_count FROM public.profiles;
   IF v_count <> 1 THEN
@@ -139,6 +142,46 @@ BEGIN
     'Novo Personagem do Jogador CI',
     '{"created_by":"owner"}'::jsonb
   );
+
+  -- Simulate two tabs editing the same snapshot: the first CAS succeeds,
+  -- then the stale writer must update zero rows and preserve the newer value.
+  SELECT id, updated_at INTO v_character_id, v_version
+  FROM public.characters
+  WHERE user_id='00000000-0000-0000-0000-000000000201'
+    AND name='Novo Personagem do Jogador CI'
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  UPDATE public.characters
+     SET name='Versão mais recente confirmada'
+   WHERE id=v_character_id
+     AND user_id='00000000-0000-0000-0000-000000000201'
+     AND updated_at=v_version;
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 1 THEN
+    RAISE EXCEPTION 'First compare-and-swap write should succeed; rows=%', v_rows;
+  END IF;
+
+  SELECT updated_at INTO v_new_version
+  FROM public.characters WHERE id=v_character_id;
+  IF v_new_version IS NOT DISTINCT FROM v_version THEN
+    RAISE EXCEPTION 'Character updated_at trigger did not advance the concurrency token';
+  END IF;
+
+  UPDATE public.characters
+     SET name='Escrita obsoleta não pode vencer'
+   WHERE id=v_character_id
+     AND user_id='00000000-0000-0000-0000-000000000201'
+     AND updated_at=v_version;
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 0 THEN
+    RAISE EXCEPTION 'Stale compare-and-swap write unexpectedly changed % rows', v_rows;
+  END IF;
+
+  IF (SELECT name FROM public.characters WHERE id=v_character_id)
+       <> 'Versão mais recente confirmada' THEN
+    RAISE EXCEPTION 'Stale writer overwrote the newer character state';
+  END IF;
 
   BEGIN
     INSERT INTO public.characters (user_id,name,data)
