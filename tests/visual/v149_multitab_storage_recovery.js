@@ -123,12 +123,31 @@ async function openSheet(context) {
     await first.page.waitForFunction(() => window.__chronusSheetBackupWrite instanceof Promise);
     await first.page.evaluate(() => window.__chronusSheetBackupWrite);
 
-    // A second real tab in the same Chromium profile must see the shared account cache.
-    await second.page.reload({ waitUntil: 'domcontentloaded' });
-    await second.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — edição pendente', { timeout: 20000 });
-
-    // Fault-inject a network failure during the cloud save, then restore connectivity.
+    // The first cloud write fails while the transport is blocked; the online
+    // event must retry it without requiring another edit.
     await nameField.fill('Personagem A — rede interrompida');
+    await nameField.dispatchEvent('input');
+    await first.page.waitForTimeout(1700);
+    await first.page.evaluate(() => {
+      window.__CHRONUS_E2E_BLOCK_SAVE = false;
+      window.dispatchEvent(new Event('online'));
+    });
+    await first.page.waitForTimeout(1800);
+    const recoveredCloudWrite = await first.page.evaluate(() => {
+      const id = 'account-A';
+      const saved = JSON.parse(localStorage.getItem('chronus.e2e.cloud.' + id) || 'null');
+      return saved?.data?.identity?.name || null;
+    });
+    assert.equal(recoveredCloudWrite, 'Personagem A — rede interrompida',
+      'network recovery must retry the pending save and persist it to the cloud mock');
+
+    // A second real tab in the same Chromium profile must see the recovered account state.
+    await second.page.reload({ waitUntil: 'domcontentloaded' });
+    await second.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — rede interrompida', { timeout: 20000 });
+
+    // Create one more pending edit and close the browser before it can sync.
+    await first.page.evaluate(() => { window.__CHRONUS_E2E_BLOCK_SAVE = true; });
+    await nameField.fill('Personagem A — recuperação após fechamento');
     await nameField.dispatchEvent('input');
     await first.page.waitForTimeout(1700);
 
@@ -142,7 +161,7 @@ async function openSheet(context) {
     await prepareContext(persistent, 'account-A');
     const recovered = await openSheet(persistent);
     const recoveredName = await recovered.page.locator('[data-bind="identity.name"]').inputValue();
-    assert.equal(recoveredName, 'Personagem A — rede interrompida', 'closed browser profile must recover the last IndexedDB snapshot');
+    assert.equal(recoveredName, 'Personagem A — recuperação após fechamento', 'closed browser profile must recover the last unsynced IndexedDB snapshot');
 
     // Switch identity in the same persisted profile; B must never hydrate A's backup.
     await recovered.page.evaluate(() => localStorage.setItem('chronus.e2e.identity', 'account-B'));
@@ -152,8 +171,8 @@ async function openSheet(context) {
 
     await recovered.page.evaluate(() => localStorage.setItem('chronus.e2e.identity', 'account-A'));
     await recovered.page.reload({ waitUntil: 'domcontentloaded' });
-    await recovered.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — rede interrompida', { timeout: 20000 });
-    assert.equal(await recovered.page.locator('[data-bind="identity.name"]').inputValue(), 'Personagem A — rede interrompida');
+    await recovered.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — recuperação após fechamento', { timeout: 20000 });
+    assert.equal(await recovered.page.locator('[data-bind="identity.name"]').inputValue(), 'Personagem A — recuperação após fechamento');
     assert.deepEqual(recovered.errors, [], 'browser must not emit uncaught runtime errors');
 
     console.log('CHRONUS v1.4.9 real Chromium multi-tab, storage recovery and account isolation: PASS');
