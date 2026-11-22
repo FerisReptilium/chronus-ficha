@@ -202,3 +202,7 @@ assert(sheetSource.includes("if (!s.lists || typeof s.lists !== 'object' || Arra
 assert(sheetSource.includes("s.lists.equipment.slice(0,4).map(item => ({"), 'malformed equipment rows must normalize before rendering');
 assert(sheetSource.includes("s.page2.formulas = s.page2.formulas.slice(0,12).map(value => String(value ?? ''));"), 'page two collections must normalize to bounded string arrays');
 assert(sheetSource.includes("narratorReadOnly = false;\n    document.querySelectorAll('.workspace input,.workspace textarea,.workspace select,.workspace button')"), 'player account must regain editable controls after narrator read-only mode');
+assert(sheetSource.includes('async function dataUrlToBlob(dataUrl)'), 'portrait fallback data URLs must be converted to Blob before Storage upload');
+assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbackKey(userId));\n    if(fallback){'), 'latest local portrait fallback must take precedence over an older IndexedDB record');
+assert(sheetSource.includes('if (!scopedFallback && legacyFallback)'), 'legacy portrait fallback must migrate even when an older IndexedDB portrait exists');
+assert(sheetSource.includes('|| migratedLegacyPortrait'), 'migrated portrait data must refresh the active account portrait preview');
