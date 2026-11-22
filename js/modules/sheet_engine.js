@@ -774,6 +774,7 @@ window.ChronusSheetEngine = (function() {
   }
   async function markSheetBackupSynced(userId, snapshot) {
     await sheetBackupWriteChain.catch(() => {});
+    if (JSON.stringify(state) !== snapshot) return false;
     const record = await readSheetBackup(userId).catch(() => null);
     if (!record || JSON.stringify(record.state) !== snapshot) return false;
     record.dirty = false;
