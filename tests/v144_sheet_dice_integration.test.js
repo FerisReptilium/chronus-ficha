@@ -8,6 +8,7 @@ const { webcrypto } = require('crypto');
 const diceSource = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const sheetSource = fs.readFileSync('js/modules/sheet_engine.js', 'utf8');
 const authSource = fs.readFileSync('js/services/auth.js', 'utf8');
+const routerSource = fs.readFileSync('js/router.js', 'utf8');
 const css = fs.readFileSync('css/dice-roller-v135.css', 'utf8');
 
 for (const marker of [
@@ -143,3 +144,4 @@ assert(sheetSource.includes("const syncResult = await pushStateToCloudConfirmed(
 assert(sheetSource.includes("if(!cloudSyncOk || !portraitSyncOk)"), 'reset must report partial cloud deletion without claiming full success');
 assert(sheetSource.includes("localStorage.setItem(getScopedKey('portraitDirty'),'1')"), 'failed portrait deletion must remain pending for retry');
 assert(sheetSource.includes('else await deletePortraitFromCloud();'), 'bootstrap must retry a pending portrait deletion when no local portrait remains');
+assert(routerSource.includes("'#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS', authRequired: true }"), 'private character sheet route must require an authenticated user');
