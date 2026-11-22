@@ -669,7 +669,10 @@ window.ChronusSheetEngine = (function() {
   }
   async function loadPortrait(userId=portraitOwnerId()){
     if(localStorage.getItem(portraitTombstoneKey(userId))==='1'){
-      await dbDelete(portraitStorageKey(userId)).catch(()=>{});
+      try {
+        await dbDelete(portraitStorageKey(userId));
+        localStorage.removeItem(portraitTombstoneKey(userId));
+      } catch {}
       localStorage.removeItem(portraitFallbackKey(userId));
       return null;
     }
@@ -700,6 +703,8 @@ window.ChronusSheetEngine = (function() {
     try {
       await dbDelete(portraitStorageKey(userId));
       if(!userId && !localStorage.getItem(CLOUD_USER_KEY)) await dbDelete('portrait');
+      localStorage.removeItem(portraitTombstoneKey(userId));
+      if(!userId && !localStorage.getItem(CLOUD_USER_KEY)) localStorage.removeItem(portraitTombstoneKey('legacy'));
       return true;
     } catch { return false; }
   }
@@ -1087,7 +1092,7 @@ window.ChronusSheetEngine = (function() {
       }
 
       // Retrato: se existe alteração local pendente, envia; caso contrário tenta recuperar da nuvem.
-      const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1';
+      const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1' || localStorage.getItem(portraitTombstoneKey(user.id)) === '1';
       if (portraitDirty) {
         const localPortrait = await loadPortrait().catch(()=>null);
         if(localPortrait) await pushPortraitToCloud(localPortrait);
