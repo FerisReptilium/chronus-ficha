@@ -115,4 +115,3 @@ assert(sheetSource.includes('(!localOwner || localOwner === userId)'), 'legacy c
 assert(sheetSource.includes('if (scopedData && localOwner !== userId)'), 'switching accounts must restore that account own local cache');
 assert(sheetSource.includes('localOwner && localOwner !== user.id && !dirty'), 'switching accounts must not discard a pending draft with a valid base');
 assert(sheetSource.includes('const fresh=normalizeState(clone(defaultState))'), 'reset must initialize calculated resource state');
-
