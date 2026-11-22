@@ -117,7 +117,8 @@ SELECT set_config(
   '{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000201"}',
   false
 );
-SELECT id AS cas_character_id, updated_at AS cas_expected_version
+SELECT id AS cas_character_id,
+       to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_expected_version
 FROM public.characters
 WHERE user_id='00000000-0000-0000-0000-000000000201'
 ORDER BY updated_at DESC
@@ -135,7 +136,7 @@ WITH accepted_write AS (
 SELECT CASE WHEN (SELECT count(*) FROM accepted_write)=1 THEN 1 ELSE 1/0 END
   AS cas_first_write_must_succeed;
 
-SELECT updated_at AS cas_new_version
+SELECT to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_new_version
 FROM public.characters
 WHERE id=:'cas_character_id'::uuid
 \gset
