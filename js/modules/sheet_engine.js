@@ -597,7 +597,7 @@ window.ChronusSheetEngine = (function() {
       e.preventDefault();
       if(!preview.hidden&&confirm('Remover o retrato?')){
         await clearPortrait(); preview.hidden=true; preview.src=''; button.classList.remove('has-portrait');
-        localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+        localStorage.setItem(getScopedKey('portraitDirty'),'1');
         if(cloudUser && cloudReady && navigator.onLine) await deletePortraitFromCloud();
       }
     });
@@ -685,7 +685,7 @@ window.ChronusSheetEngine = (function() {
       return true;
     } catch (e) {
       console.warn('CHRONUS: retrato salvo apenas localmente (bucket portraits pode ainda não estar configurado)', e);
-      localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
       setSaveStatus('Retrato salvo localmente', 'offline');
       return false;
     }
@@ -699,7 +699,7 @@ window.ChronusSheetEngine = (function() {
       if (data) {
         await savePortrait(data);
         window.__chronusShowPortrait?.(data);
-        localStorage.setItem(PORTRAIT_DIRTY_KEY,'0');
+        localStorage.setItem(getScopedKey('portraitDirty'),'0');
       }
     } catch (e) { console.warn('CHRONUS: não foi possível baixar o retrato', e); }
   }
@@ -709,7 +709,7 @@ window.ChronusSheetEngine = (function() {
     try {
       const { error } = await supabaseClient.storage.from('portraits').remove([`${cloudUser.id}/portrait`]);
       if (error) throw error;
-      localStorage.setItem(PORTRAIT_DIRTY_KEY,'0');
+      localStorage.setItem(getScopedKey('portraitDirty'),'0');
     } catch (e) { console.warn('CHRONUS: não foi possível remover o retrato na nuvem', e); }
   }
 
@@ -908,7 +908,7 @@ window.ChronusSheetEngine = (function() {
         const baseKey = cloudSessionBaseKey(user.id, row.id);
         const localBaseVersion = baseKey ? sessionStorage.getItem(baseKey) : null;
         cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1'
-          || (localStorage.getItem(CLOUD_DIRTY_KEY) === '1' && localBaseVersion !== cloudVersion);
+          || (localStorage.getItem(getScopedKey('dirty')) === '1' && localBaseVersion !== cloudVersion);
         localStorage.setItem(getScopedKey('characterId'), row.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
@@ -1145,11 +1145,11 @@ window.ChronusSheetEngine = (function() {
       const who=currentProfile?.display_name ? ` de ${currentProfile.display_name}` : '';
       const typed=prompt(`ATENÇÃO: isto apagará todos os campos e o retrato da ficha${who}, inclusive a cópia na nuvem.\n\nDigite LIMPAR para confirmar:`);
       if(typed!=='LIMPAR') return;
-      const fresh=clone(defaultState);
+      const fresh=normalizeState(clone(defaultState));
       if(currentProfile?.display_name) fresh.identity.player=currentProfile.display_name;
       Object.keys(state).forEach(k=>delete state[k]); Object.assign(state,fresh);
       persistLocalState(true);
-      await clearPortrait(); localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+      await clearPortrait(); localStorage.setItem(getScopedKey('portraitDirty'),'1');
       if(cloudUser && cloudReady){
         await deletePortraitFromCloud();
         await pushStateToCloud();
@@ -1219,6 +1219,12 @@ window.ChronusSheetEngine = (function() {
       const legacyDirty = localOwner === userId && localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
       localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
+    }
+
+    const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY);
+    const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
+    if (legacyPortraitDirty && !scopedPortraitDirty && (!localOwner || localOwner === userId)) {
+      localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
     }
   }
 
