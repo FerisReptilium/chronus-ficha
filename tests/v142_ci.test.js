@@ -19,7 +19,7 @@ assert(ci.includes('node tests/visual/v140_live_preview.js'), 'browser QA must v
 assert(ci.includes('node tests/visual/v143_player_dashboard_preview.js'), 'browser QA must validate the Player Area on desktop and mobile');
 assert(ci.includes('node tests/visual/v144_sheet_dice_preview.js'), 'browser QA must validate sheet-to-dice integration on desktop and mobile');
 assert(ci.includes('actions/upload-artifact@v7'), 'browser evidence must be retained as an artifact using the current action major');
-assert((ci.match(/actions\\/setup-node@v7/g) || []).length >= 2, 'both CI jobs must use the current setup-node action');
+assert(ci.split('actions/setup-node@v7').length - 1 >= 2, 'both CI jobs must use the current setup-node action');
 assert((ci.match(/node-version: '24'/g) || []).length >= 2, 'both CI jobs must run on the supported Node.js 24 runtime');
 
 for (const workflow of legacyPullRequestWorkflows) {
