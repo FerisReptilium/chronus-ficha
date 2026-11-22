@@ -1074,6 +1074,11 @@ window.ChronusSheetEngine = (function() {
   }
 
   function clearNarratorModes() {
+    narratorReadOnly = false;
+    document.querySelectorAll('.workspace input,.workspace textarea,.workspace select,.workspace button').forEach(el => {
+      el.disabled = false;
+      el.removeAttribute('aria-readonly');
+    });
     document.body.classList.remove('narrator-dashboard','narrator-readonly');
     const panel=document.getElementById('narratorPanel'); if(panel) panel.hidden=true;
   }
