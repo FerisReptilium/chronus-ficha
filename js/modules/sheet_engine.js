@@ -166,9 +166,13 @@ window.ChronusSheetEngine = (function() {
       }
       const ownerId = localStorage.getItem(CLOUD_USER_KEY);
       const scopedKey = ownerId && window.CHRONUS_CONFIG?.getStorageKey(ownerId);
-      const raw = (scopedKey && localStorage.getItem(scopedKey))
-        || localStorage.getItem(STORAGE_KEY)
-        || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean);
+      const scopedRaw = scopedKey ? localStorage.getItem(scopedKey) : null;
+      // Quando já existe um dono associado ao cache global, nunca recorra ao
+      // cache legado se o cache isolado estiver ausente: aguarde a migração
+      // validada no bootstrap da conta em vez de exibir dados de outro usuário.
+      const legacyRaw = ownerId ? null
+        : (localStorage.getItem(STORAGE_KEY) || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean));
+      const raw = scopedRaw || legacyRaw;
       return normalizeState(raw ? mergeDeep(base, JSON.parse(raw)) : base);
     } catch { return base; }
   }
@@ -1216,12 +1220,14 @@ window.ChronusSheetEngine = (function() {
 
     // Nunca copie o cache global de outra conta para o usuário que acabou
     // de entrar neste navegador.
+    let migratedLegacyCache = false;
     if (legacyData && !scopedData && (!localOwner || localOwner === userId)) {
       localStorage.setItem(scopedKey, legacyData);
       const legacyDirty = localOwner === userId && localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
       localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
       scopedData = legacyData;
+      migratedLegacyCache = true;
     }
 
     const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
@@ -1233,7 +1239,7 @@ window.ChronusSheetEngine = (function() {
 
     // Trocar a conta ativa exige recarregar a ficha a partir do cache correto;
     // apenas substituir o objeto JS deixaria os campos já renderizados antigos.
-    if (scopedData && localOwner !== userId) {
+    if (migratedLegacyCache || (scopedData && localOwner !== userId)) {
       localStorage.setItem(CLOUD_USER_KEY, userId);
       return true;
     }
