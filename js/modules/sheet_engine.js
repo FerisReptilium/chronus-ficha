@@ -683,6 +683,10 @@ window.ChronusSheetEngine = (function() {
     const scoped=await dbGet(portraitStorageKey(userId)).catch(()=>null);
     if(scoped)return scoped;
     if(!userId && !localStorage.getItem(CLOUD_USER_KEY)){
+      if(localStorage.getItem(portraitTombstoneKey('legacy'))==='1'){
+        try { await dbDelete('portrait'); localStorage.removeItem(portraitTombstoneKey('legacy')); } catch {}
+        return null;
+      }
       const legacyFallback=localStorage.getItem('chronus.portrait.fallback');
       if(legacyFallback){try{return await dataUrlToBlob(legacyFallback);}catch{return legacyFallback;}}
       return await dbGet('portrait').catch(()=>null);
@@ -1422,6 +1426,10 @@ window.ChronusSheetEngine = (function() {
       const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
       if (legacyPortraitDirty && !scopedPortraitDirty) {
         localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
+      }
+      if (migratedLegacyPortrait) {
+        localStorage.setItem(portraitTombstoneKey(null), '1');
+        localStorage.setItem(portraitTombstoneKey('legacy'), '1');
       }
     }
 
