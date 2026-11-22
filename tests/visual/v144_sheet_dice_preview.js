@@ -97,6 +97,16 @@ async function runMode(browser, mode, viewport) {
   const selectIllumination = async die => page.locator(`[aria-label="Iluminação ${die}"]`).click();
   const readResourceMax = async key => page.locator(`[data-resource-counter="${key}"] [data-resource-max]`).textContent();
 
+  // Controles acessíveis de incremento/decremento devem alterar e limitar os recursos.
+  await page.getByRole('button', { name: 'Aumentar Determinação' }).click();
+  if (await readResource('determination') !== '3') throw new Error(`${mode}: Determination increment control failed`);
+  await page.getByRole('button', { name: 'Diminuir Determinação' }).click();
+  if (await readResource('determination') !== '2') throw new Error(`${mode}: Determination decrement control failed`);
+  await page.getByRole('button', { name: 'Aumentar Mana' }).click();
+  if (await readResource('mana') !== '10') throw new Error(`${mode}: Mana increment must clamp at its maximum`);
+  await page.getByRole('button', { name: 'Diminuir Mana' }).click();
+  if (await readResource('mana') !== '9') throw new Error(`${mode}: Mana decrement control failed`);
+
   const initialResources = {
     determination: await readResource('determination'),
     determinationMax: await readResourceMax('determination'),
