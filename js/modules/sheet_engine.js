@@ -19,6 +19,7 @@ window.ChronusSheetEngine = (function() {
   const CLOUD_CHARACTER_KEY = 'chronus.cloud.character.v1';
   const CLOUD_DIRTY_KEY = 'chronus.cloud.dirty.v1';
   const CLOUD_SYNCED_KEY = 'chronus.cloud.synced.v1';
+  const CLOUD_CONFLICT_KEY = 'chronus.cloud.conflict.v1';
   const PORTRAIT_DIRTY_KEY = 'chronus.cloud.portrait.dirty.v1';
   const NARRATOR_VIEW_DATA_KEY = 'chronus.narrator.view.data.v1';
   const NARRATOR_VIEW_META_KEY = 'chronus.narrator.view.meta.v1';
@@ -588,6 +589,10 @@ window.ChronusSheetEngine = (function() {
   }
 
 
+  function cloudConflictStorageKey(userId=cloudUser?.id, characterId=cloudCharacterId) {
+    return userId && characterId ? `${CLOUD_CONFLICT_KEY}.${userId}.${characterId}` : '';
+  }
+
   function cloudCharacterName() {
     return String(state?.identity?.name || '').trim() || 'Novo personagem';
   }
@@ -619,11 +624,16 @@ window.ChronusSheetEngine = (function() {
       if (error) throw error;
       if (!data?.updated_at) {
         cloudConflict = true;
+        const conflictKey = cloudConflictStorageKey();
+        if (conflictKey) localStorage.setItem(conflictKey, '1');
         localStorage.setItem(CLOUD_DIRTY_KEY, '1');
         setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
         return;
       }
       cloudVersion = data.updated_at;
+      cloudConflict = false;
+      const conflictKey = cloudConflictStorageKey();
+      if (conflictKey) localStorage.removeItem(conflictKey);
       localStorage.setItem(CLOUD_DIRTY_KEY, '0');
       localStorage.setItem(CLOUD_SYNCED_KEY, cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
@@ -852,6 +862,7 @@ window.ChronusSheetEngine = (function() {
         cloudCharacterId = created.id;
         cloudVersion = created.updated_at || null;
         cloudConflict = false;
+        localStorage.removeItem(cloudConflictStorageKey(user.id, created.id));
         localStorage.setItem(CLOUD_USER_KEY, user.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, created.id);
         localStorage.setItem(CLOUD_DIRTY_KEY, '0');
@@ -865,7 +876,7 @@ window.ChronusSheetEngine = (function() {
       } else {
         cloudCharacterId = row.id;
         cloudVersion = row.updated_at || null;
-        cloudConflict = false;
+        cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1';
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
         if (localOwner && localOwner !== user.id) {
@@ -880,7 +891,10 @@ window.ChronusSheetEngine = (function() {
 
         cloudReady = true;
         localStorage.setItem(CLOUD_USER_KEY, user.id);
-        if (dirty) {
+        if (cloudConflict) {
+          localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+          setSaveStatus('Conflito pendente • alterações locais preservadas; sincronização automática pausada', 'offline');
+        } else if (dirty) {
           await pushStateToCloud();
         } else {
           const remoteNormalized = normalizeState(mergeDeep(clone(defaultState), row.data || {}));
@@ -1183,20 +1197,42 @@ window.ChronusSheetEngine = (function() {
       const dirtyKey = getScopedKey('dirty');
       const syncedKey = getScopedKey('synced');
 
+      if (cloudConflict && !window.confirm('Existe uma versão mais recente na nuvem. Deseja substituir essa versão pelas alterações locais deste dispositivo? Esta ação não pode ser desfeita.')) {
+        return { ok: false, conflict: true, error: 'Conflito mantido; alterações locais preservadas' };
+      }
+      let expectedVersion = cloudVersion;
+      if (cloudConflict) {
+        const latest = await supabaseClient.from('characters').select('updated_at').eq('id', cloudCharacterId).eq('user_id', cloudUser.id).maybeSingle();
+        if (latest.error) throw latest.error;
+        expectedVersion = latest.data?.updated_at || null;
+      }
+      if (!expectedVersion) return { ok: false, conflict: true, error: 'Versão remota não confirmada' };
       const { data, error } = await supabaseClient
         .from('characters')
         .update({ name: cloudCharacterName(), data: clone(state) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
+        .eq('updated_at', expectedVersion)
         .select('updated_at')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-
+      if (!data?.updated_at) {
+        cloudConflict = true;
+        const conflictKey = cloudConflictStorageKey();
+        if (conflictKey) localStorage.setItem(conflictKey, '1');
+        localStorage.setItem(dirtyKey, '1');
+        setSaveStatus('Conflito de sincronização • alterações locais preservadas', 'offline');
+        return { ok: false, conflict: true, error: 'A versão remota mudou durante a confirmação' };
+      }
+      cloudVersion = data.updated_at;
+      cloudConflict = false;
+      const conflictKey = cloudConflictStorageKey();
+      if (conflictKey) localStorage.removeItem(conflictKey);
       localStorage.setItem(dirtyKey, '0');
-      localStorage.setItem(syncedKey, data?.updated_at || new Date().toISOString());
+      localStorage.setItem(syncedKey, cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
-      return { ok: true, updated_at: data?.updated_at };
+      return { ok: true, updated_at: cloudVersion };
     } catch (e) {
       console.error('CHRONUS: Erro ao sincronizar ficha na nuvem:', e);
       const dirtyKey = getScopedKey('dirty');
