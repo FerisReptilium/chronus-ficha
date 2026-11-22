@@ -577,6 +577,36 @@ window.ChronusSheetEngine = (function() {
     makeLines('page2Formulas',state.page2.formulas,12); makeLines('page2Inventory',state.page2.inventory,16);
   }
 
+  function refreshAccountStateFromMemory() {
+    [
+      'attributeLayer','resourceLayer','manaLayer','woundsLayer','skillsLayer',
+      'advantagesLayer','paradoxLayer','arcanaLayer','equipmentLayer','formulasLayer',
+      'page2Formulas','page2Inventory'
+    ].forEach(id => document.getElementById(id)?.replaceChildren());
+
+    document.querySelectorAll('[data-bind]').forEach(el => {
+      el.value = getByPath(state, el.dataset.bind) ?? '';
+    });
+    renderAttributes();
+    renderResources();
+    renderMana();
+    renderWounds();
+    renderList('skillsLayer', SKILL_Y, 'skills');
+    renderList('advantagesLayer', ADV_Y, 'advantages');
+    renderParadox();
+    renderArcana();
+    renderEquipment();
+    renderFormulas();
+    renderPage2();
+    document.querySelectorAll('.sheet-page').forEach(page => {
+      page.classList.toggle('is-active', page.id === (state.activePage || 'page-1'));
+    });
+    document.querySelectorAll('[data-page-target]').forEach(tab => {
+      tab.classList.toggle('is-active', tab.dataset.pageTarget === (state.activePage || 'page-1'));
+    });
+    updateResourceCounters();
+  }
+
   // Retratos isolados por conta: IndexedDB é compartilhado entre usuários no mesmo navegador.
   const DB_NAME='chronus-sheet-db-v3', STORE='assets';
   function openDb(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
@@ -1116,22 +1146,26 @@ window.ChronusSheetEngine = (function() {
   }
 
   async function bootstrapNarrator(user, profile) {
-    cloudUser=user; cloudCharacterId=null; cloudReady=false;
-    updateAccountUi(user);
-    hideAuthGate();
-    const panelButton=document.getElementById('narratorPanelButton'); if(panelButton) panelButton.hidden=false;
-    const params=new URLSearchParams(location.search);
-    if(params.get('narratorView')==='1'){
-      try { narratorViewMeta=JSON.parse(sessionStorage.getItem(NARRATOR_VIEW_META_KEY)||'null'); } catch { narratorViewMeta=null; }
-      if(!narratorViewMeta?.user_id){
-        location.href=location.pathname;
+    try {
+      cloudUser=user; cloudCharacterId=null; cloudReady=false;
+      updateAccountUi(user);
+      hideAuthGate();
+      const panelButton=document.getElementById('narratorPanelButton'); if(panelButton) panelButton.hidden=false;
+      const params=new URLSearchParams(location.search);
+      if(params.get('narratorView')==='1'){
+        try { narratorViewMeta=JSON.parse(sessionStorage.getItem(NARRATOR_VIEW_META_KEY)||'null'); } catch { narratorViewMeta=null; }
+        if(!narratorViewMeta?.user_id){
+          location.href=location.pathname;
+          return;
+        }
+        applyNarratorReadOnly(narratorViewMeta);
+        await pullPortraitFromCloudForUser(narratorViewMeta.user_id);
         return;
       }
-      applyNarratorReadOnly(narratorViewMeta);
-      await pullPortraitFromCloudForUser(narratorViewMeta.user_id);
-      return;
+      await loadNarratorDashboard();
+    } finally {
+      window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false;
     }
-    await loadNarratorDashboard();
   }
 
   async function bootstrapRoleForUser(user) {
@@ -1294,10 +1328,10 @@ window.ChronusSheetEngine = (function() {
     const accountChanged = Boolean(
       (localOwner && localOwner !== userId) ||
       (activeSessionUser && activeSessionUser !== userId) ||
-      (!localOwner && !activeSessionUser && scopedData)
+      (!activeSessionUser && scopedData)
     );
     // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
-    // A hidratação remota fará, se necessária, uma única recarga controlada.
+    // O DOM é reconstruído sem duplicar controles nem manter campos do usuário anterior.
     if (accountChanged) {
       let scopedState = null;
       try { scopedState = scopedData ? JSON.parse(scopedData) : null; }
@@ -1305,22 +1339,15 @@ window.ChronusSheetEngine = (function() {
       const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));
       Object.keys(state).forEach(key => delete state[key]);
       Object.assign(state, accountState);
-      applyDataBoxes();
-      renderAttributes();
-      renderResources();
-      renderMana();
-      renderWounds();
-      updateResourceCounters();
-      renderList('skillsLayer', SKILL_Y, 'skills');
-      renderList('advantagesLayer', ADV_Y, 'advantages');
-      renderParadox();
-      renderArcana();
-      renderEquipment();
-      renderFormulas();
-      renderPage2();
+      refreshAccountStateFromMemory();
     }
     localStorage.setItem(CLOUD_USER_KEY, userId);
     sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+    if (accountChanged) {
+      window.__chronusClearPortrait?.();
+      const accountPortrait = await loadPortrait(userId).catch(() => null);
+      if (accountPortrait) window.__chronusShowPortrait?.(accountPortrait);
+    }
     window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true;
     return false;
   }
