@@ -41,9 +41,9 @@ const supabaseMock = `
       { id: ids.last, session_number: 3, title: 'O Arquivo Cinza', slug: 'arquivo-cinza', session_date: '2026-08-26', in_game_date: '12 de setembro de 1990', summary: 'A cabala decifrou o primeiro registro da K-17 e identificou um sinal vindo de Teufelsberg.', current_objective: null, status: 'completed', sort_order: 3 },
       { id: ids.active, session_number: 4, title: 'Sinal de Teufelsberg', slug: 'sinal-teufelsberg', session_date: '2026-09-02', in_game_date: '14 de setembro de 1990', summary: '', current_objective: 'Localizar a origem da transmissão <img data-xss src=x onerror=alert(2)> antes da meia-noite.', status: 'in_progress', sort_order: 4 }
     ],
-    session_npcs: [{ role_in_session: 'Contato <script data-xss>alert(3)</script>', npc: { id: 'n1', name: 'Viktor Kane', slug: 'viktor-kane', role_occupation: 'Antiquário', status: 'alive' } }],
-    session_locations: [{ notes: 'Origem provável do sinal', location: { id: 'l1', name: 'Teufelsberg', slug: 'teufelsberg', type: 'facility', district_region: 'Charlottenburg' } }],
-    session_documents: [{ discovery_context: 'Interceptada pela K-17', document: { id: 'd1', title: 'Fita Magnética 17-B', slug: 'fita-17-b', type: 'audio_log' } }]
+    session_npcs: [{ session_id: ids.active, role_in_session: 'Contato <script data-xss>alert(3)</script>', npc: { id: 'n1', name: 'Viktor Kane', slug: 'viktor-kane', role_occupation: 'Antiquário', status: 'alive' } }],
+    session_locations: [{ session_id: ids.active, notes: 'Origem provável do sinal', location: { id: 'l1', name: 'Teufelsberg', slug: 'teufelsberg', type: 'facility', district_region: 'Charlottenburg' } }],
+    session_documents: [{ session_id: ids.active, discovery_context: 'Interceptada pela K-17', document: { id: 'd1', title: 'Fita Magnética 17-B', slug: 'fita-17-b', type: 'audio_log' } }]
   };
 
   function createQuery(table) {
@@ -51,7 +51,7 @@ const supabaseMock = `
     const result = () => {
       let data = [...(records[table] || [])];
       for (const [column, value] of Object.entries(state.filters)) {
-        data = data.filter(row => row[column] === value || table.startsWith('session_'));
+        data = data.filter(row => row[column] === value);
       }
       if (state.statuses) data = data.filter(row => state.statuses.includes(row.status));
       if (state.limit) data = data.slice(0, state.limit);
@@ -198,7 +198,11 @@ async function runMode(browser, mode, viewport) {
     document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3'
   ), { timeout: 15000 });
   try {
-    await page.waitForSelector('.dashboard-related-group', { state: 'visible', timeout: 8000 });
+    await page.waitForFunction(() => {
+      const view = document.getElementById('view-player');
+      const groups = document.querySelectorAll('#dashboard-related-content > .dashboard-related-group');
+      return view && !view.hidden && view.classList.contains('is-active') && groups.length === 3;
+    }, { timeout: 8000 });
   } catch (error) {
     const diagnostic = await page.evaluate(() => ({
       route: window.location.hash,
@@ -206,6 +210,9 @@ async function runMode(browser, mode, viewport) {
       dashboardText: document.getElementById('player-dashboard-content')?.innerText?.slice(0, 1800) || '',
       relationContainerExists: Boolean(document.getElementById('dashboard-related-content')),
       relationGroupCount: document.querySelectorAll('.dashboard-related-group').length,
+      playerViewHidden: document.getElementById('view-player')?.hidden ?? null,
+      playerViewActive: document.getElementById('view-player')?.classList.contains('is-active') ?? false,
+      contentServiceAvailable: typeof window.ChronusContent?.getPlayerBriefing === 'function',
       relatedContainerHtml: document.getElementById('dashboard-related-content')?.innerHTML?.slice(0, 1800) || '',
       loadError: document.getElementById('dashboard-load-error')?.textContent || null
     }));
