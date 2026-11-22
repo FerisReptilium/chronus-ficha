@@ -21,10 +21,18 @@ window.ChronusAuth = (function() {
     }
   }
 
-  function notifyAuthListeners(user, profile) {
+  async function notifyAuthListeners(user, profile) {
+    const pending = [];
     authListeners.forEach(cb => {
-      try { cb(user, profile); } catch (e) { console.error('Auth listener error:', e); }
+      try {
+        pending.push(Promise.resolve(cb(user, profile)).catch(e => {
+          console.error('Auth listener error:', e);
+        }));
+      } catch (e) {
+        console.error('Auth listener error:', e);
+      }
     });
+    await Promise.all(pending);
   }
 
   function getPasswordRecoveryCallback() {
@@ -82,7 +90,7 @@ window.ChronusAuth = (function() {
     if (!client) {
       authInitialized = true;
       updateNavAuthUi(null, null);
-      notifyAuthListeners(null, null);
+      await notifyAuthListeners(null, null);
       return;
     }
 
@@ -100,7 +108,7 @@ window.ChronusAuth = (function() {
         currentUser = null;
         currentProfile = null;
         updateNavAuthUi(null, null);
-        notifyAuthListeners(null, null);
+        notifyAuthListeners(null, null).catch(e => console.error('Auth listener error:', e));
       }
       if (event === 'SIGNED_IN' && session?.user) {
         currentUser = session.user;
@@ -111,7 +119,7 @@ window.ChronusAuth = (function() {
           if ((currentUser?.id || null) !== eventUserId) return;
           currentProfile = profile;
           updateNavAuthUi(currentUser, currentProfile);
-          notifyAuthListeners(currentUser, currentProfile);
+          await notifyAuthListeners(currentUser, currentProfile);
         }, 0);
       }
     });
@@ -135,11 +143,11 @@ window.ChronusAuth = (function() {
         currentUser = session.user;
         currentProfile = await fetchProfile(session.user);
         updateNavAuthUi(currentUser, currentProfile);
-        notifyAuthListeners(currentUser, currentProfile);
+        await notifyAuthListeners(currentUser, currentProfile);
       } else {
         authInitialized = true;
         updateNavAuthUi(null, null);
-        notifyAuthListeners(null, null);
+        await notifyAuthListeners(null, null);
         if (window.location.hash === '#/login') {
           showAuthModal();
         }
@@ -148,7 +156,7 @@ window.ChronusAuth = (function() {
       console.warn('CHRONUS: Erro ao checar sessão inicial:', e);
       authInitialized = true;
       updateNavAuthUi(null, null);
-      notifyAuthListeners(null, null);
+      await notifyAuthListeners(null, null);
     }
   }
 
@@ -219,7 +227,7 @@ window.ChronusAuth = (function() {
     currentUser = data.user;
     currentProfile = await fetchProfile(data.user);
     updateNavAuthUi(currentUser, currentProfile);
-    notifyAuthListeners(currentUser, currentProfile);
+    await notifyAuthListeners(currentUser, currentProfile);
     hideAuthModal();
     return { user: currentUser, profile: currentProfile };
   }
@@ -241,7 +249,7 @@ window.ChronusAuth = (function() {
       currentUser = data.user;
       currentProfile = await fetchProfile(data.user);
       updateNavAuthUi(currentUser, currentProfile);
-      notifyAuthListeners(currentUser, currentProfile);
+      await notifyAuthListeners(currentUser, currentProfile);
       hideAuthModal();
       return { user: currentUser, profile: currentProfile, confirmationRequired: false };
     }
@@ -307,7 +315,7 @@ window.ChronusAuth = (function() {
       currentUser = null;
       currentProfile = null;
       updateNavAuthUi(null, null);
-      notifyAuthListeners(null, null);
+      await notifyAuthListeners(null, null);
 
       window.location.hash = '#/home';
       window.location.reload();
