@@ -115,6 +115,11 @@ assert(sheetSource.includes("dbGet('portrait')"), 'legacy portrait may only be r
 assert(sheetSource.includes('async function migrateLegacyStorageForUser(userId)'), 'account migration must await legacy portrait isolation');
 assert(sheetSource.includes("if (localOwner && localOwner !== userId)"), 'every account switch must force a clean rehydration even without a scoped cache');
 assert(sheetSource.includes('if (await migrateLegacyStorageForUser(user.id))'), 'auth bootstrap must wait for account-scoped cache and portrait migration');
+assert(sheetSource.includes('saveTimer = 0;'), 'completed debounce must clear the pending-save marker');
+assert(sheetSource.includes('cloudSaveTimer = 0; pushStateToCloud();'), 'completed cloud debounce must clear the pending-sync marker');
+assert(sheetSource.includes('if (saveTimer) {\n      clearTimeout(saveTimer);\n      saveTimer = 0;\n      persistLocalState(true);'), 'logout sync must flush pending edits to account-scoped local storage');
+assert(sheetSource.includes('if (cloudSaving) {\n      return { ok: false'), 'logout must not race an in-flight automatic cloud save');
+assert(sheetSource.includes('Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === \'1\')'), 'dirty detection must include pending debounce timers and in-flight saves');
 assert(sheetSource.includes('const legacyRaw = ownerId ? null'), 'loadState must not fall back to a global legacy cache when an account owner is already known');
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
 assert(sheetSource.includes('migratedLegacyCache || (scopedData && localOwner !== userId)'), 'a newly migrated legacy cache must trigger controlled rehydration before rendering');
