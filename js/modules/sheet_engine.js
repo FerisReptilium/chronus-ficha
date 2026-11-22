@@ -84,6 +84,9 @@ window.ChronusSheetEngine = (function() {
   function mergeDeep(target, source) {
     if (!source || typeof source !== 'object') return target;
     Object.entries(source).forEach(([k,v]) => {
+      // Dados da ficha vêm do cliente e da nuvem; rejeite chaves capazes de
+      // alterar o protótipo durante a normalização de objetos JSON.
+      if (k === '__proto__' || k === 'prototype' || k === 'constructor') return;
       if (Array.isArray(v)) target[k] = v;
       else if (v && typeof v === 'object') {
         if (!target[k] || typeof target[k] !== 'object') target[k] = {};
