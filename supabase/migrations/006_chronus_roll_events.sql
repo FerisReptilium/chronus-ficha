@@ -48,6 +48,7 @@ CREATE INDEX chronus_roll_events_created_at_idx ON public.chronus_roll_events (c
 CREATE INDEX chronus_roll_events_player_created_at_idx ON public.chronus_roll_events (player_user_id, created_at DESC);
 ALTER TABLE public.chronus_roll_events ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT ON TABLE public.chronus_roll_events TO authenticated;
+REVOKE ALL ON TABLE public.chronus_roll_events FROM anon, service_role;
 CREATE POLICY chronus_roll_events_select_owner_or_narrator ON public.chronus_roll_events
   FOR SELECT TO authenticated
   USING (player_user_id = (SELECT auth.uid()) OR chronus_private.is_chronus_narrator());
