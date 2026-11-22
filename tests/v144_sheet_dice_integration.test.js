@@ -131,7 +131,7 @@ assert(sheetSource.includes('(cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])'), 'a
 assert(sheetSource.includes("localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true"), 'unowned legacy drafts must remain dirty until the server confirms their adoption');
 assert(sheetSource.includes('if (accountChanged) {') && sheetSource.includes('const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));'), 'account changes must replace in-memory state with only the authenticated account cache');
 const migrationSource = sheetSource.slice(sheetSource.indexOf('async function migrateLegacyStorageForUser'), sheetSource.indexOf('// pushStateToCloud com retorno explícito'));
-assert(migrationSource.includes('const accountChanged = Boolean(') && migrationSource.includes('(!localOwner && !activeSessionUser && scopedData)'), 'first-time accounts must be distinguished from sessions with a prior scoped cache');
+assert(migrationSource.includes('const accountChanged = Boolean(') && migrationSource.includes('(!activeSessionUser && scopedData)'), 'first-time accounts must be distinguished from sessions with a prior scoped cache');
 assert(!migrationSource.includes('location.reload') && migrationSource.includes('return false;'), 'account cache migration must not trigger an intermediate reload');
 assert(sheetSource.includes('cfg.getStorageKey(userId)'), 'remote snapshots must persist to the account-scoped cache');
 assert(sheetSource.includes('cfg.getDirtyKey(userId)'), 'remote dirty flags must be account-scoped');
@@ -164,3 +164,8 @@ assert(sheetSource.includes('legacy === manaKeys.length ? initialMana : legacy')
 assert(sheetSource.includes('if (authResolved) {\n          sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);'), 'narrator view snapshot must survive the pre-authentication listener callback');
 
 assert(authSource.includes('const { error: signOutError } = await client.auth.signOut();') && authSource.includes('if (signOutError) throw signOutError;'), 'logout must not claim success when Supabase returns a sign-out error');
+
+assert(sheetSource.includes('function refreshAccountStateFromMemory()'), 'account switching must rehydrate the rendered form in memory');
+assert(sheetSource.includes("document.getElementById(id)?.replaceChildren()"), 'account switching must clear dynamic layers before rebuilding controls');
+assert(sheetSource.includes('window.__chronusClearPortrait = clear'), 'account switching must clear the previous account portrait');
+assert(sheetSource.includes('window.__chronusAccountRehydrationPending = false') || sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false'), 'narrator and player bootstrap must release the protected sheet route');
