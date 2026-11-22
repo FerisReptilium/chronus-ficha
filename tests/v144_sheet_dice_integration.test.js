@@ -150,7 +150,7 @@ assert(authSource.includes('function isInitialized() { return authInitialized; }
 assert(authSource.includes('async function notifyAuthListeners(user, profile)'), 'auth bootstrap must await asynchronous listeners');
 assert(authSource.includes('if (stateKey === lastNotifiedAuthState) return;'), 'duplicate SIGNED_IN and explicit login notifications must not race cache hydration');
 assert(authSource.includes('await notifyAuthListeners(currentUser, currentProfile)'), 'initial authenticated session must wait for sheet hydration before routing');
-assert(sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true'), 'account cache migration must expose a pending hydration guard');
+assert(sheetSource.includes('setAccountHydrationPending(true)') && sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = Boolean(pending)'), 'account cache migration must expose a pending hydration guard through the visibility helper');
 assert(routerSource.includes("cleanHash === '#/sheet' && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === true"), 'router must not render a previous account sheet during rehydration');
 
 assert(sheetSource.includes("const syncResult = await pushStateToCloudConfirmed()"), 'reset must verify cloud confirmation instead of trusting an automatic save');
