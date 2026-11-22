@@ -516,12 +516,16 @@ window.ChronusSheetEngine = (function() {
     illum.forEach(([value,x]) => {
       const b=document.createElement('button'); b.type='button'; b.className='illumination-hit';
       placeBox(b,x-18,1138,36,36); b.classList.toggle('is-active',state.illumination===value);
-      b.setAttribute('aria-label',`Iluminação ${value}`);
+      b.textContent=value.toUpperCase(); b.title=`Selecionar Iluminação ${value}`;
+      b.setAttribute('aria-label',`Iluminação ${value}`); b.setAttribute('aria-pressed',String(state.illumination===value));
       b.addEventListener('click',()=>{
         const previous = getResourceMaxima();
         state.illumination=value;
         reconcileResourceMaxima(previous);
-        host.querySelectorAll('.illumination-hit').forEach(n=>n.classList.toggle('is-active',n.getAttribute('aria-label')===`Iluminação ${value}`));
+        host.querySelectorAll('.illumination-hit').forEach(n=>{
+          const active=n.getAttribute('aria-label')===`Iluminação ${value}`;
+          n.classList.toggle('is-active',active); n.setAttribute('aria-pressed',String(active));
+        });
         updateResourceCounters();
         scheduleSave();
       }); host.append(b);
