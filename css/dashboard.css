@@ -510,6 +510,12 @@ body.in-player-mode .chronus-dice-launcher {
     bottom: 12px;
   }
 
+  /* Keep the audio utility above the lower-right action row on short mobile
+     viewports; the dice launcher remains anchored to the bottom edge. */
+  body.in-player-mode .chronus-audio-dock {
+    bottom: 78px;
+  }
+
   .dashboard-briefing-head,
   .dashboard-related-head,
   .briefing-card-topline {
