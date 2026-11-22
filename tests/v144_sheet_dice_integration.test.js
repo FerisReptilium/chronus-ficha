@@ -40,7 +40,7 @@ assert(sheetSource.includes(".eq('updated_at', cloudVersion)"), 'cloud writes mu
 assert(sheetSource.includes(".maybeSingle()"), 'a stale cloud write must be detectable as a zero-row update');
 assert(sheetSource.includes('cloudConflict = true'), 'a stale cloud write must enter explicit conflict state');
 assert(sheetSource.includes("Conflito de sincronização"), 'sync conflicts must be surfaced instead of silently overwriting');
-assert(sheetSource.includes("localStorage.setItem(CLOUD_DIRTY_KEY, '1')"), 'conflicting local edits must remain marked dirty');
+assert(sheetSource.includes("localStorage.setItem(getScopedKey('dirty'), '1')"), 'conflicting local edits must remain marked dirty in the active account cache');
 
 assert(sheetSource.includes('state.paradox = next'), 'Paradox discharge must update the sheet state');
 assert(sheetSource.includes("new CustomEvent('chronus:sheet-updated')"), 'sheet changes must notify the roller');
