@@ -14,7 +14,7 @@ Apply the migrations in this order to a **new, empty Supabase project**:
 6. migrations/005_v12_permissive_policy_consolidation.sql — consolidates permissive policies without broadening access.
 7. migrations/20260904160729_add_session_current_objective.sql — adds the current objective field to campaign sessions.
 
-The migrations already present in this repository remain incremental; migration 000 supplies the missing baseline they assume.
+The migrations already present in this repository remain incremental; migration 000 supplies the missing baseline they assume. The manual rollback script is stored separately at `rollback/001_portal_content_rollback.sql` and must never be copied into the migration queue.
 
 ## What this schema stores
 
@@ -39,3 +39,4 @@ The six player e-mail addresses are intentionally not embedded in migrations or 
 - Inspect and back up any existing project before a migration. Apply each migration once, in order, and verify RLS, Storage policies and the Auth profile trigger afterward.
 - Committing these files to GitHub does not execute them on Supabase. Deployment is a separate, deliberate step.
 - Only publish the Supabase project URL and a publishable key in browser code. Never commit a database password, service-role key or Supabase secret key.
+- CI builds a clean local Supabase instance, applies migrations 000–006 in order, then runs `tests/core_database_baseline.sql` and `tests/v12_local_supabase_e2e.sql`. The rollback directory is intentionally excluded.
