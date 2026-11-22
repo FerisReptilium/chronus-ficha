@@ -138,7 +138,7 @@ assert(sheetSource.includes('cfg.getDirtyKey(userId)'), 'remote dirty flags must
 assert(sheetSource.includes('cfg.getSyncedKey(userId)'), 'remote sync timestamps must be account-scoped');
 assert(sheetSource.includes('cfg.getPortraitDirtyKey(userId)'), 'portrait dirty state must be account-scoped');
 assert(sheetSource.includes('(!localOwner || localOwner === userId)'), 'legacy cache migration must not copy another account cache');
-assert(sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false;'), 'cloud bootstrap must release protected routes after account hydration');
+assert(sheetSource.includes('setAccountHydrationPending(false)'), 'cloud bootstrap must release protected routes and restore sheet visibility after account hydration');
 assert(sheetSource.includes('await migrateLegacyStorageForUser(user.id)'), 'switching account caches must hydrate in memory before cloud bootstrap');
 assert(sheetSource.includes('localOwner && localOwner !== user.id && !dirty'), 'switching accounts must not discard a pending draft with a valid base');
 assert(sheetSource.includes('const fresh=normalizeState(clone(defaultState))'), 'reset must initialize calculated resource state');
@@ -168,7 +168,7 @@ assert(authSource.includes('const { error: signOutError } = await client.auth.si
 assert(sheetSource.includes('function refreshAccountStateFromMemory()'), 'account switching must rehydrate the rendered form in memory');
 assert(sheetSource.includes("document.getElementById(id)?.replaceChildren()"), 'account switching must clear dynamic layers before rebuilding controls');
 assert(sheetSource.includes('window.__chronusClearPortrait = clear'), 'account switching must clear the previous account portrait');
-assert(sheetSource.includes('window.__chronusAccountRehydrationPending = false') || sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false'), 'narrator and player bootstrap must release the protected sheet route');
+assert(sheetSource.includes('setAccountHydrationPending(false)'), 'narrator and player bootstrap must release the protected sheet route and restore sheet visibility');
 assert(sheetSource.includes('function setAccountHydrationPending(pending)'), 'private sheet must be hidden during account hydration');
 assert(sheetSource.includes("sheet.style.visibility = pending ? 'hidden' : '';"), 'account hydration must prevent visual exposure of the previous account sheet');
 assert(sheetSource.includes('setAccountHydrationPending(true);\n        if (await migrateLegacyStorageForUser(user.id))'), 'authentication must block the sheet before awaiting account migration');
