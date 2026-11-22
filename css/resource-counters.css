@@ -96,3 +96,36 @@
   .resource-counter-step { width: 25px; min-width: 25px; height: 30px; font-size: 17px; }
   .resource-counter-max { min-width: 24px; font-size: 12px; }
 }
+
+/* Seletor explícito de Iluminação: todos os cinco dados ficam visíveis e acessíveis. */
+.illumination-hit {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid rgba(190, 166, 112, .9);
+  border-radius: 50%;
+  background: rgba(12, 16, 25, .96);
+  color: #f3dfb4;
+  font: 700 11px/1 "Montserrat", Arial, sans-serif;
+  cursor: pointer;
+  z-index: 9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+  touch-action: manipulation;
+}
+.illumination-hit:hover {
+  border-color: #f2d18a;
+  background: rgba(80, 64, 39, .98);
+}
+.illumination-hit.is-active {
+  border: 2px solid #f5d58d;
+  background: #b58a42;
+  color: #171923;
+  box-shadow: 0 0 0 2px rgba(245, 213, 141, .22), 0 2px 7px rgba(0, 0, 0, .4);
+}
+.illumination-hit:focus-visible {
+  outline: 2px solid #f5d58d;
+  outline-offset: 3px;
+}
