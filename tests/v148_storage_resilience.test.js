@@ -16,7 +16,7 @@ function section(start, end, label) {
 
 const backupHelpers = section(
   '  // Ficha: cópia de segurança por identidade',
-  '  function portraitOwnerId()',
+  '  function blobToDataUrl(blob)',
   'IndexedDB sheet backup helpers'
 );
 const persistHelper = section(
