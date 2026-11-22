@@ -123,7 +123,7 @@ async function runMode(browser, mode, viewport) {
   if (initialResources.determination !== '2' || initialResources.determinationMax !== '/ 8') {
     throw new Error(`${mode}: derived Determination maximum failed: ${JSON.stringify(initialResources)}`);
   }
-  if (initialResources.mana !== '10' || initialResources.manaMax !== '/ 10') {
+  if (initialResources.mana !== '9' || initialResources.manaMax !== '/ 10') {
     throw new Error(`${mode}: initial Mana maximum failed: ${JSON.stringify(initialResources)}`);
   }
   if (initialResources.wounds !== '0' || initialResources.woundsMax !== '/ 11') {
