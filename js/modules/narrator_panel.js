@@ -579,7 +579,18 @@ window.ChronusNarratorPanel = (function() {
       grid.appendChild(card);
     });
 
-    pane.append(shellHeader, grid);
+    const narrativeGuide = createEl('section', 'narrator-narrative-guide');
+    narrativeGuide.append(
+      createEl('h3', null, 'Autoridade narrativa — CHRONUS'),
+      createEl('p', null, 'O Narrador nunca realiza rolagens. O resultado dos dados determina quem conduz a descrição da cena.'),
+      createEl('p', null, 'Sucesso excepcional: o jogador descreve a cena de forma épica.'),
+      createEl('p', null, 'Sucesso: o jogador descreve como alcança o objetivo.'),
+      createEl('p', null, 'Sucesso parcial: jogador e Narrador constroem a cena juntos; o Narrador acrescenta um preço ao êxito.'),
+      createEl('p', null, 'Falha: o Narrador descreve o insucesso.'),
+      createEl('p', null, 'Falha crítica: o Narrador descreve uma consequência desastrosa e horrível.')
+    );
+
+    pane.append(shellHeader, narrativeGuide, grid);
 
     pane.querySelectorAll('.btn-open-readonly-sheet').forEach(btn => {
       btn.addEventListener('click', () => {
