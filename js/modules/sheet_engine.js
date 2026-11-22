@@ -725,12 +725,17 @@ window.ChronusSheetEngine = (function() {
   }
 
   async function deletePortraitFromCloud() {
-    if (!supabaseClient || !cloudUser || !navigator.onLine) return;
+    if (!supabaseClient || !cloudUser || !navigator.onLine) return false;
     try {
       const { error } = await supabaseClient.storage.from('portraits').remove([`${cloudUser.id}/portrait`]);
       if (error) throw error;
       localStorage.setItem(getScopedKey('portraitDirty'),'0');
-    } catch (e) { console.warn('CHRONUS: não foi possível remover o retrato na nuvem', e); }
+      return true;
+    } catch (e) {
+      console.warn('CHRONUS: não foi possível remover o retrato na nuvem', e);
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      return false;
+    }
   }
 
   function showAuthGate(message='', isError=false) {
@@ -1164,6 +1169,10 @@ window.ChronusSheetEngine = (function() {
         alert('Para limpar a ficha definitivamente da nuvem, conecte este dispositivo à internet e tente novamente.');
         return;
       }
+      if(cloudUser && !cloudReady){
+        alert('A conexão com a nuvem ainda não foi confirmada. Aguarde a sincronização da ficha antes de solicitar a limpeza definitiva.');
+        return;
+      }
       const who=currentProfile?.display_name ? ` de ${currentProfile.display_name}` : '';
       const typed=prompt(`ATENÇÃO: isto apagará todos os campos e o retrato da ficha${who}, inclusive a cópia na nuvem.\n\nDigite LIMPAR para confirmar:`);
       if(typed!=='LIMPAR') return;
@@ -1172,11 +1181,19 @@ window.ChronusSheetEngine = (function() {
       Object.keys(state).forEach(k=>delete state[k]); Object.assign(state,fresh);
       persistLocalState(true);
       await clearPortrait(); localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      let cloudSyncOk = !cloudUser;
+      let portraitSyncOk = !cloudUser;
       if(cloudUser && cloudReady){
-        await deletePortraitFromCloud();
-        await pushStateToCloud();
+        portraitSyncOk = await deletePortraitFromCloud();
+        const syncResult = await pushStateToCloudConfirmed();
+        cloudSyncOk = Boolean(syncResult?.ok);
       }
-      alert('Ficha limpa com sucesso.');
+      if(!cloudSyncOk || !portraitSyncOk){
+        alert('A ficha foi limpa neste dispositivo, mas a nuvem não confirmou a remoção completa. Os dados locais e o marcador de sincronização pendente foram preservados. Tente sincronizar novamente antes de considerar a limpeza concluída.');
+        location.reload();
+        return;
+      }
+      alert(cloudUser ? 'Ficha e retrato removidos da nuvem com confirmação.' : 'Ficha limpa neste dispositivo.');
       location.reload();
     });
   }
