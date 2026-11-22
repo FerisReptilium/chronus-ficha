@@ -728,6 +728,15 @@ window.ChronusSheetEngine = (function() {
   // uma cópia mais recente quando o navegador conclui transações fora de ordem.
   let sheetBackupWriteChain = Promise.resolve();
   const sheetBackupDirtyUsers = new Set();
+  const sheetBackupCleanUsers = new Set();
+  window.addEventListener('storage', event => {
+    if (event?.newValue !== '1' || !event.key) return;
+    const prefix = 'chronus.cloud.dirty.';
+    if (!event.key.startsWith(prefix)) return;
+    const owner = event.key.slice(prefix.length) || 'anonymous';
+    sheetBackupCleanUsers.delete(owner);
+    sheetBackupDirtyUsers.add(owner);
+  });
   function safeLocalStorageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
   function safeLocalStorageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (error) { console.warn('CHRONUS: metadado local indisponível', error); return false; } }
   function safeLocalStorageRemove(key) { try { localStorage.removeItem(key); return true; } catch { return false; } }
@@ -739,8 +748,13 @@ window.ChronusSheetEngine = (function() {
   }
   function markSheetDirty(userId=currentStorageOwner(), dirty=true) {
     const owner = userId || 'anonymous';
-    if (dirty) sheetBackupDirtyUsers.add(owner);
-    else sheetBackupDirtyUsers.delete(owner);
+    if (dirty) {
+      sheetBackupDirtyUsers.add(owner);
+      sheetBackupCleanUsers.delete(owner);
+    } else {
+      sheetBackupDirtyUsers.delete(owner);
+      sheetBackupCleanUsers.add(owner);
+    }
     try {
       const cfg = window.CHRONUS_CONFIG;
       const key = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
@@ -750,7 +764,9 @@ window.ChronusSheetEngine = (function() {
     }
   }
   function isSheetDirty(userId=currentStorageOwner()) {
-    if (sheetBackupDirtyUsers.has(userId || 'anonymous')) return true;
+    const owner = userId || 'anonymous';
+    if (sheetBackupDirtyUsers.has(owner)) return true;
+    if (sheetBackupCleanUsers.has(owner)) return false;
     try {
       const cfg = window.CHRONUS_CONFIG;
       const key = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
@@ -762,8 +778,13 @@ window.ChronusSheetEngine = (function() {
     const task = sheetBackupWriteChain.catch(() => {}).then(() => dbPut(record, sheetBackupKey(userId)));
     sheetBackupWriteChain = task;
     return task.then(() => {
-      if (record.dirty) sheetBackupDirtyUsers.add(record.owner);
-      else sheetBackupDirtyUsers.delete(record.owner);
+      if (record.dirty) {
+        sheetBackupDirtyUsers.add(record.owner);
+        sheetBackupCleanUsers.delete(record.owner);
+      } else {
+        sheetBackupDirtyUsers.delete(record.owner);
+        sheetBackupCleanUsers.add(record.owner);
+      }
       return record;
     });
   }
@@ -780,6 +801,7 @@ window.ChronusSheetEngine = (function() {
     record.dirty = false;
     await dbPut(record, sheetBackupKey(userId));
     sheetBackupDirtyUsers.delete(userId || 'anonymous');
+    sheetBackupCleanUsers.add(userId || 'anonymous');
     return true;
   }
   async function restoreInitialSheetBackup() {
@@ -791,10 +813,10 @@ window.ChronusSheetEngine = (function() {
     if (!record) return false;
     let localSavedAt = 0;
     try { localSavedAt = Number(localStorage.getItem(sheetBackupTimestampKey(userId))) || 0; } catch {}
-    if (record.savedAt <= localSavedAt) return false;
+    if (record.savedAt < localSavedAt) return false;
     Object.keys(state).forEach(key => delete state[key]);
     Object.assign(state, normalizeState(mergeDeep(clone(defaultState), record.state)));
-    if (record.dirty) markSheetDirty(userId, true);
+    markSheetDirty(userId, Boolean(record.dirty));
     return true;
   }
   function blobToDataUrl(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});}
@@ -1572,9 +1594,9 @@ window.ChronusSheetEngine = (function() {
     const anonymousBackup = !localOwner ? await readSheetBackup(null).catch(() => null) : null;
     let localSavedAt = 0;
     try { localSavedAt = Number(safeLocalStorageGet(sheetBackupTimestampKey(userId))) || 0; } catch {}
-    const restoredFromBackup = Boolean(backupRecord && backupRecord.savedAt > localSavedAt);
+    const restoredFromBackup = Boolean(backupRecord && backupRecord.savedAt >= localSavedAt);
     if (restoredFromBackup) scopedData = JSON.stringify(backupRecord.state);
-    if (restoredFromBackup && backupRecord.dirty) markSheetDirty(userId, true);
+    if (restoredFromBackup) markSheetDirty(userId, Boolean(backupRecord.dirty));
 
     // Nunca copie cache ou retrato global de outra conta para o usuário que acabou
     // de entrar neste navegador.
