@@ -185,14 +185,13 @@ async function runMode(browser, mode, viewport) {
   }));
 
   const errors = watchErrors(page);
-  // Inicializa Auth e Router na Home antes de solicitar a rota protegida.
-  // Isso evita que o teste dependa da ordem entre o primeiro hash e a sessão mockada.
-  const response = await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  // Abre a rota protegida diretamente. O bootstrap aguarda Auth.init() antes
+  // de iniciar o Router, eliminando a corrida entre sessão e hashchange.
+  const response = await page.goto(`${origin}/#/player`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(() => Boolean(
     window.ChronusAuth?.getUser?.()?.id &&
-    window.ChronusRouter?.getCurrentRoute
+    window.ChronusRouter?.getCurrentRoute?.() === '#/player'
   ), { timeout: 15000 });
-  await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
   await page.waitForFunction(() => (
     window.location.hash === '#/player' &&
     document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3'
