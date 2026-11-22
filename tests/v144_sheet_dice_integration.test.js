@@ -106,3 +106,13 @@ assert(sheetSource.includes("event.key.startsWith(CLOUD_CONFLICT_KEY"), 'conflic
 
 assert(sheetSource.includes('sessionStorage.getItem(baseKey)'), 'dirty local drafts must retain their per-tab base version across reloads');
 assert(sheetSource.includes('localBaseVersion !== cloudVersion'), 'bootstrap must block drafts based on an older remote version');
+assert(sheetSource.includes('cfg.getStorageKey(ownerId)'), 'loadState must restore the active account cache');
+assert(sheetSource.includes('cfg.getStorageKey(userId)'), 'remote snapshots must persist to the account-scoped cache');
+assert(sheetSource.includes('cfg.getDirtyKey(userId)'), 'remote dirty flags must be account-scoped');
+assert(sheetSource.includes('cfg.getSyncedKey(userId)'), 'remote sync timestamps must be account-scoped');
+assert(sheetSource.includes('cfg.getPortraitDirtyKey(userId)'), 'portrait dirty state must be account-scoped');
+assert(sheetSource.includes('(!localOwner || localOwner === userId)'), 'legacy cache migration must not copy another account cache');
+assert(sheetSource.includes('if (scopedData && localOwner !== userId)'), 'switching accounts must restore that account own local cache');
+assert(sheetSource.includes('localOwner && localOwner !== user.id && !dirty'), 'switching accounts must not discard a pending draft with a valid base');
+assert(sheetSource.includes('const fresh=normalizeState(clone(defaultState))'), 'reset must initialize calculated resource state');
+
