@@ -939,7 +939,7 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      markSheetDirty(cloudUser.id, false);
+      markSheetDirty(cloudUser.id, JSON.stringify(state) !== snapshot);
       try { localStorage.setItem(getScopedKey('synced'), cloudVersion); } catch {}
       void markSheetBackupSynced(cloudUser.id, snapshot).catch(error => console.warn('CHRONUS: backup local ainda pendente de confirmação', error));
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
@@ -1723,7 +1723,7 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      markSheetDirty(cloudUser.id, false);
+      markSheetDirty(cloudUser.id, JSON.stringify(state) !== snapshot);
       try { localStorage.setItem(syncedKey, cloudVersion); } catch {}
       void markSheetBackupSynced(cloudUser.id, snapshot).catch(error => console.warn('CHRONUS: backup local ainda pendente de confirmação', error));
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
