@@ -7,6 +7,7 @@ const { webcrypto } = require('crypto');
 
 const diceSource = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const sheetSource = fs.readFileSync('js/modules/sheet_engine.js', 'utf8');
+const revisionMigration = fs.readFileSync('supabase/migrations/20261122000000_character_revision_cas.sql', 'utf8');
 const authSource = fs.readFileSync('js/services/auth.js', 'utf8');
 const routerSource = fs.readFileSync('js/router.js', 'utf8');
 const css = fs.readFileSync('css/dice-roller-v135.css', 'utf8');
@@ -51,8 +52,16 @@ assert(sheetSource.includes('updateResourceCounters();'), 'resource counters mus
 assert(sheetSource.includes('state.resources.determination -= 1'), 'Determination must be consumed from the dynamic resource counter');
 assert(!sheetSource.includes('phxqtkdumgwacrqsflqe.supabase.co'), 'sheet engine must not retain obsolete Supabase project endpoint');
 assert(!sheetSource.includes('sb_publishable_nl4ksY4d4ZFWENQ1_93wQQ_MXHih6uK'), 'sheet engine must not retain obsolete Supabase publishable key');
-assert(sheetSource.includes(".eq('updated_at', cloudVersion)"), 'cloud writes must use optimistic concurrency against the per-tab version');
+assert(sheetSource.includes(".eq('revision', cloudVersion)"), 'cloud writes must use a monotonic per-tab revision instead of a timestamp');
+assert(sheetSource.includes(".select('revision')"), 'cloud writes must receive the next database revision');
+assert(sheetSource.includes("String(data.revision)"), 'revision values must remain lossless strings across JavaScript bigint boundaries');
+assert(sheetSource.includes("select('revision')"), 'conflict resolution must read the latest monotonic revision');
+assert(revisionMigration.includes('revision BIGINT NOT NULL DEFAULT 1'), 'character revision must be a non-null bigint initialized for existing rows');
+assert(revisionMigration.includes('NEW.revision := OLD.revision + 1'), 'database trigger must increment revision atomically on every update');
+assert(revisionMigration.includes('NEW.revision := 1'), 'database trigger must own initial revision values');
 assert(sheetSource.includes(".maybeSingle()"), 'a stale cloud write must be detectable as a zero-row update');
+assert(!sheetSource.includes(".eq('updated_at', cloudVersion)"), 'timestamp precision must no longer determine conflict detection');
+assert(!sheetSource.includes(".eq('updated_at', expectedVersion)"), 'confirmed overwrites must also use revision CAS');
 assert(sheetSource.includes('cloudConflict = true'), 'a stale cloud write must enter explicit conflict state');
 assert(sheetSource.includes("Conflito de sincronização"), 'sync conflicts must be surfaced instead of silently overwriting');
 assert(sheetSource.includes("localStorage.setItem(getScopedKey('dirty'), '1')"), 'conflicting local edits must remain marked dirty in the active account cache');

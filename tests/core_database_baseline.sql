@@ -10,6 +10,20 @@ BEGIN
   IF to_regclass('public.characters') IS NULL THEN
     RAISE EXCEPTION 'Missing public.characters';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='characters'
+      AND column_name='revision' AND data_type='bigint' AND is_nullable='NO'
+  ) THEN
+    RAISE EXCEPTION 'Missing non-null bigint characters.revision';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid='public.characters'::regclass
+      AND tgname='characters_set_revision' AND NOT tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'Missing characters revision trigger';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id='portraits' AND public=false) THEN
     RAISE EXCEPTION 'Missing private portraits bucket';
   END IF;
@@ -108,48 +122,47 @@ VALUES
 ('00000000-0000-0000-0000-000000000201','Personagem do Jogador CI','{"test":true}'::jsonb),
 ('00000000-0000-0000-0000-000000000203','Personagem de Outro Jogador CI','{"test":true}'::jsonb);
 
--- CAS regression uses separate autocommit statements, matching independent
--- HTTP requests from two tabs. now() is transaction-stable, so two writes
--- inside one DO/BEGIN block would intentionally share the same timestamp.
+-- Monotonic revision CAS regression. The database, not the client clock,
+-- owns the revision. This remains correct even for multiple writes in one tx.
 SET ROLE authenticated;
 SELECT set_config(
   'request.jwt.claims',
   '{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000201"}',
   false
 );
-SELECT id AS cas_character_id,
-       to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_expected_version
+SELECT id AS cas_character_id, revision AS cas_expected_revision
 FROM public.characters
 WHERE user_id='00000000-0000-0000-0000-000000000201'
-ORDER BY updated_at DESC
+ORDER BY revision DESC
 LIMIT 1
 \gset
 
+-- Even an attempt to forge the revision is overwritten by the trigger.
 WITH accepted_write AS (
   UPDATE public.characters
-     SET name='Versão mais recente confirmada'
+     SET name='Versão mais recente confirmada', revision=999999
    WHERE id=:'cas_character_id'::uuid
      AND user_id='00000000-0000-0000-0000-000000000201'
-     AND updated_at=:'cas_expected_version'::timestamptz
-  RETURNING id
+     AND revision=:'cas_expected_revision'::bigint
+  RETURNING revision
 )
 SELECT 1 / ((SELECT count(*) FROM accepted_write)=1)::int
   AS cas_first_write_must_succeed;
 
-SELECT to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_new_version
+SELECT revision AS cas_new_revision
 FROM public.characters
 WHERE id=:'cas_character_id'::uuid
 \gset
 
-SELECT 1 / (:'cas_new_version'::timestamptz <> :'cas_expected_version'::timestamptz)::int
-  AS cas_version_must_advance;
+SELECT 1 / (:'cas_new_revision'::bigint = :'cas_expected_revision'::bigint + 1)::int
+  AS cas_revision_must_increment_exactly_once;
 
 WITH stale_write AS (
   UPDATE public.characters
      SET name='Escrita obsoleta não pode vencer'
    WHERE id=:'cas_character_id'::uuid
      AND user_id='00000000-0000-0000-0000-000000000201'
-     AND updated_at=:'cas_expected_version'::timestamptz
+     AND revision=:'cas_expected_revision'::bigint
   RETURNING id
 )
 SELECT 1 / ((SELECT count(*) FROM stale_write)=0)::int
@@ -159,6 +172,37 @@ SELECT 1 / (name='Versão mais recente confirmada')::int
   AS cas_newer_state_must_be_preserved
 FROM public.characters
 WHERE id=:'cas_character_id'::uuid;
+
+-- Two competing requests based on one revision, inside the same transaction.
+BEGIN;
+SELECT revision AS cas_tx_expected_revision
+FROM public.characters WHERE id=:'cas_character_id'::uuid
+\gset
+WITH tx_accepted_write AS (
+  UPDATE public.characters
+     SET name='Atualização dentro da transação'
+   WHERE id=:'cas_character_id'::uuid
+     AND revision=:'cas_tx_expected_revision'::bigint
+  RETURNING revision
+)
+SELECT 1 / ((SELECT count(*) FROM tx_accepted_write)=1)::int
+  AS cas_tx_first_write_must_succeed;
+SELECT revision AS cas_tx_new_revision
+FROM public.characters WHERE id=:'cas_character_id'::uuid
+\gset
+WITH tx_stale_write AS (
+  UPDATE public.characters
+     SET name='Escrita obsoleta na mesma transação'
+   WHERE id=:'cas_character_id'::uuid
+     AND revision=:'cas_tx_expected_revision'::bigint
+  RETURNING id
+)
+SELECT 1 / ((SELECT count(*) FROM tx_stale_write)=0)::int
+  AS cas_tx_stale_write_must_be_rejected;
+SELECT 1 / (revision=:'cas_tx_new_revision'::bigint AND name='Atualização dentro da transação')::int
+  AS cas_tx_newer_state_must_be_preserved
+FROM public.characters WHERE id=:'cas_character_id'::uuid;
+COMMIT;
 
 RESET ROLE;
 SELECT set_config('request.jwt.claims','',false);
