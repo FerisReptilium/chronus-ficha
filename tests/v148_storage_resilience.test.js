@@ -37,7 +37,7 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     CLOUD_USER_KEY: 'chronus.cloud.user.v1',
     ACTIVE_USER_SESSION_KEY: 'chronus.session.user',
     cloudUser: userId ? { id: userId } : null,
-    window: { CHRONUS_CONFIG: {
+    window: { addEventListener: () => {}, CHRONUS_CONFIG: {
       getStorageKey: id => 'chronus.sheet.user.' + id,
       getDirtyKey: id => 'chronus.dirty.user.' + id
     } },
@@ -121,7 +121,7 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
       CLOUD_USER_KEY: 'chronus.cloud.user.v1',
       ACTIVE_USER_SESSION_KEY: 'chronus.session.user',
       cloudUser: { id: 'user-A' },
-      window: { CHRONUS_CONFIG: { getDirtyKey: id => 'chronus.dirty.user.' + id } },
+      window: { addEventListener: () => {}, CHRONUS_CONFIG: { getDirtyKey: id => 'chronus.dirty.user.' + id } },
       localStorage: { getItem: key => h.values.get(key) ?? null, setItem: (key, value) => h.values.set(key, String(value)) },
       sessionStorage: { getItem: () => 'user-A' },
       dbPut: async (value, key) => h.records.set(key, structuredClone(value)),
@@ -137,6 +137,37 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     assert.equal(await vm.runInContext('restoreInitialSheetBackup()', restoreContext), true);
     assert.equal(restoreContext.state.notes, 'latest-before-reload', 'reload must restore the newest account backup');
     assert.ok(restoreContext.sheetBackupDirtyUsers.has('user-A'), 'recovered unsynced data must remain marked dirty');
+  }
+
+  // A synced backup must override a stale local dirty marker after reload.
+  {
+    const h = createHarness({ quota: true });
+    await vm.runInContext('saveSheetBackup("user-A", ' + JSON.stringify(JSON.stringify({ identity: { name: 'A' }, notes: 'synced' })) + ', false)', h.sandbox);
+    h.values.set('chronus.dirty.user.user-A', '1');
+    const restoreContext = {
+      state: { identity: {}, notes: 'stale-default' },
+      defaultState: { identity: {}, notes: '' },
+      STORAGE_KEY: 'chronus.sheet.v4',
+      CLOUD_DIRTY_KEY: 'chronus.cloud.dirty.v1',
+      CLOUD_USER_KEY: 'chronus.cloud.user.v1',
+      ACTIVE_USER_SESSION_KEY: 'chronus.session.user',
+      cloudUser: { id: 'user-A' },
+      window: { addEventListener: () => {}, CHRONUS_CONFIG: { getDirtyKey: id => 'chronus.dirty.user.' + id } },
+      localStorage: { getItem: key => h.values.get(key) ?? null, setItem: (key, value) => h.values.set(key, String(value)) },
+      sessionStorage: { getItem: () => 'user-A' },
+      dbPut: async (value, key) => h.records.set(key, structuredClone(value)),
+      dbGet: async key => h.records.has(key) ? structuredClone(h.records.get(key)) : null,
+      clone: value => JSON.parse(JSON.stringify(value)),
+      mergeDeep: (base, extra) => ({ ...base, ...extra }),
+      normalizeState: value => value,
+      console: { warn: () => {}, error: () => {} },
+      Date, Promise, Set, JSON, structuredClone
+    };
+    vm.createContext(restoreContext);
+    vm.runInContext(backupHelpers, restoreContext);
+    assert.equal(await vm.runInContext('restoreInitialSheetBackup()', restoreContext), true);
+    assert.equal(vm.runInContext('isSheetDirty("user-A")', restoreContext), false,
+      'a backup confirmed by the cloud must suppress a stale local dirty marker');
   }
 
   // Account isolation: user A's record must never be returned under user B's key.
