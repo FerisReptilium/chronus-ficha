@@ -229,37 +229,60 @@ window.ChronusNpcs = (function() {
     name.textContent = npc.name || 'NPC sem nome';
     body.append(top, name);
 
-    if (npc.public_description) {
-      const desc = document.createElement('p');
-      desc.className = 'npcs-page-description-v13';
-      desc.textContent = npc.public_description;
-      body.appendChild(desc);
-    }
-
     const facts = [];
     if (npc.faction) facts.push(['Facção', npc.faction]);
     if (npc.apparent_age) facts.push(['Idade aparente', npc.apparent_age]);
-    if (facts.length) {
-      const factsWrap = document.createElement('div');
-      factsWrap.className = 'npcs-page-facts-v13';
-      facts.forEach(([label, value]) => {
-        const fact = document.createElement('div');
-        fact.className = 'npcs-page-fact-v13';
-        const span = document.createElement('span');
-        span.textContent = label;
-        const strong = document.createElement('strong');
-        strong.textContent = value;
-        fact.append(span, strong);
-        factsWrap.appendChild(fact);
-      });
-      body.appendChild(factsWrap);
+
+    const hasExtendedProfile = Boolean(
+      npc.public_description || facts.length || npc.known_personality || npc.relationship_to_group
+    );
+    if (npc.public_description) {
+      const desc = document.createElement('p');
+      desc.className = 'npcs-page-description-v13';
+      const fullDescription = String(npc.public_description);
+      desc.textContent = fullDescription.length > 260
+        ? fullDescription.slice(0, 257).trimEnd() + '…'
+        : fullDescription;
+      body.appendChild(desc);
     }
 
-    const notes = document.createElement('div');
-    notes.className = 'npcs-page-profile-details-v13';
-    if (npc.known_personality) notes.appendChild(buildNote('Personalidade conhecida', npc.known_personality));
-    if (npc.relationship_to_group) notes.appendChild(buildNote('Relação com o grupo', npc.relationship_to_group));
-    if (notes.childElementCount) body.appendChild(notes);
+    if (hasExtendedProfile) {
+      const disclosure = document.createElement('details');
+      disclosure.className = 'npcs-page-disclosure-v14';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Ler dossiê completo';
+      disclosure.appendChild(summary);
+
+      if (npc.public_description) {
+        const fullDesc = document.createElement('p');
+        fullDesc.className = 'npcs-page-expanded-description-v14';
+        fullDesc.textContent = npc.public_description;
+        disclosure.appendChild(fullDesc);
+      }
+
+      if (facts.length) {
+        const factsWrap = document.createElement('div');
+        factsWrap.className = 'npcs-page-facts-v13';
+        facts.forEach(([label, value]) => {
+          const fact = document.createElement('div');
+          fact.className = 'npcs-page-fact-v13';
+          const span = document.createElement('span');
+          span.textContent = label;
+          const strong = document.createElement('strong');
+          strong.textContent = value;
+          fact.append(span, strong);
+          factsWrap.appendChild(fact);
+        });
+        disclosure.appendChild(factsWrap);
+      }
+
+      const notes = document.createElement('div');
+      notes.className = 'npcs-page-profile-details-v13';
+      if (npc.known_personality) notes.appendChild(buildNote('Personalidade conhecida', npc.known_personality));
+      if (npc.relationship_to_group) notes.appendChild(buildNote('Relação com o grupo', npc.relationship_to_group));
+      if (notes.childElementCount) disclosure.appendChild(notes);
+      body.appendChild(disclosure);
+    }
 
     const meta = document.createElement('div');
     meta.className = 'npcs-page-meta-v13';
