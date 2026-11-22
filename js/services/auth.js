@@ -9,6 +9,7 @@ window.ChronusAuth = (function() {
   let authInitialized = false;
   let isLoggingOut = false;
   const authListeners = [];
+  let lastNotifiedAuthState = null;
 
   function isInitialized() { return authInitialized; }
 
@@ -22,6 +23,11 @@ window.ChronusAuth = (function() {
   }
 
   async function notifyAuthListeners(user, profile) {
+    const stateKey = user
+      ? [user.id, profile?.role || '', profile?.display_name || '', profile?.email || user.email || ''].join('|')
+      : 'signed-out';
+    if (stateKey === lastNotifiedAuthState) return;
+    lastNotifiedAuthState = stateKey;
     const pending = [];
     authListeners.forEach(cb => {
       try {
