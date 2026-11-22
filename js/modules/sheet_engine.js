@@ -189,6 +189,13 @@ window.ChronusSheetEngine = (function() {
   let passwordRecoveryAuthorized = false;
   const indicator = document.getElementById('saveIndicator');
 
+  window.addEventListener('storage', event => {
+    if (event.key && event.key.startsWith(CLOUD_CONFLICT_KEY + '.') && event.newValue === '1') {
+      cloudConflict = true;
+      setSaveStatus('Conflito de sincronização em outra aba • sincronização automática pausada', 'offline');
+    }
+  });
+
   function setSaveStatus(text, mode='') {
     if (!indicator) return;
     let clean=String(text||'').replace(/^Offline\s*[•·-]\s*/i,'').replace(/^Online\s*[•·-]\s*/i,'');
@@ -810,6 +817,7 @@ window.ChronusSheetEngine = (function() {
     localStorage.setItem(CLOUD_SYNCED_KEY, updatedAt || new Date().toISOString());
     cloudVersion = updatedAt || null;
     cloudConflict = false;
+    localStorage.removeItem(cloudConflictStorageKey(userId, characterId));
 
     // Uma mesma versão remota pode exigir reidratação uma vez. Se a normalização
     // produzir diferenças não relevantes após o reload, não entre em ciclo infinito.
