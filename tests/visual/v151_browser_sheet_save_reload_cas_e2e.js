@@ -104,12 +104,25 @@ async function loginThroughUi(page, user) {
   await page.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, user.id);
 }
 
-async function openSheet(page, user) {
-  await loginThroughUi(page, user);
-  await page.goto(portalUrl + '#/sheet', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, user.id);
+async function waitForAccountHydration(page) {
+  await page.waitForFunction(() =>
+    window.ChronusAuth?.isInitialized?.() === true
+    && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === false
+  , null, { timeout: 20000 });
+}
+
+async function navigateToSheet(page) {
+  await waitForAccountHydration(page);
+  await page.evaluate(() => { window.location.hash = '#/sheet'; });
+  await page.waitForFunction(() => window.location.hash.split('?')[0] === '#/sheet');
   await page.locator('#view-sheet').waitFor({ state: 'visible' });
   await page.locator('[data-bind="identity.name"]').waitFor({ state: 'visible' });
+}
+
+async function openSheet(page, user) {
+  await loginThroughUi(page, user);
+  await page.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, user.id);
+  await navigateToSheet(page);
   await page.waitForFunction(() => document.getElementById('saveIndicator')?.textContent.includes('Salvo na nuvem'));
 }
 
@@ -163,8 +176,7 @@ async function readRemoteCharacter(page, userId) {
 
     await pageA.reload({ waitUntil: 'domcontentloaded' });
     await pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, user.id);
-    await pageA.locator('#view-sheet').waitFor({ state: 'visible' });
-    await pageA.locator('[data-bind="identity.name"]').waitFor({ state: 'visible' });
+    await navigateToSheet(pageA);
     await pageA.waitForFunction(expected =>
       document.querySelector('[data-bind="identity.name"]')?.value === expected, persistedName);
     await pageA.waitForFunction(() =>
