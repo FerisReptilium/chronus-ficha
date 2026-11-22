@@ -135,7 +135,7 @@ FROM public.characters
 WHERE user_id='00000000-0000-0000-0000-000000000201'
 ORDER BY revision DESC
 LIMIT 1
-\\gset
+\gset
 
 -- Even an attempt to forge the revision is overwritten by the trigger.
 WITH accepted_write AS (
@@ -152,7 +152,7 @@ SELECT 1 / ((SELECT count(*) FROM accepted_write)=1)::int
 SELECT revision AS cas_new_revision
 FROM public.characters
 WHERE id=:'cas_character_id'::uuid
-\\gset
+\gset
 
 SELECT 1 / (:'cas_new_revision'::bigint = :'cas_expected_revision'::bigint + 1)::int
   AS cas_revision_must_increment_exactly_once;
@@ -177,7 +177,7 @@ WHERE id=:'cas_character_id'::uuid;
 BEGIN;
 SELECT revision AS cas_tx_expected_revision
 FROM public.characters WHERE id=:'cas_character_id'::uuid
-\\gset
+\gset
 WITH tx_accepted_write AS (
   UPDATE public.characters
      SET name='Atualização dentro da transação'
@@ -189,7 +189,7 @@ SELECT 1 / ((SELECT count(*) FROM tx_accepted_write)=1)::int
   AS cas_tx_first_write_must_succeed;
 SELECT revision AS cas_tx_new_revision
 FROM public.characters WHERE id=:'cas_character_id'::uuid
-\\gset
+\gset
 WITH tx_stale_write AS (
   UPDATE public.characters
      SET name='Escrita obsoleta na mesma transação'
