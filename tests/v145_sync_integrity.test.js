@@ -65,9 +65,11 @@ function section(source, start, end, label) {
 {
   const reconnect = section(sheet, "window.addEventListener('offline'", 'function showAuthGate', 'network reconnect handlers');
   assert(reconnect.includes("window.addEventListener('online'"), 'online transition listener must exist');
-  assert(reconnect.includes("if (!cloudReady || !cloudUser || !cloudCharacterId || cloudConflict) return;"), 'reconnect must stop for missing identity, bootstrap, or conflict');
-  assert(reconnect.includes("localStorage.getItem(getScopedKey('dirty')) === '1'"), 'reconnect must retry only pending local writes');
+  assert(reconnect.includes('if (!cloudUser) return;'), 'reconnect must require an authenticated identity');
+  assert(reconnect.includes('if (!cloudReady) {') && reconnect.includes('void bootstrapCloudForUser(cloudUser)'), 'reconnect must retry a bootstrap interrupted by network failure');
+  assert(reconnect.includes("cloudCharacterId && !cloudConflict && localStorage.getItem(getScopedKey('dirty')) === '1'"), 'reconnect must retry pending sheet writes only when CAS has no conflict');
   assert(reconnect.includes('scheduleCloudSave(500)'), 'reconnect must schedule a bounded retry rather than requiring another edit');
+  assert(reconnect.includes("localStorage.getItem(getScopedKey('portraitDirty')) === '1'") && reconnect.includes('void syncPendingPortrait()'), 'reconnect must retry pending portrait work independently from sheet conflicts');
   const save = section(sheet, 'async function pushStateToCloud()', 'async function pushStateToCloudConfirmed()', 'automatic cloud save');
   assert(save.includes(".eq('user_id', cloudUser.id)"), 'cloud update must be scoped to authenticated owner');
   assert(save.includes(".eq('revision', cloudVersion)"), 'cloud update must use monotonic compare-and-swap');
@@ -110,7 +112,7 @@ function section(source, start, end, label) {
   assert(portrait.includes("localStorage.setItem(getScopedKey('portraitDirty'),'1')"), 'failed remote portrait removal must persist pending state');
   const bootstrap = section(sheet, 'async function bootstrapCloudForUser(user)', 'async function getCurrentProfile', 'cloud bootstrap');
   assert(bootstrap.includes("const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1'"), 'bootstrap must detect pending portrait deletion');
-  assert(bootstrap.includes('else await deletePortraitFromCloud();'), 'bootstrap must retry deletion when the local portrait is absent');
+  assert(bootstrap.includes('await syncPendingPortrait();'), 'bootstrap must use the shared portrait retry path when local portrait data is absent');
 }
 
 // 6) Logout must not discard pending changes when cloud confirmation or sign-out

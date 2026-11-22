@@ -245,16 +245,31 @@ window.ChronusSheetEngine = (function() {
   });
 
   window.addEventListener('online', () => {
-    if (!cloudReady || !cloudUser || !cloudCharacterId || cloudConflict) return;
+    if (!cloudUser) return;
+
+    // Se a última tentativa de hidratação falhou durante uma queda de rede,
+    // reconstrói a sessão antes de tentar qualquer gravação pendente.
+    if (!cloudReady) {
+      if (!bootstrapInProgress) void bootstrapCloudForUser(cloudUser);
+      return;
+    }
+
     if (saveTimer) {
       clearTimeout(saveTimer);
       saveTimer = 0;
       persistLocalState(true);
     }
-    if (localStorage.getItem(getScopedKey('dirty')) === '1') {
+
+    // Conflitos CAS pausam somente a ficha. Retratos são um recurso separado
+    // e podem ser sincronizados sem sobrescrever a revisão do personagem.
+    if (cloudCharacterId && !cloudConflict && localStorage.getItem(getScopedKey('dirty')) === '1') {
       setSaveStatus('Conexão restabelecida • retomando sincronização…', 'saving');
       scheduleCloudSave(500);
     }
+
+    const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1'
+      || localStorage.getItem(portraitTombstoneKey(cloudUser.id)) === '1';
+    if (portraitDirty) void syncPendingPortrait();
   });
 
   function setSaveStatus(text, mode='') {
@@ -847,7 +862,12 @@ window.ChronusSheetEngine = (function() {
   }
 
   async function pushPortraitToCloud(fileOrBlob) {
-    if (!supabaseClient || !cloudUser || !navigator.onLine) return false;
+    if (!supabaseClient || !cloudUser) return false;
+    if (!navigator.onLine) {
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      setSaveStatus('Retrato aguardando conexão para envio', 'offline');
+      return false;
+    }
     try {
       const { error } = await supabaseClient.storage
         .from('portraits')
@@ -882,7 +902,12 @@ window.ChronusSheetEngine = (function() {
   }
 
   async function deletePortraitFromCloud() {
-    if (!supabaseClient || !cloudUser || !navigator.onLine) return false;
+    if (!supabaseClient || !cloudUser) return false;
+    if (!navigator.onLine) {
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      setSaveStatus('Retrato aguardando conexão para remoção', 'offline');
+      return false;
+    }
     try {
       const { error } = await supabaseClient.storage.from('portraits').remove([`${cloudUser.id}/portrait`]);
       if (error) throw error;
@@ -891,7 +916,26 @@ window.ChronusSheetEngine = (function() {
     } catch (e) {
       console.warn('CHRONUS: não foi possível remover o retrato na nuvem', e);
       localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      setSaveStatus('Remoção do retrato pendente • salvo neste dispositivo', 'offline');
       return false;
+    }
+  }
+
+  let portraitSyncInProgress = false;
+  async function syncPendingPortrait() {
+    if (!supabaseClient || !cloudUser || !cloudReady || !navigator.onLine || portraitSyncInProgress) return false;
+    const dirtyKey = getScopedKey('portraitDirty');
+    const hasPendingPortrait = localStorage.getItem(dirtyKey) === '1'
+      || localStorage.getItem(portraitTombstoneKey(cloudUser.id)) === '1';
+    if (!hasPendingPortrait) return true;
+
+    portraitSyncInProgress = true;
+    try {
+      const localPortrait = await loadPortrait().catch(() => null);
+      if (localPortrait) return await pushPortraitToCloud(localPortrait);
+      return await deletePortraitFromCloud();
+    } finally {
+      portraitSyncInProgress = false;
     }
   }
 
@@ -1139,9 +1183,7 @@ window.ChronusSheetEngine = (function() {
       // Retrato: se existe alteração local pendente, envia; caso contrário tenta recuperar da nuvem.
       const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1' || localStorage.getItem(portraitTombstoneKey(user.id)) === '1';
       if (portraitDirty) {
-        const localPortrait = await loadPortrait().catch(()=>null);
-        if(localPortrait) await pushPortraitToCloud(localPortrait);
-        else await deletePortraitFromCloud();
+        await syncPendingPortrait();
       } else {
         await pullPortraitFromCloud();
       }

@@ -116,7 +116,7 @@ function gitBlobSha(filePath) {
   const header = Buffer.from(`blob ${buf.length}\0`);
   return crypto.createHash('sha1').update(header).update(buf).digest('hex');
 }
-assert.strictEqual(gitBlobSha('js/modules/sheet_engine.js'), '28ef8e31802e154b5e02127e74cc4034fa268422', 'sheet_engine.js changed from approved v1.4.4 integration baseline');
+assert.strictEqual(gitBlobSha('js/modules/sheet_engine.js'), 'e9bf6c591f709a0c02caf5064ca5096cad206473', 'sheet_engine.js changed from approved v1.4.4 integration baseline');
 assert.strictEqual(gitBlobSha('css/sheet.css'), 'b6b299f2fd1dfd26e8f27d1632a855374d4cd43a', 'sheet.css changed from stable v1.2 baseline');
 assert(/<section id="view-sheet" class="portal-view">/.test(index), 'Digital sheet must remain outside portal-shell');
 
