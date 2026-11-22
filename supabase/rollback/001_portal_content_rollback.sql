@@ -8,7 +8,6 @@
 -- 3. Remove exclusivamente as policies, tabelas, junction tables e portal_assets criados na migração 001.
 -- 4. NUNCA toca em characters, profiles, auth.users, bucket portraits ou funções legadas.
 -- ============================================================================
-
 BEGIN;
 
 -- 1. Remover Policies de Storage dos 4 buckets da campanha
@@ -23,15 +22,12 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'campaign-images') THEN
     DELETE FROM storage.buckets WHERE id = 'campaign-images';
   END IF;
-
   IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'maps') THEN
     DELETE FROM storage.buckets WHERE id = 'maps';
   END IF;
-
   IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'documents') THEN
     DELETE FROM storage.buckets WHERE id = 'documents';
   END IF;
-
   IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'library') THEN
     DELETE FROM storage.buckets WHERE id = 'library';
   END IF;
@@ -68,6 +64,5 @@ DROP FUNCTION IF EXISTS public.can_read_portal_asset(TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.handle_chronus_updated_at();
 DROP FUNCTION IF EXISTS public.is_chronus_player_or_narrator();
 
--- NOTA: public.is_chronus_narrator() NÃO É REMOVIDA (preserva integridade do sistema legado).
-
+-- public.is_chronus_narrator() is intentionally preserved for the core schema.
 COMMIT;
