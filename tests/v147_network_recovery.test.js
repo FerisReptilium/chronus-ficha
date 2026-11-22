@@ -45,6 +45,7 @@ function runReconnect({ cloudReady, cloudConflict, sheetDirty, portraitDirty }) 
     'let saveTimer = 0;',
     'let bootstrapInProgress = false;',
     'const getScopedKey = type => type === "dirty" ? "sheet-dirty" : "portrait-dirty";',
+    'const isSheetDirty = () => localStorage.getItem("sheet-dirty") === "1";',
     'const portraitTombstoneKey = id => "portrait-tombstone." + id;',
     'const setSaveStatus = () => calls.push("status");',
     'const scheduleCloudSave = delay => calls.push("sheet-retry:" + delay);',

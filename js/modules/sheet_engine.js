@@ -262,7 +262,7 @@ window.ChronusSheetEngine = (function() {
 
     // Conflitos CAS pausam somente a ficha. Retratos são um recurso separado
     // e podem ser sincronizados sem sobrescrever a revisão do personagem.
-    if (cloudCharacterId && !cloudConflict && localStorage.getItem(getScopedKey('dirty')) === '1') {
+    if (cloudCharacterId && !cloudConflict && isSheetDirty(cloudUser.id)) {
       setSaveStatus('Conexão restabelecida • retomando sincronização…', 'saving');
       scheduleCloudSave(500);
     }
@@ -287,14 +287,31 @@ window.ChronusSheetEngine = (function() {
   }
 
   function persistLocalState(markDirty=true) {
+    const userId = currentStorageOwner();
+    const cfg = window.CHRONUS_CONFIG;
+    const storageKey = userId && cfg ? cfg.getStorageKey(userId) : STORAGE_KEY;
+    const snapshot = JSON.stringify(state);
+    const savedAt = Date.now();
+    let localSaved = false;
     try {
-      const userId = cloudUser?.id || null;
-      const cfg = window.CHRONUS_CONFIG;
-      const storageKey = userId && cfg ? cfg.getStorageKey(userId) : STORAGE_KEY;
-      const dirtyKey = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
-      localStorage.setItem(storageKey, JSON.stringify(state));
-      if (markDirty) localStorage.setItem(dirtyKey, '1');
-    } catch (e) { console.warn('CHRONUS: falha ao salvar localmente', e); }
+      localStorage.setItem(storageKey, snapshot);
+      localStorage.setItem(sheetBackupTimestampKey(userId), String(savedAt));
+      if (markDirty) markSheetDirty(userId, true);
+      localSaved = true;
+    } catch (error) {
+      console.warn('CHRONUS: localStorage indisponível; tentando cópia IndexedDB', error);
+      if (markDirty) sheetBackupDirtyUsers.add(userId || 'anonymous');
+    }
+    const backup = saveSheetBackup(userId, snapshot, markDirty);
+    window.__chronusSheetBackupWrite = backup;
+    backup.then(() => {
+      if (!localSaved) setSaveStatus('Ficha protegida no armazenamento local alternativo', 'offline');
+    }).catch(error => {
+      console.error('CHRONUS: falha na cópia de segurança local', error);
+      if (!localSaved) setSaveStatus('Falha ao proteger a ficha • não feche esta página e exporte seus dados', 'offline');
+    });
+    if (localSaved) return true;
+    return false;
   }
 
   function scheduleCloudSave(delay=1200) {
@@ -705,6 +722,103 @@ window.ChronusSheetEngine = (function() {
   async function dbPut(blob,key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   async function dbGet(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error);});}
   async function dbDelete(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+
+  // Ficha: cópia de segurança por identidade no mesmo IndexedDB dos retratos.
+  // A fila serializa gravações para que uma operação antiga nunca sobrescreva
+  // uma cópia mais recente quando o navegador conclui transações fora de ordem.
+  let sheetBackupWriteChain = Promise.resolve();
+  const sheetBackupDirtyUsers = new Set();
+  const sheetBackupCleanUsers = new Set();
+  window.addEventListener('storage', event => {
+    if (event?.newValue !== '1' || !event.key) return;
+    const prefix = 'chronus.cloud.dirty.';
+    if (!event.key.startsWith(prefix)) return;
+    const owner = event.key.slice(prefix.length) || 'anonymous';
+    sheetBackupCleanUsers.delete(owner);
+    sheetBackupDirtyUsers.add(owner);
+  });
+  function safeLocalStorageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+  function safeLocalStorageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (error) { console.warn('CHRONUS: metadado local indisponível', error); return false; } }
+  function safeLocalStorageRemove(key) { try { localStorage.removeItem(key); return true; } catch { return false; } }
+  function sheetBackupKey(userId) { return `sheet.state.${userId || 'anonymous'}`; }
+  function sheetBackupTimestampKey(userId) { return `chronus.sheet.backup.timestamp.${userId || 'anonymous'}`; }
+  function currentStorageOwner() {
+    try { return cloudUser?.id || sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null; }
+    catch { return cloudUser?.id || null; }
+  }
+  function markSheetDirty(userId=currentStorageOwner(), dirty=true) {
+    const owner = userId || 'anonymous';
+    if (dirty) {
+      sheetBackupDirtyUsers.add(owner);
+      sheetBackupCleanUsers.delete(owner);
+    } else {
+      sheetBackupDirtyUsers.delete(owner);
+      sheetBackupCleanUsers.add(owner);
+    }
+    try {
+      const cfg = window.CHRONUS_CONFIG;
+      const key = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
+      localStorage.setItem(key, dirty ? '1' : '0');
+    } catch (error) {
+      console.warn('CHRONUS: marcador de sincronização indisponível', error);
+    }
+  }
+  function isSheetDirty(userId=currentStorageOwner()) {
+    const owner = userId || 'anonymous';
+    if (sheetBackupDirtyUsers.has(owner)) return true;
+    if (sheetBackupCleanUsers.has(owner)) return false;
+    try {
+      const cfg = window.CHRONUS_CONFIG;
+      const key = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
+      return localStorage.getItem(key) === '1';
+    } catch { return false; }
+  }
+  function saveSheetBackup(userId, snapshot, dirty=true) {
+    const record = { version: 1, owner: userId || 'anonymous', savedAt: Date.now(), dirty: Boolean(dirty), state: JSON.parse(snapshot) };
+    const task = sheetBackupWriteChain.catch(() => {}).then(() => dbPut(record, sheetBackupKey(userId)));
+    sheetBackupWriteChain = task;
+    return task.then(() => {
+      if (record.dirty) {
+        sheetBackupDirtyUsers.add(record.owner);
+        sheetBackupCleanUsers.delete(record.owner);
+      } else {
+        sheetBackupDirtyUsers.delete(record.owner);
+        sheetBackupCleanUsers.add(record.owner);
+      }
+      return record;
+    });
+  }
+  async function readSheetBackup(userId) {
+    const record = await dbGet(sheetBackupKey(userId));
+    if (!record || record.version !== 1 || record.owner !== (userId || 'anonymous') || !record.state || typeof record.state !== 'object') return null;
+    return record;
+  }
+  async function markSheetBackupSynced(userId, snapshot) {
+    await sheetBackupWriteChain.catch(() => {});
+    if (JSON.stringify(state) !== snapshot) return false;
+    const record = await readSheetBackup(userId).catch(() => null);
+    if (!record || JSON.stringify(record.state) !== snapshot) return false;
+    record.dirty = false;
+    await dbPut(record, sheetBackupKey(userId));
+    sheetBackupDirtyUsers.delete(userId || 'anonymous');
+    sheetBackupCleanUsers.add(userId || 'anonymous');
+    return true;
+  }
+  async function restoreInitialSheetBackup() {
+    let userId = null;
+    try { userId = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null; }
+    catch { userId = null; }
+    if (!userId && safeLocalStorageGet(CLOUD_USER_KEY)) return false;
+    const record = await readSheetBackup(userId).catch(() => null);
+    if (!record) return false;
+    let localSavedAt = 0;
+    try { localSavedAt = Number(localStorage.getItem(sheetBackupTimestampKey(userId))) || 0; } catch {}
+    if (record.savedAt < localSavedAt) return false;
+    Object.keys(state).forEach(key => delete state[key]);
+    Object.assign(state, normalizeState(mergeDeep(clone(defaultState), record.state)));
+    markSheetDirty(userId, Boolean(record.dirty));
+    return true;
+  }
   function blobToDataUrl(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});}
   async function dataUrlToBlob(dataUrl){const response=await fetch(dataUrl);if(!response.ok)throw new Error('Falha ao converter retrato local');return response.blob();}
   async function savePortrait(blob,userId=portraitOwnerId()){
@@ -814,11 +928,12 @@ window.ChronusSheetEngine = (function() {
     if (cloudSaving) { cloudSaveAgain = true; return; }
     if (cloudConflict) { setSaveStatus('Conflito de sincronização • alterações preservadas neste dispositivo', 'offline'); return; }
     if (!cloudVersion) {
-      localStorage.setItem(getScopedKey('dirty'), '1');
+      markSheetDirty(cloudUser.id, true);
       setSaveStatus('Sincronização pausada • versão remota não confirmada', 'offline');
       return;
     }
 
+    const snapshot = JSON.stringify(state);
     cloudSaving = true;
     setSaveStatus('Sincronizando…', 'saving');
     try {
@@ -826,7 +941,7 @@ window.ChronusSheetEngine = (function() {
       // version this tab loaded. A stale tab must never overwrite newer data.
       const { data, error } = await supabaseClient
         .from('characters')
-        .update({ name: cloudCharacterName(), data: clone(state) })
+        .update({ name: cloudCharacterName(), data: JSON.parse(snapshot) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
         .eq('revision', cloudVersion)
@@ -837,7 +952,7 @@ window.ChronusSheetEngine = (function() {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
-        localStorage.setItem(getScopedKey('dirty'), '1');
+        markSheetDirty(cloudUser.id, true);
         setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
         return;
       }
@@ -847,12 +962,13 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      localStorage.setItem(getScopedKey('dirty'), '0');
-      localStorage.setItem(getScopedKey('synced'), cloudVersion);
+      markSheetDirty(cloudUser.id, JSON.stringify(state) !== snapshot);
+      try { localStorage.setItem(getScopedKey('synced'), cloudVersion); } catch {}
+      void markSheetBackupSynced(cloudUser.id, snapshot).catch(error => console.warn('CHRONUS: backup local ainda pendente de confirmação', error));
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
     } catch (e) {
       console.error('CHRONUS: erro de sincronização', e);
-      localStorage.setItem(getScopedKey('dirty'), '1');
+      markSheetDirty(cloudUser.id, true);
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       cloudSaving = false;
@@ -1109,7 +1225,7 @@ window.ChronusSheetEngine = (function() {
       const localOwner = localStorage.getItem(CLOUD_USER_KEY);
       const cfg = window.CHRONUS_CONFIG;
       const hasScopedCache = Boolean(localStorage.getItem(cfg.getStorageKey(user.id)));
-      const dirty = localStorage.getItem(getScopedKey('dirty')) === '1';
+      const dirty = isSheetDirty(user.id);
 
       if (!row) {
         // Primeira migração: se ainda não havia dono local, envia a ficha v0.3/v0.4 atual.
@@ -1421,6 +1537,7 @@ window.ChronusSheetEngine = (function() {
 
   
   async function initSheet() {
+    await restoreInitialSheetBackup();
     applyDataBoxes();
     bindInputs();
     renderAttributes();
@@ -1469,18 +1586,25 @@ window.ChronusSheetEngine = (function() {
     const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';
     const scopedKey = cfg.getStorageKey(userId);
     const legacyKey = (cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])
-      .find(key => Boolean(localStorage.getItem(key)));
-    const legacyData = legacyKey ? localStorage.getItem(legacyKey) : null;
-    let scopedData = localStorage.getItem(scopedKey);
-    const localOwner = localStorage.getItem(CLOUD_USER_KEY);
+      .find(key => Boolean(safeLocalStorageGet(key)));
+    const legacyData = legacyKey ? safeLocalStorageGet(legacyKey) : null;
+    let scopedData = safeLocalStorageGet(scopedKey);
+    const localOwner = safeLocalStorageGet(CLOUD_USER_KEY);
+    const backupRecord = await readSheetBackup(userId).catch(() => null);
+    const anonymousBackup = !localOwner ? await readSheetBackup(null).catch(() => null) : null;
+    let localSavedAt = 0;
+    try { localSavedAt = Number(safeLocalStorageGet(sheetBackupTimestampKey(userId))) || 0; } catch {}
+    const restoredFromBackup = Boolean(backupRecord && backupRecord.savedAt >= localSavedAt);
+    if (restoredFromBackup) scopedData = JSON.stringify(backupRecord.state);
+    if (restoredFromBackup) markSheetDirty(userId, Boolean(backupRecord.dirty));
 
     // Nunca copie cache ou retrato global de outra conta para o usuário que acabou
     // de entrar neste navegador.
     let migratedLegacyCache = false;
     if (!isNarratorView && legacyData && !scopedData && (!localOwner || localOwner === userId)) {
-      localStorage.setItem(scopedKey, legacyData);
-      const legacyDirty = localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true;
-      localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
+      safeLocalStorageSet(scopedKey, legacyData);
+      const legacyDirty = localOwner === userId ? safeLocalStorageGet(CLOUD_DIRTY_KEY) === '1' : true;
+      safeLocalStorageSet(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
       scopedData = legacyData;
       migratedLegacyCache = true;
@@ -1488,32 +1612,32 @@ window.ChronusSheetEngine = (function() {
 
     let migratedLegacyPortrait = false;
     if (!isNarratorView && (!localOwner || localOwner === userId)) {
-      const targetPortraitDeleted = localStorage.getItem(portraitTombstoneKey(userId)) === '1';
-      const legacyPortraitDeleted = localStorage.getItem(portraitTombstoneKey(null)) === '1'
-        || localStorage.getItem(portraitTombstoneKey('legacy')) === '1';
+      const targetPortraitDeleted = safeLocalStorageGet(portraitTombstoneKey(userId)) === '1';
+      const legacyPortraitDeleted = safeLocalStorageGet(portraitTombstoneKey(null)) === '1'
+        || safeLocalStorageGet(portraitTombstoneKey('legacy')) === '1';
       const scopedPortrait = targetPortraitDeleted ? null : await dbGet(portraitStorageKey(userId)).catch(() => null);
-      const scopedFallback = targetPortraitDeleted ? null : localStorage.getItem(portraitFallbackKey(userId));
+      const scopedFallback = targetPortraitDeleted ? null : safeLocalStorageGet(portraitFallbackKey(userId));
       const anonymousPortrait = !localOwner && !legacyPortraitDeleted ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
       const legacyPortrait = scopedPortrait || legacyPortraitDeleted ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
-      const anonymousFallback = !localOwner && !legacyPortraitDeleted ? localStorage.getItem(portraitFallbackKey(null)) : null;
-      const legacyFallback = legacyPortraitDeleted ? null : (anonymousFallback || localStorage.getItem('chronus.portrait.fallback'));
+      const anonymousFallback = !localOwner && !legacyPortraitDeleted ? safeLocalStorageGet(portraitFallbackKey(null)) : null;
+      const legacyFallback = legacyPortraitDeleted ? null : (anonymousFallback || safeLocalStorageGet('chronus.portrait.fallback'));
       if (!targetPortraitDeleted && !scopedFallback && legacyFallback) {
-        localStorage.setItem(portraitFallbackKey(userId), legacyFallback);
+        safeLocalStorageSet(portraitFallbackKey(userId), legacyFallback);
         migratedLegacyPortrait = true;
       } else if (!targetPortraitDeleted && !scopedPortrait && legacyPortrait) {
         await dbPut(legacyPortrait, portraitStorageKey(userId));
         migratedLegacyPortrait = true;
       }
-      const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
-        || localStorage.getItem(cfg.getPortraitDirtyKey(null));
-      const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
+      const legacyPortraitDirty = safeLocalStorageGet(PORTRAIT_DIRTY_KEY)
+        || safeLocalStorageGet(cfg.getPortraitDirtyKey(null));
+      const scopedPortraitDirty = safeLocalStorageGet(cfg.getPortraitDirtyKey(userId));
       if (legacyPortraitDirty && !scopedPortraitDirty) {
-        localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
+        safeLocalStorageSet(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
       }
       if (migratedLegacyPortrait) {
-        if (!localOwner) localStorage.setItem(cfg.getPortraitDirtyKey(userId), '1');
-        localStorage.setItem(portraitTombstoneKey(null), '1');
-        localStorage.setItem(portraitTombstoneKey('legacy'), '1');
+        if (!localOwner) safeLocalStorageSet(cfg.getPortraitDirtyKey(userId), '1');
+        safeLocalStorageSet(portraitTombstoneKey(null), '1');
+        safeLocalStorageSet(portraitTombstoneKey('legacy'), '1');
       }
     }
 
@@ -1522,7 +1646,7 @@ window.ChronusSheetEngine = (function() {
     // a própria hidratação remota faz a única recarga necessária.
     const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
     if (isNarratorView && !activeSessionUser) {
-      localStorage.setItem(CLOUD_USER_KEY, userId);
+      safeLocalStorageSet(CLOUD_USER_KEY, userId);
       sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
       setAccountHydrationPending(true);
       return true;
@@ -1530,7 +1654,8 @@ window.ChronusSheetEngine = (function() {
     const accountChanged = Boolean(
       (localOwner && localOwner !== userId) ||
       (activeSessionUser && activeSessionUser !== userId) ||
-      (!activeSessionUser && scopedData) || migratedLegacyPortrait
+      (!activeSessionUser && scopedData) || migratedLegacyPortrait || restoredFromBackup
+      || (!localOwner && !restoredFromBackup && Boolean(anonymousBackup))
     );
     // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
     // Em narratorView, o snapshot do personagem selecionado pelo Narrador é a fonte correta.
@@ -1543,7 +1668,7 @@ window.ChronusSheetEngine = (function() {
       Object.assign(state, accountState);
       refreshAccountStateFromMemory();
     }
-    localStorage.setItem(CLOUD_USER_KEY, userId);
+    safeLocalStorageSet(CLOUD_USER_KEY, userId);
     sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
     if (accountChanged) {
       window.__chronusClearPortrait?.();
@@ -1585,6 +1710,7 @@ window.ChronusSheetEngine = (function() {
     try {
       const dirtyKey = getScopedKey('dirty');
       const syncedKey = getScopedKey('synced');
+      const snapshot = JSON.stringify(state);
 
       if (cloudConflict && !window.confirm('Existe uma versão mais recente na nuvem. Deseja substituir essa versão pelas alterações locais deste dispositivo? Esta ação não pode ser desfeita.')) {
         return { ok: false, conflict: true, error: 'Conflito mantido; alterações locais preservadas' };
@@ -1598,7 +1724,7 @@ window.ChronusSheetEngine = (function() {
       if (!expectedVersion) return { ok: false, conflict: true, error: 'Versão remota não confirmada' };
       const { data, error } = await supabaseClient
         .from('characters')
-        .update({ name: cloudCharacterName(), data: clone(state) })
+        .update({ name: cloudCharacterName(), data: JSON.parse(snapshot) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
         .eq('revision', expectedVersion)
@@ -1610,7 +1736,7 @@ window.ChronusSheetEngine = (function() {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
-        localStorage.setItem(dirtyKey, '1');
+        markSheetDirty(cloudUser.id, true);
         setSaveStatus('Conflito de sincronização • alterações locais preservadas', 'offline');
         return { ok: false, conflict: true, error: 'A versão remota mudou durante a confirmação' };
       }
@@ -1620,14 +1746,15 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      localStorage.setItem(dirtyKey, '0');
-      localStorage.setItem(syncedKey, cloudVersion);
+      markSheetDirty(cloudUser.id, JSON.stringify(state) !== snapshot);
+      try { localStorage.setItem(syncedKey, cloudVersion); } catch {}
+      void markSheetBackupSynced(cloudUser.id, snapshot).catch(error => console.warn('CHRONUS: backup local ainda pendente de confirmação', error));
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
       return { ok: true, revision: cloudVersion };
     } catch (e) {
       console.error('CHRONUS: Erro ao sincronizar ficha na nuvem:', e);
       const dirtyKey = getScopedKey('dirty');
-      localStorage.setItem(dirtyKey, '1');
+      markSheetDirty(cloudUser.id, true);
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
       return { ok: false, error: e.message || e };
     } finally {
@@ -1708,7 +1835,7 @@ window.ChronusSheetEngine = (function() {
     isCloudReady: () => cloudReady,
     isDirty: () => {
       const dirtyKey = getScopedKey('dirty');
-      return Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === '1');
+      return Boolean(saveTimer || cloudSaveTimer || cloudSaving || isSheetDirty());
     },
     getRollProfile,
     spendDetermination,
