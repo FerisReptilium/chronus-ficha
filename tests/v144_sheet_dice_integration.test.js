@@ -107,6 +107,9 @@ assert(sheetSource.includes("event.key.startsWith(CLOUD_CONFLICT_KEY"), 'conflic
 assert(sheetSource.includes('sessionStorage.getItem(baseKey)'), 'dirty local drafts must retain their per-tab base version across reloads');
 assert(sheetSource.includes('localBaseVersion !== cloudVersion'), 'bootstrap must block drafts based on an older remote version');
 assert(sheetSource.includes('getStorageKey(ownerId)'), 'loadState must restore the active account cache');
+assert(sheetSource.includes('const legacyRaw = ownerId ? null'), 'loadState must not fall back to a global legacy cache when an account owner is already known');
+assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
+assert(sheetSource.includes('migratedLegacyCache || (scopedData && localOwner !== userId)'), 'a newly migrated legacy cache must trigger controlled rehydration before rendering');
 assert(sheetSource.includes('cfg.getStorageKey(userId)'), 'remote snapshots must persist to the account-scoped cache');
 assert(sheetSource.includes('cfg.getDirtyKey(userId)'), 'remote dirty flags must be account-scoped');
 assert(sheetSource.includes('cfg.getSyncedKey(userId)'), 'remote sync timestamps must be account-scoped');
