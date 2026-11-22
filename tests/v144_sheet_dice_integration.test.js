@@ -130,7 +130,9 @@ assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache mi
 assert(sheetSource.includes('(cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])'), 'all supported legacy sheet versions must be migrated into the account cache');
 assert(sheetSource.includes("localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true"), 'unowned legacy drafts must remain dirty until the server confirms their adoption');
 assert(sheetSource.includes('if (accountChanged) {') && sheetSource.includes('const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));'), 'account changes must replace in-memory state with only the authenticated account cache');
-assert(sheetSource.includes('const hasPriorLocalState = Boolean(localOwner || scopedData || migratedLegacyCache || migratedLegacyPortrait)'), 'first-time accounts without prior local data must avoid an unnecessary reload');
+const migrationSource = sheetSource.slice(sheetSource.indexOf('async function migrateLegacyStorageForUser'), sheetSource.indexOf('// pushStateToCloud com retorno explícito'));
+assert(migrationSource.includes('const accountChanged = Boolean(') && migrationSource.includes('(!localOwner && !activeSessionUser && scopedData)'), 'first-time accounts must be distinguished from sessions with a prior scoped cache');
+assert(!migrationSource.includes('location.reload') && migrationSource.includes('return false;'), 'account cache migration must not trigger an intermediate reload');
 assert(sheetSource.includes('cfg.getStorageKey(userId)'), 'remote snapshots must persist to the account-scoped cache');
 assert(sheetSource.includes('cfg.getDirtyKey(userId)'), 'remote dirty flags must be account-scoped');
 assert(sheetSource.includes('cfg.getSyncedKey(userId)'), 'remote sync timestamps must be account-scoped');
