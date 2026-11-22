@@ -197,3 +197,7 @@ assert(sheetSource.includes("if (isNarratorView && !activeSessionUser)"), 'first
 assert(sheetSource.includes("const illumination = String(s.illumination || 'd4').toLowerCase()"), 'legacy or malformed Illumination values must normalize before Mana maximum calculation');
 assert(sheetSource.includes("const hasValidResourceValue = value => ("), 'malformed null or blank resource values must use derived defaults instead of silently becoming zero');
 assert(sheetSource.includes('Math.floor(Number(s.resources.determination))') && sheetSource.includes('Math.floor(Number(s.resources.mana))') && sheetSource.includes('Math.floor(Number(s.resources.wounds))'), 'resource counters must normalize persisted values to whole numbers');
+assert(sheetSource.includes("if (!s || typeof s !== 'object' || Array.isArray(s)) s = clone(defaultState);"), 'invalid root sheet payloads must normalize to a safe default shape');
+assert(sheetSource.includes("if (!s.lists || typeof s.lists !== 'object' || Array.isArray(s.lists)) s.lists = clone(defaultState.lists);"), 'malformed list containers must not crash the sheet renderer');
+assert(sheetSource.includes("s.lists.equipment.slice(0,4).map(item => ({"), 'malformed equipment rows must normalize before rendering');
+assert(sheetSource.includes("s.page2.formulas = s.page2.formulas.slice(0,12).map(value => String(value ?? ''));"), 'page two collections must normalize to bounded string arrays');
