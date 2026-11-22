@@ -108,6 +108,64 @@ VALUES
 ('00000000-0000-0000-0000-000000000201','Personagem do Jogador CI','{"test":true}'::jsonb),
 ('00000000-0000-0000-0000-000000000203','Personagem de Outro Jogador CI','{"test":true}'::jsonb);
 
+-- CAS regression uses separate autocommit statements, matching independent
+-- HTTP requests from two tabs. now() is transaction-stable, so two writes
+-- inside one DO/BEGIN block would intentionally share the same timestamp.
+SET ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000201"}',
+  false
+);
+SELECT id AS cas_character_id, updated_at AS cas_expected_version
+FROM public.characters
+WHERE user_id='00000000-0000-0000-0000-000000000201'
+ORDER BY updated_at DESC
+LIMIT 1
+\gset
+
+WITH accepted_write AS (
+  UPDATE public.characters
+     SET name='Versão mais recente confirmada'
+   WHERE id=:'cas_character_id'::uuid
+     AND user_id='00000000-0000-0000-0000-000000000201'
+     AND updated_at=:'cas_expected_version'::timestamptz
+  RETURNING id
+)
+SELECT CASE WHEN (SELECT count(*) FROM accepted_write)=1 THEN 1 ELSE 1/0 END
+  AS cas_first_write_must_succeed;
+
+SELECT updated_at AS cas_new_version
+FROM public.characters
+WHERE id=:'cas_character_id'::uuid
+\gset
+
+SELECT CASE
+  WHEN :'cas_new_version'::timestamptz <> :'cas_expected_version'::timestamptz THEN 1
+  ELSE 1/0
+END AS cas_version_must_advance;
+
+WITH stale_write AS (
+  UPDATE public.characters
+     SET name='Escrita obsoleta não pode vencer'
+   WHERE id=:'cas_character_id'::uuid
+     AND user_id='00000000-0000-0000-0000-000000000201'
+     AND updated_at=:'cas_expected_version'::timestamptz
+  RETURNING id
+)
+SELECT CASE WHEN (SELECT count(*) FROM stale_write)=0 THEN 1 ELSE 1/0 END
+  AS cas_stale_write_must_be_rejected;
+
+SELECT CASE
+  WHEN name='Versão mais recente confirmada' THEN 1
+  ELSE 1/0
+END AS cas_newer_state_must_be_preserved
+FROM public.characters
+WHERE id=:'cas_character_id'::uuid;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claims','',false);
+
 -- PLAYER: sees own profile/sheet; cannot see other users' rows or change roles.
 BEGIN;
 SET LOCAL ROLE authenticated;
@@ -122,9 +180,6 @@ DECLARE
   v_count integer;
   v_rows integer;
   v_blocked boolean := false;
-  v_character_id uuid;
-  v_version timestamptz;
-  v_new_version timestamptz;
 BEGIN
   SELECT count(*) INTO v_count FROM public.profiles;
   IF v_count <> 1 THEN
@@ -142,46 +197,6 @@ BEGIN
     'Novo Personagem do Jogador CI',
     '{"created_by":"owner"}'::jsonb
   );
-
-  -- Simulate two tabs editing the same snapshot: the first CAS succeeds,
-  -- then the stale writer must update zero rows and preserve the newer value.
-  SELECT id, updated_at INTO v_character_id, v_version
-  FROM public.characters
-  WHERE user_id='00000000-0000-0000-0000-000000000201'
-    AND name='Novo Personagem do Jogador CI'
-  ORDER BY created_at DESC
-  LIMIT 1;
-
-  UPDATE public.characters
-     SET name='Versão mais recente confirmada'
-   WHERE id=v_character_id
-     AND user_id='00000000-0000-0000-0000-000000000201'
-     AND updated_at=v_version;
-  GET DIAGNOSTICS v_rows = ROW_COUNT;
-  IF v_rows <> 1 THEN
-    RAISE EXCEPTION 'First compare-and-swap write should succeed; rows=%', v_rows;
-  END IF;
-
-  SELECT updated_at INTO v_new_version
-  FROM public.characters WHERE id=v_character_id;
-  IF v_new_version IS NOT DISTINCT FROM v_version THEN
-    RAISE EXCEPTION 'Character updated_at trigger did not advance the concurrency token';
-  END IF;
-
-  UPDATE public.characters
-     SET name='Escrita obsoleta não pode vencer'
-   WHERE id=v_character_id
-     AND user_id='00000000-0000-0000-0000-000000000201'
-     AND updated_at=v_version;
-  GET DIAGNOSTICS v_rows = ROW_COUNT;
-  IF v_rows <> 0 THEN
-    RAISE EXCEPTION 'Stale compare-and-swap write unexpectedly changed % rows', v_rows;
-  END IF;
-
-  IF (SELECT name FROM public.characters WHERE id=v_character_id)
-       <> 'Versão mais recente confirmada' THEN
-    RAISE EXCEPTION 'Stale writer overwrote the newer character state';
-  END IF;
 
   BEGIN
     INSERT INTO public.characters (user_id,name,data)
