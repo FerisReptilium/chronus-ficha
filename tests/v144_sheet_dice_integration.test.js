@@ -7,7 +7,7 @@ const { webcrypto } = require('crypto');
 
 const diceSource = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const sheetSource = fs.readFileSync('js/modules/sheet_engine.js', 'utf8');
-const revisionMigration = fs.readFileSync('supabase/migrations/20261122000000_character_revision_cas.sql', 'utf8');
+const revisionMigration = fs.readFileSync('supabase/migrations/20261122165137_character_revision_cas.sql', 'utf8');
 const authSource = fs.readFileSync('js/services/auth.js', 'utf8');
 const routerSource = fs.readFileSync('js/router.js', 'utf8');
 const css = fs.readFileSync('css/dice-roller-v135.css', 'utf8');
