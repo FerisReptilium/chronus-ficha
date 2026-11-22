@@ -1400,10 +1400,13 @@ window.ChronusSheetEngine = (function() {
           await bootstrapCloudForUser(user);
         }
       } else {
-        const hadAuthenticatedCache = window.ChronusAuth?.isInitialized?.() === true && Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY));
-        sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);
-        sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY);
-        sessionStorage.removeItem(NARRATOR_VIEW_META_KEY);
+        const authResolved = window.ChronusAuth?.isInitialized?.() === true;
+        const hadAuthenticatedCache = authResolved && Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY));
+        if (authResolved) {
+          sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);
+          sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY);
+          sessionStorage.removeItem(NARRATOR_VIEW_META_KEY);
+        }
         cloudUser = null;
         cloudCharacterId = null;
         cloudVersion = null;
