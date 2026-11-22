@@ -313,8 +313,13 @@ CREATE POLICY characters_delete_own
   TO authenticated
   USING ((SELECT auth.uid()) = user_id);
 
--- Profiles are read-only to application users. Role changes are administrative.
+-- Supabase projects may have broad default privileges on public tables.
+-- Explicitly revoke them: clients may read profiles but must never create,
+-- edit, delete, truncate, or reassign roles. The Auth trigger writes via its
+-- SECURITY DEFINER owner context; administrators operate as trusted DB roles.
+REVOKE ALL PRIVILEGES ON TABLE public.profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.profiles TO authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.characters TO authenticated;
 
 -- ----------------------------------------------------------------------------
