@@ -109,23 +109,27 @@ window.ChronusSheetEngine = (function() {
     const initialDetermination = Math.min(dieValue(s.attributes.Perseverança), dieValue(s.attributes.Vontade));
     const initialMana = ({d4:10,d6:15,d8:25,d10:40,d12:60})[s.illumination];
     const initialWounds = 5 + dieValue(s.attributes.Vigor);
-    if (!s.resources || typeof s.resources !== 'object') s.resources = {};
-    if (!Number.isFinite(Number(s.resources.determination))) {
+    if (!s.resources || typeof s.resources !== 'object' || Array.isArray(s.resources)) s.resources = {};
+    const hasValidResourceValue = value => (
+      (typeof value === 'number' && Number.isFinite(value)) ||
+      (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)))
+    );
+    if (!hasValidResourceValue(s.resources.determination)) {
       const hasLegacy = [0,1,2].some(i => Object.prototype.hasOwnProperty.call(s.markers, `determination.${i}`));
       const legacy = [0,1,2].filter(i => s.markers[`determination.${i}`] === 'filled').length;
       s.resources.determination = hasLegacy ? (legacy === 3 ? initialDetermination : legacy) : initialDetermination;
     }
-    if (!Number.isFinite(Number(s.resources.mana))) {
+    if (!hasValidResourceValue(s.resources.mana)) {
       const manaKeys = Object.keys(s.markers).filter(key => /^mana\.\d+$/.test(key));
       const legacy = manaKeys.filter(key => s.markers[key] === 'filled').length;
       s.resources.mana = manaKeys.length ? (legacy === manaKeys.length ? initialMana : legacy) : initialMana;
     }
-    if (!Number.isFinite(Number(s.resources.wounds))) {
+    if (!hasValidResourceValue(s.resources.wounds)) {
       s.resources.wounds = Object.keys(s.markers).filter(key => key.startsWith('wounds.') && s.markers[key] !== 'empty').length;
     }
-    s.resources.determination = Math.max(0, Math.min(initialDetermination, Number(s.resources.determination)));
-    s.resources.mana = Math.max(0, Math.min(initialMana, Number(s.resources.mana)));
-    s.resources.wounds = Math.max(0, Math.min(initialWounds, Number(s.resources.wounds)));
+    s.resources.determination = Math.max(0, Math.min(initialDetermination, Math.floor(Number(s.resources.determination))));
+    s.resources.mana = Math.max(0, Math.min(initialMana, Math.floor(Number(s.resources.mana))));
+    s.resources.wounds = Math.max(0, Math.min(initialWounds, Math.floor(Number(s.resources.wounds))));
     s.resources.max = { determination: initialDetermination, mana: initialMana, wounds: initialWounds };
     Object.entries(s.markers).forEach(([key,value]) => {
       if (key.startsWith('wounds.')) {
