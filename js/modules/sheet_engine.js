@@ -759,18 +759,41 @@ window.ChronusSheetEngine = (function() {
     }
   }
 
+  function stableSerialize(value) {
+    if (Array.isArray(value)) return '[' + value.map(stableSerialize).join(',') + ']';
+    if (value && typeof value === 'object') {
+      return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableSerialize(value[key])).join(',') + '}';
+    }
+    return JSON.stringify(value);
+  }
+
   function statesEqual(a,b) {
-    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+    try { return stableSerialize(a) === stableSerialize(b); } catch { return false; }
   }
 
   async function applyRemoteAndReload(remoteData, userId, characterId, updatedAt) {
     const merged = normalizeState(mergeDeep(clone(defaultState), remoteData || {}));
+    const snapshot = updatedAt || stableSerialize(merged);
+    const appliedKey = `chronus.cloud.applied.${userId}.${characterId}`;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     localStorage.setItem(CLOUD_USER_KEY, userId);
     localStorage.setItem(CLOUD_CHARACTER_KEY, characterId);
     localStorage.setItem(CLOUD_DIRTY_KEY, '0');
     localStorage.setItem(CLOUD_SYNCED_KEY, updatedAt || new Date().toISOString());
+
+    // Uma mesma versão remota pode exigir reidratação uma vez. Se a normalização
+    // produzir diferenças não relevantes após o reload, não entre em ciclo infinito.
+    if (sessionStorage.getItem(appliedKey) === snapshot) {
+      cloudUser = { id: userId };
+      cloudCharacterId = characterId;
+      cloudReady = true;
+      setSaveStatus('Salvo na nuvem ✓', 'cloud');
+      return false;
+    }
+
+    sessionStorage.setItem(appliedKey, snapshot);
     location.reload();
+    return true;
   }
 
   async function bootstrapCloudForUser(user) {
