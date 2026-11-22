@@ -134,7 +134,7 @@ assert(sheetSource.includes('getStorageKey(ownerId)'), 'loadState must restore t
 assert(sheetSource.includes('function portraitStorageKey(userId=portraitOwnerId())'), 'portrait IndexedDB keys must be scoped to the active account');
 assert(sheetSource.includes('function portraitFallbackKey(userId=portraitOwnerId())'), 'portrait localStorage fallback must be scoped to the active account');
 assert(sheetSource.includes("if(!userId && !localStorage.getItem(CLOUD_USER_KEY))"), 'logged-out visitors must not load a previous account legacy portrait');
-assert(sheetSource.includes('const anonymousPortrait = !localOwner && !legacyPortraitDeleted ? await dbGet(portraitStorageKey(null))') && sheetSource.includes('const anonymousFallback = !localOwner && !legacyPortraitDeleted ? localStorage.getItem(portraitFallbackKey(null))'), 'anonymous portraits and fallbacks must migrate only to the first authenticated owner and never after an explicit deletion');
+assert(sheetSource.includes('const anonymousPortrait = !localOwner && !legacyPortraitDeleted ? await dbGet(portraitStorageKey(null))') && sheetSource.includes('const anonymousFallback = !localOwner && !legacyPortraitDeleted ? safeLocalStorageGet(portraitFallbackKey(null))'), 'anonymous portraits and fallbacks must migrate only to the first authenticated owner and never after an explicit deletion');
 assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbackKey(userId))'), 'portrait fallback must load even when IndexedDB is available but has no scoped record');
 assert(sheetSource.includes("if(!userId && !localStorage.getItem(CLOUD_USER_KEY))"), 'legacy portrait must never leak into a browser already associated with an account');
 assert(sheetSource.includes("dbGet('portrait')"), 'legacy portrait may only be read through the explicit migration path');
@@ -226,5 +226,5 @@ assert(sheetSource.includes('function portraitTombstoneKey(userId=portraitOwnerI
 assert(sheetSource.includes("localStorage.getItem(portraitTombstoneKey(userId))==='1'"), 'portrait reads must honor deletion tombstones before IndexedDB fallback');
 assert(sheetSource.includes('const localPortraitClearOk = await clearPortrait()'), 'reset must verify local portrait deletion as well as remote deletion');
 assert(sheetSource.includes("if(localStorage.getItem(portraitTombstoneKey('legacy'))==='1')"), 'legacy portrait deletion tombstones must suppress old global IndexedDB records');
-assert(sheetSource.includes("localStorage.setItem(portraitTombstoneKey('legacy'), '1')"), 'migrated legacy portraits must no longer be visible through anonymous storage');
-assert(sheetSource.includes("if (!localOwner) localStorage.setItem(cfg.getPortraitDirtyKey(userId), '1')"), 'unowned legacy portraits must be uploaded to the first authenticated account instead of being silently overwritten');
+assert(sheetSource.includes("safeLocalStorageSet(portraitTombstoneKey('legacy'), '1')"), 'migrated legacy portraits must no longer be visible through anonymous storage');
+assert(sheetSource.includes("if (!localOwner) safeLocalStorageSet(cfg.getPortraitDirtyKey(userId), '1')"), 'unowned legacy portraits must be uploaded to the first authenticated account instead of being silently overwritten');
