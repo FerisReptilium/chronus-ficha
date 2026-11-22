@@ -734,7 +734,8 @@ window.ChronusSheetEngine = (function() {
   function sheetBackupKey(userId) { return `sheet.state.${userId || 'anonymous'}`; }
   function sheetBackupTimestampKey(userId) { return `chronus.sheet.backup.timestamp.${userId || 'anonymous'}`; }
   function currentStorageOwner() {
-    return cloudUser?.id || sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null;
+    try { return cloudUser?.id || sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null; }
+    catch { return cloudUser?.id || null; }
   }
   function markSheetDirty(userId=currentStorageOwner(), dirty=true) {
     const owner = userId || 'anonymous';
@@ -782,10 +783,9 @@ window.ChronusSheetEngine = (function() {
   }
   async function restoreInitialSheetBackup() {
     let userId = null;
-    try {
-      userId = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null;
-      if (!userId && localStorage.getItem(CLOUD_USER_KEY)) return false;
-    } catch { return false; }
+    try { userId = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null; }
+    catch { userId = null; }
+    if (!userId && safeLocalStorageGet(CLOUD_USER_KEY)) return false;
     const record = await readSheetBackup(userId).catch(() => null);
     if (!record) return false;
     let localSavedAt = 0;
