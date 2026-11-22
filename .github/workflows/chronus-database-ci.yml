@@ -119,6 +119,14 @@ jobs:
           set +a
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/v12_local_supabase_e2e.sql
 
+      - name: Run real Auth multi-session isolation and concurrent CAS integration
+        run: |
+          set -euo pipefail
+          set -a
+          source supabase-local.env
+          set +a
+          node tests/v146_auth_sync_integration.test.js
+
       - name: Verify live roll feed RLS and Realtime integration
         run: |
           set -euo pipefail
