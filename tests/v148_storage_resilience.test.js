@@ -112,26 +112,28 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     vm.runInContext('persistLocalState(true)', h.sandbox);
     await h.sandbox.window.__chronusSheetBackupWrite;
 
-    const restoreSource = section(
-      '  async function restoreInitialSheetBackup() {',
-      '\n  function portraitOwnerId()',
-      'initial backup recovery'
-    );
-    // Reuse the exact production restore function with a fresh in-memory state.
+    // Reuse the exact production helper block with a fresh in-memory state.
     const restoreContext = {
-      ...h.sandbox,
       state: { identity: {}, notes: 'stale-default' },
+      defaultState: { identity: {}, notes: '' },
+      STORAGE_KEY: 'chronus.sheet.v4',
+      CLOUD_DIRTY_KEY: 'chronus.cloud.dirty.v1',
+      CLOUD_USER_KEY: 'chronus.cloud.user.v1',
+      ACTIVE_USER_SESSION_KEY: 'chronus.session.user',
+      cloudUser: { id: 'user-A' },
+      window: { CHRONUS_CONFIG: { getDirtyKey: id => 'chronus.dirty.user.' + id } },
       localStorage: { getItem: key => h.values.get(key) ?? null, setItem: (key, value) => h.values.set(key, String(value)) },
       sessionStorage: { getItem: () => 'user-A' },
-      window: h.sandbox.window,
-      sheetBackupDirtyUsers: new Set(),
-      normalizeState: value => value,
+      dbPut: async (value, key) => h.records.set(key, structuredClone(value)),
+      dbGet: async key => h.records.has(key) ? structuredClone(h.records.get(key)) : null,
+      clone: value => JSON.parse(JSON.stringify(value)),
       mergeDeep: (base, extra) => ({ ...base, ...extra }),
-      clone: value => JSON.parse(JSON.stringify(value))
+      normalizeState: value => value,
+      console: { warn: () => {}, error: () => {} },
+      Date, Promise, Set, JSON, structuredClone
     };
     vm.createContext(restoreContext);
     vm.runInContext(backupHelpers, restoreContext);
-    vm.runInContext(restoreSource, restoreContext);
     assert.equal(await vm.runInContext('restoreInitialSheetBackup()', restoreContext), true);
     assert.equal(restoreContext.state.notes, 'latest-before-reload', 'reload must restore the newest account backup');
     assert.ok(restoreContext.sheetBackupDirtyUsers.has('user-A'), 'recovered unsynced data must remain marked dirty');
@@ -142,7 +144,6 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     const h = createHarness({ quota: true, userId: 'user-A' });
     vm.runInContext('persistLocalState(true)', h.sandbox);
     await h.sandbox.window.__chronusSheetBackupWrite;
-    assert.equal(await h.sandbox.sandboxReadBackup?.('user-B'), null);
     const other = await h.sandbox.dbGet('sheet.state.user-B');
     assert.equal(other, null, 'another account must not read the first account backup');
   }
