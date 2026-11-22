@@ -167,7 +167,7 @@ assert(sheetSource.includes('setAccountHydrationPending(true)') && sheetSource.i
 assert(routerSource.includes("cleanHash === '#/sheet' && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === true"), 'router must not render a previous account sheet during rehydration');
 
 assert(sheetSource.includes("const syncResult = await pushStateToCloudConfirmed()"), 'reset must verify cloud confirmation instead of trusting an automatic save');
-assert(sheetSource.includes("if(!cloudSyncOk || !portraitSyncOk)"), 'reset must report partial cloud deletion without claiming full success');
+assert(sheetSource.includes("if(!localPortraitClearOk || !cloudSyncOk || !portraitSyncOk)"), 'reset must report partial local or cloud deletion without claiming full success');
 assert(sheetSource.includes("localStorage.setItem(getScopedKey('portraitDirty'),'1')"), 'failed portrait deletion must remain pending for retry');
 assert(sheetSource.includes('else await deletePortraitFromCloud();'), 'bootstrap must retry a pending portrait deletion when no local portrait remains');
 assert(routerSource.includes("'#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS', authRequired: true }"), 'private character sheet route must require an authenticated user');
