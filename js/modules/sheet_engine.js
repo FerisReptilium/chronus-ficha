@@ -15,9 +15,6 @@ window.ChronusSheetEngine = (function() {
   const STORAGE_KEY = 'chronus.sheet.v4';
   const LEGACY_KEYS = ['chronus.sheet.v3', 'chronus.sheet.v2', 'chronus.sheet.v1'];
 
-  // Supabase — chave publicável (segura para uso no navegador com RLS habilitado)
-  const SUPABASE_URL = 'https://phxqtkdumgwacrqsflqe.supabase.co';
-  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nl4ksY4d4ZFWENQ1_93wQQ_MXHih6uK';
   const CLOUD_USER_KEY = 'chronus.cloud.user.v1';
   const CLOUD_CHARACTER_KEY = 'chronus.cloud.character.v1';
   const CLOUD_DIRTY_KEY = 'chronus.cloud.dirty.v1';
