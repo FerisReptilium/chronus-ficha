@@ -914,7 +914,7 @@ window.ChronusSheetEngine = (function() {
         localStorage.setItem(getScopedKey('characterId'), row.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
-        if (localOwner && localOwner !== user.id && !cloudConflict) {
+        if (localOwner && localOwner !== user.id && !dirty) {
           await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
           return;
         }
