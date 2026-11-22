@@ -169,7 +169,11 @@ async function inspect(page) {
       fixedOverlayCollisions,
       brokenImages: [...root.querySelectorAll('img[src]')]
         .filter(image => !image.complete || image.naturalWidth === 0)
-        .map(image => image.getAttribute('src'))
+        .map(image => image.getAttribute('src')),
+      navigationTrace: (() => {
+        try { return JSON.parse(sessionStorage.getItem('__chronus_v143_navigation_trace') || '[]'); }
+        catch (_) { return []; }
+      })()
     };
   });
 }
@@ -321,6 +325,11 @@ async function runMode(browser, mode, viewport) {
   if (state.horizontalOverflow || state.boxesOutsideViewport.length) throw new Error(`${mode}: horizontal layout regression`);
   if (state.fixedOverlayCollisions.length) throw new Error(`${mode}: global controls overlap dashboard content: ${state.fixedOverlayCollisions.join(', ')}`);
   if (state.brokenImages.length) throw new Error(`${mode}: broken dashboard images`);
+  const documentStarts = state.navigationTrace.filter(entry => entry.phase === 'document-start').length;
+  const beforeUnloads = state.navigationTrace.filter(entry => entry.phase === 'beforeunload').length;
+  if (documentStarts > 2 || beforeUnloads > 1) {
+    throw new Error(`${mode}: cloud bootstrap repeated document reloads (${documentStarts} document starts, ${beforeUnloads} unloads); trace=${JSON.stringify(state.navigationTrace)}`);
+  }
   if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected: ${JSON.stringify(errors)}`);
 
   await context.close();
