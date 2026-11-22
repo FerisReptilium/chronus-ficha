@@ -137,7 +137,7 @@ assert(sheetSource.includes('localOwner && localOwner !== user.id && !dirty'), '
 assert(sheetSource.includes('const fresh=normalizeState(clone(defaultState))'), 'reset must initialize calculated resource state');
 
 assert(sheetSource.includes("sessionStorage.getItem(ACTIVE_USER_SESSION_KEY)"), 'private sheet cache must require an authenticated tab session');
-assert(sheetSource.includes("window.ChronusAuth?.isInitialized?.() === true && Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY))"), 'initial null auth callback must not clear a valid session before getSession resolves');
+assert(sheetSource.includes("const authResolved = window.ChronusAuth?.isInitialized?.() === true;") && sheetSource.includes('if (authResolved) {\n          sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);'), 'initial null auth callback must not clear a valid session before getSession resolves');
 assert(sheetSource.includes("sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY)"), 'sign-out must revoke access to the account-scoped cache in this tab');
 assert(authSource.includes('function isInitialized() { return authInitialized; }'), 'auth service must expose a reliable initialization boundary');
 
