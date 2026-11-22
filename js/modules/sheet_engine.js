@@ -645,13 +645,34 @@ window.ChronusSheetEngine = (function() {
   function portraitOwnerId(){return cloudUser?.id || sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null;}
   function portraitStorageKey(userId=portraitOwnerId()){return userId ? `portrait.${userId}` : 'portrait.anonymous';}
   function portraitFallbackKey(userId=portraitOwnerId()){return userId ? `chronus.portrait.fallback.${userId}` : 'chronus.portrait.fallback.anonymous';}
+  function portraitTombstoneKey(userId=portraitOwnerId()){return `chronus.portrait.deleted.${userId || 'anonymous'}`;}
   async function dbPut(blob,key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   async function dbGet(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error);});}
   async function dbDelete(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   function blobToDataUrl(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});}
   async function dataUrlToBlob(dataUrl){const response=await fetch(dataUrl);if(!response.ok)throw new Error('Falha ao converter retrato local');return response.blob();}
-  async function savePortrait(blob,userId=portraitOwnerId()){const fallbackKey=portraitFallbackKey(userId);try{await dbPut(blob,portraitStorageKey(userId));localStorage.removeItem(fallbackKey);}catch{try{localStorage.setItem(fallbackKey,await blobToDataUrl(blob));}catch{}}}
+  async function savePortrait(blob,userId=portraitOwnerId()){
+    const fallbackKey=portraitFallbackKey(userId);
+    try {
+      await dbPut(blob,portraitStorageKey(userId));
+      try { localStorage.removeItem(fallbackKey); }
+      catch { localStorage.setItem(fallbackKey,await blobToDataUrl(blob)); }
+      localStorage.removeItem(portraitTombstoneKey(userId));
+      return true;
+    } catch {
+      try {
+        localStorage.setItem(fallbackKey,await blobToDataUrl(blob));
+        localStorage.removeItem(portraitTombstoneKey(userId));
+        return true;
+      } catch { return false; }
+    }
+  }
   async function loadPortrait(userId=portraitOwnerId()){
+    if(localStorage.getItem(portraitTombstoneKey(userId))==='1'){
+      await dbDelete(portraitStorageKey(userId)).catch(()=>{});
+      localStorage.removeItem(portraitFallbackKey(userId));
+      return null;
+    }
     const fallback=localStorage.getItem(portraitFallbackKey(userId));
     if(fallback){
       try{return await dataUrlToBlob(fallback);}catch{return fallback;}
@@ -665,7 +686,13 @@ window.ChronusSheetEngine = (function() {
     }
     return null;
   }
-  async function clearPortrait(userId=portraitOwnerId()){try{await dbDelete(portraitStorageKey(userId));}catch{}localStorage.removeItem(portraitFallbackKey(userId));if(!userId)localStorage.removeItem('chronus.portrait.fallback');}
+  async function clearPortrait(userId=portraitOwnerId()){
+    localStorage.setItem(portraitTombstoneKey(userId),'1');
+    localStorage.removeItem(portraitFallbackKey(userId));
+    if(!userId)localStorage.removeItem('chronus.portrait.fallback');
+    try { await dbDelete(portraitStorageKey(userId)); return true; }
+    catch { return false; }
+  }
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
     let objectUrl='';
