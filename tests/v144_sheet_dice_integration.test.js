@@ -24,6 +24,15 @@ for (const api of ['getRollProfile', 'spendDetermination', 'dischargeParadox']) 
   assert(sheetSource.includes(api), `sheet resource API missing: ${api}`);
 }
 
+assert(sheetSource.includes("['d4','d6','d8','d10','d12']"), 'attributes must support d12');
+assert(sheetSource.includes("determination: Math.min(sides('Perseverança'), sides('Vontade'))"), 'Determination maximum must use the lower Perseverance/Will die');
+assert(sheetSource.includes("wounds: 5 + sides('Vigor')"), 'Wounds maximum must be 5 plus Vigor die');
+assert(sheetSource.includes("d4:10,d6:15,d8:25,d10:40,d12:60"), 'Mana maximum must follow the Illumination table');
+assert(sheetSource.includes(".filter(attribute => [4, 6, 8, 10, 12].includes(attribute.sides))"), 'd12 attributes must reach the dice roller');
+assert(sheetSource.includes("renderResourceCounter(host, 'determination'"), 'Determination must use a dynamic counter');
+assert(sheetSource.includes("renderResourceCounter(host, 'mana'"), 'Mana must use a dynamic counter');
+assert(sheetSource.includes("renderResourceCounter(host, 'wounds'"), 'Wounds must use a dynamic counter');
+assert(sheetSource.includes('updateResourceCounters();'), 'resource counters must refresh after derived maxima change');
 assert(sheetSource.includes("state.markers[`determination.${spentIndex}`] = 'empty'"), 'Determination must be consumed in the sheet state');
 assert(sheetSource.includes('state.paradox = next'), 'Paradox discharge must update the sheet state');
 assert(sheetSource.includes("new CustomEvent('chronus:sheet-updated')"), 'sheet changes must notify the roller');
