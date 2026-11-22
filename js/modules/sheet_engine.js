@@ -1290,6 +1290,7 @@ window.ChronusSheetEngine = (function() {
     if (localOwner !== userId || activeSessionUser !== userId || migratedLegacyCache || migratedLegacyPortrait) {
       localStorage.setItem(CLOUD_USER_KEY, userId);
       sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+      window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true;
       return true;
     }
     return false;
