@@ -74,27 +74,21 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- Persist two valid rows using the database owner to seed cross-role visibility fixtures.
+-- Player B creates a second event through their own authenticated session.
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000302"}',true);
 INSERT INTO public.chronus_roll_events (
-  id, player_user_id, character_name, action_label, roll_mode, dice,
-  difficulty, highest_result, margin, outcome, narrative_authority,
+  character_name, action_label, roll_mode, dice, difficulty,
+  highest_result, margin, outcome, narrative_authority,
   acts_awarded, condition_awarded
 )
-VALUES
-(
-  '40000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000301',
-  'Personagem A','Ação A','Teste guiado',
-  '[{"sides":8,"value":7,"determination":false}]'::jsonb,
-  6,7,1,'success','player',0,false
-),
-(
-  '40000000-0000-0000-0000-000000000002',
-  '00000000-0000-0000-0000-000000000302',
+VALUES (
   'Personagem B','Ação B','Rolagem rápida',
   '[{"sides":6,"value":6,"determination":false}]'::jsonb,
   6,6,0,'partial_success','shared',0,false
 );
+COMMIT;
 
 -- Player A sees only their own event and cannot create a narrator-owned event.
 BEGIN;
