@@ -148,7 +148,9 @@ assert(sheetSource.includes('if (cloudSaving) {\n      return { ok: false'), 'lo
 assert(sheetSource.includes("window.addEventListener('offline'"), 'offline transition must expose the local-save state');
 assert(sheetSource.includes("window.addEventListener('online'"), 'online transition must resume pending cloud synchronization');
 assert(sheetSource.includes("localStorage.getItem(getScopedKey('dirty')) === '1'"), 'reconnect must retry only when a local sheet write is pending');
-assert(sheetSource.includes("if (!cloudReady || !cloudUser || !cloudCharacterId || cloudConflict) return;"), 'reconnect must never bypass initialization or an unresolved revision conflict');
+assert(sheetSource.includes('if (!cloudUser) return;') && sheetSource.includes('if (!cloudReady) {'), 'reconnect must require an authenticated user and retry interrupted cloud bootstrap');
+assert(sheetSource.includes('cloudCharacterId && !cloudConflict'), 'sheet retry must remain blocked while CAS conflict is unresolved');
+assert(sheetSource.includes('void syncPendingPortrait()'), 'portrait retry must remain independent from sheet CAS conflict');
 assert(sheetSource.includes('Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === \'1\')'), 'dirty detection must include pending debounce timers and in-flight saves');
 assert(sheetSource.includes('const legacyRaw = (!knownOwner && !ownerId)'), 'logged-out or switched accounts must not fall back to a previous account legacy cache');
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
