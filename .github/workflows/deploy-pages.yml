@@ -1,0 +1,69 @@
+name: CHRONUS — Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: chronus-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and package static portal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate public portal entry points
+        run: |
+          set -euo pipefail
+          test -s index.html
+          test -d css
+          test -d js
+          test -d assets
+          test -s js/config.js
+          test -s js/app.js
+          echo "CHRONUS static portal structure: PASS"
+
+      - name: Stage public website only
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html _site/
+          cp -R css js assets _site/
+          if [ -f CNAME ]; then cp CNAME _site/; fi
+          test -s _site/index.html
+          test -s _site/js/config.js
+          test -s _site/js/app.js
+          echo "Staged public files:"
+          find _site -maxdepth 2 -type f | sort | head -n 100
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Publish CHRONUS portal
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
