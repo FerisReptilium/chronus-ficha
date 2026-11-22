@@ -13,10 +13,13 @@ const css = read('css/dice-roller-v135.css');
 assert(app.includes("loadScriptOnce('js/modules/dice_roller_v135.js')"), 'dice roller module must load from bootstrap');
 assert(source.includes('const DIE_SIDES = [4, 6, 8, 10, 12]'), 'approved CHRONUS dice set missing');
 assert(source.includes('window.crypto.getRandomValues'), 'roller must use Web Crypto randomness');
-assert(source.includes("label: 'Sucesso'"), 'positive margin result missing');
-assert(source.includes("label: 'Sucesso com Complicação'"), 'zero margin result missing');
-assert(source.includes("label: 'Falha ou Complicação'"), 'negative margin result missing');
-assert(!/crítico|critico|falha crítica|falha critica/i.test(source), 'manual does not define critical results');
+const narrativeRules = read('js/rules/narrative_resolution.js');
+assert(app.includes("loadScriptOnce('js/rules/narrative_resolution.js')"), 'canonical narrative rules must load before the roller');
+assert(app.includes("loadScriptOnce('js/services/narrative_live.js')"), 'live synchronization service must load from bootstrap');
+assert(narrativeRules.includes("exceptional_success"), 'exceptional success outcome missing');
+assert(narrativeRules.includes("partial_success"), 'partial success outcome missing');
+assert(narrativeRules.includes("critical_failure"), 'critical failure outcome missing');
+assert(source.includes("Narrador não realiza rolagens"), 'Narrator must be blocked from the dice roller');
 assert(source.includes("' + 1d12'"), 'Determination d12 expression missing');
 assert(source.includes('Math.min(3, paradox - 10)'), 'Paradox 13+ must cap at 3d12');
 assert(source.includes('value >= pool.difficulty'), 'Paradox must count every die meeting difficulty');
@@ -33,21 +36,28 @@ for (const marker of ['chronus-dice-drop', 'prefers-reduced-motion: reduce', '@m
 
 const context = { window: { crypto: webcrypto } };
 vm.createContext(context);
+vm.runInContext(narrativeRules, context);
 vm.runInContext(source, context);
 const engine = context.window.ChronusDiceRollerV135.engine;
 
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(engine.evaluateStandard([3, 6, 8], 6))),
-  { best: 8, margin: 2, key: 'success', label: 'Sucesso' }
-);
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(engine.evaluateStandard([2, 4, 6], 6))),
-  { best: 6, margin: 0, key: 'complication', label: 'Sucesso com Complicação' }
-);
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(engine.evaluateStandard([1, 3, 5], 6))),
-  { best: 5, margin: -1, key: 'failure', label: 'Falha ou Complicação' }
-);
+const success = engine.evaluateStandard([3, 6, 8], 6);
+assert.strictEqual(success.best, 8);
+assert.strictEqual(success.margin, 2);
+assert.strictEqual(success.outcome, 'success');
+assert.strictEqual(success.narrative.authority, 'player');
+
+const partial = engine.evaluateStandard([2, 4, 6], 6);
+assert.strictEqual(partial.best, 6);
+assert.strictEqual(partial.margin, 0);
+assert.strictEqual(partial.outcome, 'partial_success');
+assert.strictEqual(partial.narrative.authority, 'shared');
+assert.strictEqual(partial.narrative.narratorAddsPrice, true);
+
+const failure = engine.evaluateStandard([1, 3, 5], 6);
+assert.strictEqual(failure.best, 5);
+assert.strictEqual(failure.margin, -1);
+assert.strictEqual(failure.outcome, 'failure');
+assert.strictEqual(failure.narrative.authority, 'narrator');
 
 for (const [paradox, expected] of [
   [1, { count: 1, sides: 8, difficulty: 6 }],

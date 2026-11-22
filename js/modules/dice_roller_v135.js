@@ -91,11 +91,10 @@ window.ChronusDiceRollerV135 = (function() {
   }
 
   function evaluateStandard(values, difficulty) {
-    const best = Math.max(...values);
-    const margin = best - difficulty;
-    if (margin > 0) return { best, margin, key: 'success', label: 'Sucesso' };
-    if (margin === 0) return { best, margin, key: 'complication', label: 'Sucesso com Complicação' };
-    return { best, margin, key: 'failure', label: 'Falha ou Complicação' };
+    if (!window.ChronusNarrativeRules?.resolve) {
+      throw new Error('Motor de autoridade narrativa não foi carregado.');
+    }
+    return window.ChronusNarrativeRules.resolve(values, difficulty);
   }
 
   function paradoxIntensity(successes) {
@@ -241,6 +240,8 @@ window.ChronusDiceRollerV135 = (function() {
                 <div id="dice-result-values" class="dice-result-values"></div>
                 <div id="dice-result-verdict" class="dice-result-verdict" role="status" aria-live="polite"></div>
                 <p id="dice-result-rule" class="dice-result-rule"></p>
+                <section id="dice-result-narrative" class="dice-result-narrative" aria-live="polite" hidden></section>
+                <p id="dice-live-sync-status" class="dice-live-sync-status" role="status" aria-live="polite" hidden></p>
                 <div class="dice-result-actions">
                   <button type="button" id="dice-repeat-roll">↻ Repetir</button>
                   <button type="button" id="dice-copy-result">Copiar resultado</button>
@@ -372,19 +373,20 @@ window.ChronusDiceRollerV135 = (function() {
 
   function buildGuidedSpec(input) {
     const kind = GUIDED_KINDS[input.kind] ? input.kind : 'normal';
-    const sides = [4, 6, 8, 10].includes(Number(input.sides)) ? Number(input.sides) : 8;
+    const sides = [4, 6, 8, 10, 12].includes(Number(input.sides)) ? Number(input.sides) : 8;
     const personality = String(input.personality || '').trim();
     const skill = String(input.skill || '').trim();
-    const baseDifficulty = Math.max(1, Number(input.baseDifficulty) || 5);
+    const baseDifficulty = Math.max(4, Math.min(7, Number(input.baseDifficulty) || 5));
     const adjustment = Math.max(-2, Math.min(2, Number(input.adjustment) || 0));
     return {
+      mode: 'Teste guiado',
       kind,
       title: String(input.action || '').trim() || GUIDED_KINDS[kind].title,
       sides,
       count: 1 + Number(Boolean(personality)) + Number(Boolean(skill)),
       baseDifficulty,
       adjustment,
-      difficulty: Math.max(1, baseDifficulty + adjustment),
+      difficulty: Math.max(4, Math.min(7, baseDifficulty + adjustment)),
       determination: input.determination === true,
       attributeName: String(input.attributeName || '').trim(),
       personality,
@@ -528,7 +530,7 @@ window.ChronusDiceRollerV135 = (function() {
     if (record.type === 'paradox') {
       return `${record.title} — ${record.expression} contra Dificuldade ${record.difficulty}: [${values}]. ${record.successes} sucesso(s) — Intensidade ${record.intensity}.`;
     }
-    return `${record.title} — ${record.expression} contra Dificuldade ${record.difficulty}: [${values}]. Maior ${record.best}; Margem ${formatMargin(record.margin)} — ${record.label}.`;
+    return `${record.title} — ${record.expression} contra Dificuldade ${record.difficulty}: [${values}]. Maior ${record.best}; Margem ${formatMargin(record.margin)} — ${record.label}. Autoridade narrativa: ${record.narrative?.authorityLabel || 'não definida'}. ${record.narrative?.instruction || ''}`;
   }
 
   function renderRecord(record) {
@@ -549,9 +551,48 @@ window.ChronusDiceRollerV135 = (function() {
       verdict.className = `dice-result-verdict is-${record.key}`;
       verdict.innerHTML = `<span>Margem ${formatMargin(record.margin)}</span><strong>${escapeHtml(record.label)}</strong>`;
       rule.textContent = `Maior resultado ${record.best} − Dificuldade ${record.difficulty} = Margem ${formatMargin(record.margin)}.`;
+      const narrative = document.getElementById('dice-result-narrative');
+      const guidance = record.narrative;
+      if (narrative && guidance) {
+        narrative.hidden = false;
+        narrative.innerHTML = `<strong>Quem descreve: ${escapeHtml(guidance.authorityLabel)}</strong><p>${escapeHtml(guidance.instruction)}</p>${record.consequences?.acts ? '<small>Consequência mecânica: +1 Ato.</small>' : ''}${record.consequences?.condition ? '<small>Condição: uma Condição é gerada.</small>' : ''}`;
+      }
+    }
+    if (record.type === 'paradox') {
+      const narrative = document.getElementById('dice-result-narrative');
+      if (narrative) { narrative.hidden = true; narrative.textContent = ''; }
     }
     animateDice(record.dice);
     addHistory(record);
+
+    const syncStatus = document.getElementById('dice-live-sync-status');
+    if (record.type === 'standard' && syncStatus) {
+      syncStatus.hidden = false;
+      syncStatus.textContent = 'Compartilhando resultado com a mesa…';
+      if (window.ChronusNarrativeLive?.publish) {
+        window.ChronusNarrativeLive.publish(record).then(result => {
+          if (!syncStatus.isConnected) return;
+          if (result?.ok) {
+            syncStatus.textContent = '✓ Rolagem compartilhada com o Narrador.';
+          } else if (result?.reason === 'not_player') {
+            syncStatus.textContent = 'Conta de Narrador: rolagens não são publicadas como jogadas de personagem.';
+          } else if (result?.reason === 'not_signed_in') {
+            syncStatus.textContent = 'Entre com sua conta de jogador para compartilhar a rolagem.';
+          } else if (result?.skipped) {
+            syncStatus.textContent = 'Rolagem mantida apenas no histórico local.';
+          } else {
+            syncStatus.textContent = 'Não foi possível sincronizar; a rolagem continua no histórico local.';
+          }
+        }).catch(() => {
+          if (syncStatus.isConnected) syncStatus.textContent = 'Não foi possível sincronizar; a rolagem continua no histórico local.';
+        });
+      } else {
+        syncStatus.textContent = 'Sincronização indisponível; resultado salvo no histórico local.';
+      }
+    } else if (syncStatus) {
+      syncStatus.hidden = true;
+      syncStatus.textContent = '';
+    }
   }
 
   function addHistory(record) {
@@ -673,6 +714,10 @@ window.ChronusDiceRollerV135 = (function() {
   }
 
   function openDialog() {
+    if (window.ChronusAuth?.getProfile?.()?.role === 'narrator') {
+      window.alert('No CHRONUS, o Narrador não realiza rolagens. Os testes são feitos exclusivamente pelos jogadores.');
+      return;
+    }
     const overlay = document.getElementById('chronus-dice-overlay');
     previousFocus = document.activeElement;
     refreshSheetIntegration();

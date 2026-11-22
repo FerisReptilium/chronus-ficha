@@ -443,3 +443,74 @@ body.is-dice-dialog-open { overflow: hidden; }
 @media print {
   .chronus-dice-root,.chronus-dice-stage { display: none !important; }
 }
+
+/* Autoridade narrativa canônica do CHRONUS */
+.dice-result-narrative {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--dice-line);
+  border-left: 3px solid var(--dice-gold, #b89a5a);
+  border-radius: 10px;
+  background: rgba(184, 154, 90, .08);
+  color: var(--dice-text, inherit);
+}
+.dice-result-narrative strong { display: block; margin-bottom: 7px; }
+.dice-result-narrative p { margin: 0; line-height: 1.55; }
+.dice-result-narrative small { display: block; margin-top: 8px; opacity: .82; }
+.dice-result-verdict.is-exceptional_success { border-color: #c49a45; }
+.dice-result-verdict.is-partial_success { border-color: #c49a45; }
+.dice-result-verdict.is-critical_failure { border-color: #a33b3b; }
+
+.narrator-narrative-guide {
+  margin: 0 0 22px;
+  padding: 20px 22px;
+  border: 1px solid var(--border-color, rgba(184,154,90,.35));
+  border-left: 3px solid #b89a5a;
+  border-radius: 12px;
+  background: var(--surface-card, rgba(20,20,25,.55));
+}
+.narrator-narrative-guide h3 { margin: 0 0 10px; }
+.narrator-narrative-guide p { margin: 7px 0; line-height: 1.5; }
+
+/* Sincronização de rolagens com a Mesa do Narrador */
+.dice-live-sync-status {
+  margin: 10px 0 0;
+  font-size: .82rem;
+  opacity: .82;
+}
+.narrator-live-rolls {
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid var(--border-color, rgba(184,154,90,.35));
+  border-radius: 12px;
+  background: var(--surface-card, rgba(20,20,25,.55));
+}
+.narrator-roll-feed-heading,
+.narrator-roll-event-heading,
+.narrator-roll-event-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.narrator-roll-feed-heading h3 { margin: 0 0 12px; }
+.narrator-roll-feed-status { font-size: .78rem; opacity: .75; }
+.narrator-roll-feed-list { display: grid; gap: 10px; }
+.narrator-roll-feed-empty { margin: 0; opacity: .7; }
+.narrator-roll-event {
+  padding: 13px 14px;
+  border: 1px solid var(--border-color, rgba(184,154,90,.22));
+  border-radius: 9px;
+}
+.narrator-roll-event-heading time,
+.narrator-roll-event-dice,
+.narrator-roll-event-result span,
+.narrator-roll-event small { font-size: .78rem; opacity: .75; }
+.narrator-roll-event-title { margin: 6px 0; font-weight: 600; }
+.narrator-roll-event-dice { margin: 5px 0 9px; }
+.narrator-roll-event-result { justify-content: flex-start; flex-wrap: wrap; }
+.narrator-roll-event-authority { margin: 8px 0 0; font-size: .86rem; line-height: 1.45; }
+.narrator-roll-event small { display: block; margin-top: 7px; }
+.narrator-roll-event-result.outcome-critical_failure strong { color: #d16a6a; }
+.narrator-roll-event-result.outcome-exceptional_success strong { color: #c49a45; }
+.narrator-roll-event-result.outcome-partial_success strong { color: #c49a45; }

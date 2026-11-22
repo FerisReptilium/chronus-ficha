@@ -52,6 +52,7 @@ assert.deepStrictEqual(
     characterName: 'Mara'
   }))),
   {
+    mode: 'Teste guiado',
     kind: 'normal',
     title: 'Investigar o bunker',
     sides: 10,
@@ -70,6 +71,10 @@ assert.deepStrictEqual(
 const attributeOnly = engine.buildGuidedSpec({ kind: 'combat', sides: 6, baseDifficulty: 4 });
 assert.strictEqual(attributeOnly.count, 1, 'attribute alone must roll one die');
 assert.strictEqual(attributeOnly.title, 'Ataque ou defesa');
+
+const d12Attribute = engine.buildGuidedSpec({ kind: 'normal', sides: 12, baseDifficulty: 7 });
+assert.strictEqual(d12Attribute.sides, 12, 'd12 must be supported as an Attribute die');
+assert.strictEqual(d12Attribute.difficulty, 7, 'difficulty must remain within canonical 4–7 range');
 
 const oneSource = engine.buildGuidedSpec({ kind: 'normal', sides: 8, baseDifficulty: 6, adjustment: -2, skill: 'Ocultismo' });
 assert.strictEqual(oneSource.count, 2, 'one applicable source must add exactly one die');

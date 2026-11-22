@@ -70,8 +70,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('CHRONUS v1.3.4: trilha ambiente indisponível; mantendo o portal silencioso.', error);
   }
 
-  // 3.5. Rolador global fiel ao Manual de Bolso: rolagem rápida primeiro,
-  // montagem guiada opcional e tratamento próprio para Descargas de Paradoxo.
+  // 3.5. Carrega as regras narrativas e a ponte segura de sincronização da mesa.
+  try {
+    await loadScriptOnce('js/rules/narrative_resolution.js');
+    await loadScriptOnce('js/services/narrative_live.js');
+  } catch (error) {
+    console.error('CHRONUS: regras narrativas ou sincronização ao vivo indisponíveis.', error);
+  }
+
+  // 3.6. Rolador global; a classificação narrativa é fornecida pelo motor canônico.
   try {
     await loadScriptOnce('js/modules/dice_roller_v135.js');
     window.ChronusDiceRollerV135?.init?.();
