@@ -88,7 +88,16 @@ const supabaseMock = `
 `;
 
 function watchErrors(page) {
-  const errors = { console: [], page: [], navigations: [] };
+  const errors = { console: [], page: [], navigations: [], navigationRequests: [] };
+  page.on('request', request => {
+    if (!request.isNavigationRequest()) return;
+    errors.navigationRequests.push({
+      url: request.url(),
+      method: request.method(),
+      redirectedFrom: request.redirectedFrom()?.url() || null,
+      resourceType: request.resourceType()
+    });
+  });
   page.on('framenavigated', frame => {
     if (frame === page.mainFrame()) errors.navigations.push(frame.url());
   });
@@ -188,6 +197,18 @@ async function runMode(browser, mode, viewport) {
   }));
 
   const errors = watchErrors(page);
+  await page.addInitScript(() => {
+    const key = '__chronus_v143_navigation_trace';
+    const read = () => { try { return JSON.parse(sessionStorage.getItem(key) || '[]'); } catch (_) { return []; } };
+    const trace = read();
+    trace.push({ phase: 'document-start', href: location.href, readyState: document.readyState, navigationType: performance.getEntriesByType('navigation')[0]?.type || null, time: Date.now() });
+    try { sessionStorage.setItem(key, JSON.stringify(trace.slice(-12))); } catch (_) {}
+    window.addEventListener('beforeunload', () => {
+      const latest = read();
+      latest.push({ phase: 'beforeunload', href: location.href, hash: location.hash, time: Date.now() });
+      try { sessionStorage.setItem(key, JSON.stringify(latest.slice(-12))); } catch (_) {}
+    });
+  });
   // Inicializa primeiro na rota pública. Só navega para a área protegida
   // depois de Auth e Router concluírem o bootstrap, reproduzindo o fluxo real
   // de navegação sem disputar a rota inicial durante a restauração da sessão.
@@ -208,7 +229,8 @@ async function runMode(browser, mode, viewport) {
       profileRole: window.ChronusAuth?.getProfile?.()?.role || null,
       routerRoute: window.ChronusRouter?.getCurrentRoute?.() || null,
       dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
-      logoutButtonCount: document.querySelectorAll('#btn-nav-logout, #btn-mobile-logout').length
+      logoutButtonCount: document.querySelectorAll('#btn-nav-logout, #btn-mobile-logout').length,
+      navigationTrace: (() => { try { return JSON.parse(sessionStorage.getItem('__chronus_v143_navigation_trace') || '[]'); } catch (_) { return []; } })()
     })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
     throw new Error(`Dashboard navigation interrupted: ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
   }
