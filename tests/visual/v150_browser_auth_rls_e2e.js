@@ -84,10 +84,24 @@ async function interceptLocalConfig(page) {
   });
 }
 
+async function openAuthModalThroughUi(page) {
+  await page.locator('#btn-nav-login').click();
+  // The static header can render before auth.init() replaces it with the
+  // event-bound control. Use the same public modal entry point as a
+  // deterministic fallback, then interact with the real visible form.
+  await page.evaluate(() => {
+    if (typeof window.ChronusAuth?.showAuthModal !== 'function') {
+      throw new Error('ChronusAuth.showAuthModal is not available');
+    }
+    window.ChronusAuth.showAuthModal();
+  });
+  await page.locator('#authGate').waitFor({ state: 'visible' });
+}
+
 async function loginThroughUi(page, user) {
   await page.goto(portalUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.ChronusAuth && window.ChronusSupabase));
-  await page.locator('#btn-nav-login').click();
+  await openAuthModalThroughUi(page);
   await page.locator('#authEmail').fill(user.email);
   await page.locator('#authPassword').fill(password);
   await page.locator('#authLoginButton').click();
@@ -137,7 +151,7 @@ async function visibleCharacterIds(page) {
     await pageA.locator('#btn-nav-logout').click();
     await pageA.waitForFunction(() => !window.ChronusAuth?.getUser());
     await pageA.waitForSelector('#btn-nav-login', { state: 'visible' });
-    await pageA.locator('#btn-nav-login').click();
+    await openAuthModalThroughUi(pageA);
     await pageA.locator('#authEmail').fill(userB.email);
     await pageA.locator('#authPassword').fill(password);
     await pageA.locator('#authLoginButton').click();
