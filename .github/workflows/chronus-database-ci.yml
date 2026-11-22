@@ -1,0 +1,107 @@
+name: CHRONUS database baseline and migration chain
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'tests/**'
+      - '.github/workflows/chronus-database-ci.yml'
+  push:
+    branches: [rebuild/core-database-baseline]
+    paths:
+      - 'supabase/**'
+      - 'tests/**'
+      - '.github/workflows/chronus-database-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supabase-migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Build isolated migration directory
+        run: |
+          set -euo pipefail
+          rm -rf .chronus-db-ci
+          mkdir -p .chronus-db-ci/supabase/migrations
+          cp supabase/migrations/000_core_auth_and_characters.sql .chronus-db-ci/supabase/migrations/20261121000000_core_auth_and_characters.sql
+          cp supabase/migrations/001_portal_content.sql .chronus-db-ci/supabase/migrations/20261121000100_portal_content.sql
+          cp supabase/migrations/002_v11_security_hardening.sql .chronus-db-ci/supabase/migrations/20261121000200_v11_security_hardening.sql
+          cp supabase/migrations/003_v12_rls_helper_hardening.sql .chronus-db-ci/supabase/migrations/20261121000300_v12_rls_helper_hardening.sql
+          cp supabase/migrations/004_v12_rls_initplan_optimization.sql .chronus-db-ci/supabase/migrations/20261121000400_v12_rls_initplan_optimization.sql
+          cp supabase/migrations/005_v12_permissive_policy_consolidation.sql .chronus-db-ci/supabase/migrations/20261121000500_v12_permissive_policy_consolidation.sql
+          cp supabase/migrations/20260904160729_add_session_current_objective.sql .chronus-db-ci/supabase/migrations/20261121000600_add_session_current_objective.sql
+          cd .chronus-db-ci
+          supabase init
+
+      - name: Start a clean local Supabase stack and apply all migrations
+        working-directory: .chronus-db-ci
+        run: |
+          set -euo pipefail
+          if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor > supabase-start.log 2>&1; then
+            echo "Supabase local bootstrap failed. Sanitized diagnostics:"
+            grep -E 'Applying migration|ERROR:|failed:|At statement:|Try rerunning|WARN:' supabase-start.log || true
+            exit 1
+          fi
+          supabase status -o env > ../supabase-local.env
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Verify all seven migrations were recorded
+        run: |
+          set -euo pipefail
+          set -a
+          source supabase-local.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE v_count integer;
+          BEGIN
+            SELECT count(*) INTO v_count
+            FROM supabase_migrations.schema_migrations
+            WHERE version IN (
+              '20261121000000','20261121000100','20261121000200',
+              '20261121000300','20261121000400','20261121000500','20261121000600'
+            );
+            IF v_count <> 7 THEN
+              RAISE EXCEPTION 'Expected 7 recorded migrations, found %', v_count;
+            END IF;
+          END $$;
+          SELECT version, name FROM supabase_migrations.schema_migrations
+          ORDER BY version;
+          SQL
+
+      - name: Verify Auth profile provisioning and core RLS
+        run: |
+          set -euo pipefail
+          set -a
+          source supabase-local.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/core_database_baseline.sql
+
+      - name: Run existing v1.2 security and Storage integration suite
+        run: |
+          set -euo pipefail
+          set -a
+          source supabase-local.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/v12_local_supabase_e2e.sql
+
+      - name: Stop disposable Supabase stack
+        if: always()
+        working-directory: .chronus-db-ci
+        run: supabase stop --no-backup || true
