@@ -109,6 +109,8 @@ assert(sheetSource.includes('localBaseVersion !== cloudVersion'), 'bootstrap mus
 assert(sheetSource.includes('getStorageKey(ownerId)'), 'loadState must restore the active account cache');
 assert(sheetSource.includes('function portraitStorageKey(userId=portraitOwnerId())'), 'portrait IndexedDB keys must be scoped to the active account');
 assert(sheetSource.includes('function portraitFallbackKey(userId=portraitOwnerId())'), 'portrait localStorage fallback must be scoped to the active account');
+assert(sheetSource.includes('const anonymousPortrait = !localOwner ? await dbGet(portraitStorageKey(null))'), 'anonymous portraits must migrate only to the first authenticated owner');
+assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbackKey(userId))'), 'portrait fallback must load even when IndexedDB is available but has no scoped record');
 assert(sheetSource.includes("dbGet('portrait')"), 'legacy portrait may only be read through the explicit migration path');
 assert(sheetSource.includes('async function migrateLegacyStorageForUser(userId)'), 'account migration must await legacy portrait isolation');
 assert(sheetSource.includes("if (localOwner && localOwner !== userId)"), 'every account switch must force a clean rehydration even without a scoped cache');
