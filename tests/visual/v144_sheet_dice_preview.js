@@ -87,6 +87,11 @@ async function runMode(browser, mode, viewport) {
   await page.waitForFunction(() => document.documentElement.dataset.chronusDice === 'v1.3.5-preview');
   await page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Mara');
 
+  const illuminationButtons = page.locator('.illumination-hit');
+  const illuminationLabels = await illuminationButtons.evaluateAll(buttons => buttons.map(button => button.textContent.trim().toLowerCase()));
+  if (JSON.stringify(illuminationLabels) !== JSON.stringify(['d4','d6','d8','d10','d12'])) throw new Error(`${mode}: all five visible Illumination choices are required: ${JSON.stringify(illuminationLabels)}`);
+  if (!(await page.getByRole('button', { name: 'Iluminação d12' }).isVisible())) throw new Error(`${mode}: d12 Illumination choice must be visible`);
+
   const readResource = async key => page.locator(`[data-resource-counter="${key}"] input`).inputValue();
   const setResource = async (key, value) => {
     const input = page.locator(`[data-resource-counter="${key}"] input`);
