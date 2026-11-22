@@ -42,6 +42,8 @@ jobs:
           cp supabase/migrations/004_v12_rls_initplan_optimization.sql .chronus-db-ci/supabase/migrations/20261121000400_v12_rls_initplan_optimization.sql
           cp supabase/migrations/005_v12_permissive_policy_consolidation.sql .chronus-db-ci/supabase/migrations/20261121000500_v12_permissive_policy_consolidation.sql
           cp supabase/migrations/20260904160729_add_session_current_objective.sql .chronus-db-ci/supabase/migrations/20261121000600_add_session_current_objective.sql
+          cp supabase/migrations/006_chronus_roll_events.sql .chronus-db-ci/supabase/migrations/20261121000700_chronus_roll_events.sql
+          cp supabase/migrations/007_chronus_roll_events_privileges.sql .chronus-db-ci/supabase/migrations/20261121000800_chronus_roll_events_privileges.sql
           cd .chronus-db-ci
           supabase init
 
@@ -61,7 +63,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Verify all seven migrations were recorded
+      - name: Run canonical narrative rules unit tests
+        run: node tests/rules/narrative_resolution.test.js
+
+      - name: Verify all nine migrations were recorded
         run: |
           set -euo pipefail
           set -a
@@ -75,10 +80,11 @@ jobs:
             FROM supabase_migrations.schema_migrations
             WHERE version IN (
               '20261121000000','20261121000100','20261121000200',
-              '20261121000300','20261121000400','20261121000500','20261121000600'
+              '20261121000300','20261121000400','20261121000500',
+              '20261121000600','20261121000700','20261121000800'
             );
-            IF v_count <> 7 THEN
-              RAISE EXCEPTION 'Expected 7 recorded migrations, found %', v_count;
+            IF v_count <> 9 THEN
+              RAISE EXCEPTION 'Expected 9 recorded migrations, found %', v_count;
             END IF;
           END $$;
           SELECT version, name FROM supabase_migrations.schema_migrations
@@ -100,6 +106,14 @@ jobs:
           source supabase-local.env
           set +a
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/v12_local_supabase_e2e.sql
+
+      - name: Verify live roll feed RLS and Realtime integration
+        run: |
+          set -euo pipefail
+          set -a
+          source supabase-local.env
+          set +a
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/chronus_roll_events.sql
 
       - name: Stop disposable Supabase stack
         if: always()
