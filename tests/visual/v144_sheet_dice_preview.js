@@ -132,6 +132,9 @@ async function runMode(browser, mode, viewport) {
   await page.locator('#dice-guided-roll').click();
   await page.waitForSelector('#dice-result-content', { state: 'visible' });
   const afterDetermination = await page.evaluate(() => window.ChronusSheetEngine.getRollProfile());
+  // The dice roller is a modal: close it before interacting with the sheet underneath.
+  await page.locator('.chronus-dice-close').click();
+  await page.waitForSelector('#chronus-dice-overlay', { state: 'hidden' });
 
   // Recursos dinâmicos: preservar valores parciais e recalcular valores cheios.
   await selectAttribute('Perseverança', 'd10');
@@ -165,6 +168,7 @@ async function runMode(browser, mode, viewport) {
     hasD12Attribute: (await page.evaluate(() => window.ChronusSheetEngine.getRollProfile().attributes.some(item => item.die === 'd12')))
   };
 
+  await page.locator('#chronus-dice-launcher').click();
   await page.locator('#dice-tab-paradox').click();
   const paradoxInputValue = await page.locator('#dice-paradox-value').evaluate(element => element.value);
   await page.locator('#dice-paradox-roll').click();
