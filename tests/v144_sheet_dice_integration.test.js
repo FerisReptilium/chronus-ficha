@@ -156,7 +156,7 @@ assert(sheetSource.includes('const legacyRaw = (!knownOwner && !ownerId)'), 'log
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
 
 assert(sheetSource.includes('(cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])'), 'all supported legacy sheet versions must be migrated into the account cache');
-assert(sheetSource.includes("localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true"), 'unowned legacy drafts must remain dirty until the server confirms their adoption');
+assert(sheetSource.includes("localOwner === userId ? safeLocalStorageGet(CLOUD_DIRTY_KEY) === '1' : true"), 'unowned legacy drafts must remain dirty until the server confirms their adoption');
 assert(sheetSource.includes('if (accountChanged) {') && sheetSource.includes('const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));'), 'account changes must replace in-memory state with only the authenticated account cache');
 const migrationSource = sheetSource.slice(sheetSource.indexOf('async function migrateLegacyStorageForUser'), sheetSource.indexOf('// pushStateToCloud com retorno explícito'));
 assert(migrationSource.includes('const accountChanged = Boolean(') && migrationSource.includes('(!activeSessionUser && scopedData)'), 'first-time accounts must be distinguished from sessions with a prior scoped cache');
