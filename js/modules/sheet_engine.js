@@ -1249,7 +1249,9 @@ window.ChronusSheetEngine = (function() {
     if (!userId) return false;
     const cfg = window.CHRONUS_CONFIG;
     const scopedKey = cfg.getStorageKey(userId);
-    const legacyData = localStorage.getItem(cfg.LEGACY_STORAGE_KEY);
+    const legacyKey = (cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])
+      .find(key => Boolean(localStorage.getItem(key)));
+    const legacyData = legacyKey ? localStorage.getItem(legacyKey) : null;
     let scopedData = localStorage.getItem(scopedKey);
     const localOwner = localStorage.getItem(CLOUD_USER_KEY);
 
@@ -1258,7 +1260,7 @@ window.ChronusSheetEngine = (function() {
     let migratedLegacyCache = false;
     if (legacyData && !scopedData && (!localOwner || localOwner === userId)) {
       localStorage.setItem(scopedKey, legacyData);
-      const legacyDirty = localOwner === userId && localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
+      const legacyDirty = localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true;
       localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
       scopedData = legacyData;
