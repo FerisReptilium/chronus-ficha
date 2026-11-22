@@ -975,6 +975,7 @@ window.ChronusSheetEngine = (function() {
       if (portraitDirty) {
         const localPortrait = await loadPortrait().catch(()=>null);
         if(localPortrait) await pushPortraitToCloud(localPortrait);
+        else await deletePortraitFromCloud();
       } else {
         await pullPortraitFromCloud();
       }
