@@ -549,6 +549,9 @@
       <h2>CHRONUS</h2>
       <p class="auth-subtitle">Acesso exclusivo aos jogadores cadastrados e ao Narrador.</p>
 
+      <label for="authDisplayName" id="authDisplayNameLabel" hidden>Nome de jogador</label>
+      <input id="authDisplayName" type="text" autocomplete="name" maxlength="80" hidden placeholder="Como deseja aparecer no CHRONUS">
+
       <label for="authEmail">E-mail</label>
       <input id="authEmail" type="email" autocomplete="email" required placeholder="jogador@email.com">
 
@@ -558,6 +561,7 @@
       <div class="auth-row" style="display:grid; grid-template-columns:1fr;">
         <button id="authLoginButton" class="auth-primary" type="submit">Entrar</button>
       </div>
+      <button id="authModeToggle" class="auth-link" type="button">Ainda não tenho conta — Criar conta</button>
       <button id="authForgotButton" class="auth-link" type="button">Esqueci minha senha</button>
       <div id="authMessage" class="auth-message" aria-live="polite"></div>
       <div class="auth-security">
