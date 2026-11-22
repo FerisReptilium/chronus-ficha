@@ -28,6 +28,9 @@ const routes = [
   ['#/library', 'view-library']
 ];
 
+// External SDK supply-chain integrity: pin the tested Supabase client release.
+assert(index.includes('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>'), 'Supabase JS SDK must remain pinned to an exact tested version');
+
 // Route/view integrity.
 for (const [route, viewId] of routes) {
   assert(router.includes(`'${route}'`), `Missing router route ${route}`);
