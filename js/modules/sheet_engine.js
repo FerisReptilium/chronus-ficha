@@ -1092,7 +1092,7 @@ window.ChronusSheetEngine = (function() {
         }
         if (!localOwner && !dirty) {
           // Dispositivo novo sem rascunho pendente: a nuvem é a fonte principal.
-          await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
+          await applyRemoteAndReload(row.data,user.id,row.id,row.revision);
           return;
         }
 
@@ -1112,7 +1112,7 @@ window.ChronusSheetEngine = (function() {
             await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
             return;
           }
-          localStorage.setItem(getScopedKey('synced'),row.updated_at||new Date().toISOString());
+          localStorage.setItem(getScopedKey('synced'),cloudVersion || '');
           setSaveStatus('Salvo na nuvem ✓', 'cloud');
         }
       }
