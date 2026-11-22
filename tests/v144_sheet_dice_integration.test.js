@@ -138,3 +138,8 @@ assert(sheetSource.includes("sessionStorage.getItem(ACTIVE_USER_SESSION_KEY)"), 
 assert(sheetSource.includes("window.ChronusAuth?.isInitialized?.() === true && Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY))"), 'initial null auth callback must not clear a valid session before getSession resolves');
 assert(sheetSource.includes("sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY)"), 'sign-out must revoke access to the account-scoped cache in this tab');
 assert(authSource.includes('function isInitialized() { return authInitialized; }'), 'auth service must expose a reliable initialization boundary');
+
+assert(sheetSource.includes("const syncResult = await pushStateToCloudConfirmed()"), 'reset must verify cloud confirmation instead of trusting an automatic save');
+assert(sheetSource.includes("if(!cloudSyncOk || !portraitSyncOk)"), 'reset must report partial cloud deletion without claiming full success');
+assert(sheetSource.includes("localStorage.setItem(getScopedKey('portraitDirty'),'1')"), 'failed portrait deletion must remain pending for retry');
+assert(sheetSource.includes('else await deletePortraitFromCloud();'), 'bootstrap must retry a pending portrait deletion when no local portrait remains');
