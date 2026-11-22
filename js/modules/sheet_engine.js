@@ -687,11 +687,21 @@ window.ChronusSheetEngine = (function() {
     return null;
   }
   async function clearPortrait(userId=portraitOwnerId()){
-    localStorage.setItem(portraitTombstoneKey(userId),'1');
-    localStorage.removeItem(portraitFallbackKey(userId));
-    if(!userId)localStorage.removeItem('chronus.portrait.fallback');
-    try { await dbDelete(portraitStorageKey(userId)); return true; }
-    catch { return false; }
+    let tombstoneSaved = false;
+    try {
+      localStorage.removeItem(portraitFallbackKey(userId));
+      localStorage.setItem(portraitTombstoneKey(userId),'1');
+      tombstoneSaved = true;
+    } catch {}
+    if(!userId && !localStorage.getItem(CLOUD_USER_KEY)){
+      try { localStorage.removeItem('chronus.portrait.fallback'); } catch {}
+      try { localStorage.setItem(portraitTombstoneKey('legacy'),'1'); } catch {}
+    }
+    try {
+      await dbDelete(portraitStorageKey(userId));
+      if(!userId && !localStorage.getItem(CLOUD_USER_KEY)) await dbDelete('portrait');
+      return true;
+    } catch { return false && tombstoneSaved; }
   }
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
@@ -1383,16 +1393,19 @@ window.ChronusSheetEngine = (function() {
 
     let migratedLegacyPortrait = false;
     if (!isNarratorView && (!localOwner || localOwner === userId)) {
-      const scopedPortrait = await dbGet(portraitStorageKey(userId)).catch(() => null);
-      const scopedFallback = localStorage.getItem(portraitFallbackKey(userId));
-      const anonymousPortrait = !localOwner ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
-      const legacyPortrait = scopedPortrait ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
-      const anonymousFallback = !localOwner ? localStorage.getItem(portraitFallbackKey(null)) : null;
-      const legacyFallback = anonymousFallback || localStorage.getItem('chronus.portrait.fallback');
-      if (!scopedFallback && legacyFallback) {
+      const targetPortraitDeleted = localStorage.getItem(portraitTombstoneKey(userId)) === '1';
+      const legacyPortraitDeleted = localStorage.getItem(portraitTombstoneKey(null)) === '1'
+        || localStorage.getItem(portraitTombstoneKey('legacy')) === '1';
+      const scopedPortrait = targetPortraitDeleted ? null : await dbGet(portraitStorageKey(userId)).catch(() => null);
+      const scopedFallback = targetPortraitDeleted ? null : localStorage.getItem(portraitFallbackKey(userId));
+      const anonymousPortrait = !localOwner && !legacyPortraitDeleted ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
+      const legacyPortrait = scopedPortrait || legacyPortraitDeleted ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
+      const anonymousFallback = !localOwner && !legacyPortraitDeleted ? localStorage.getItem(portraitFallbackKey(null)) : null;
+      const legacyFallback = legacyPortraitDeleted ? null : (anonymousFallback || localStorage.getItem('chronus.portrait.fallback'));
+      if (!targetPortraitDeleted && !scopedFallback && legacyFallback) {
         localStorage.setItem(portraitFallbackKey(userId), legacyFallback);
         migratedLegacyPortrait = true;
-      } else if (!scopedPortrait && legacyPortrait) {
+      } else if (!targetPortraitDeleted && !scopedPortrait && legacyPortrait) {
         await dbPut(legacyPortrait, portraitStorageKey(userId));
         migratedLegacyPortrait = true;
       }
