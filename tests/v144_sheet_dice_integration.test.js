@@ -11,6 +11,19 @@ const authSource = fs.readFileSync('js/services/auth.js', 'utf8');
 const routerSource = fs.readFileSync('js/router.js', 'utf8');
 const css = fs.readFileSync('css/dice-roller-v135.css', 'utf8');
 
+const mergeDeepStart = sheetSource.indexOf('function mergeDeep(target, source) {');
+const mergeDeepEnd = sheetSource.indexOf('function normalizeState(s)', mergeDeepStart);
+assert(mergeDeepStart >= 0 && mergeDeepEnd > mergeDeepStart, 'mergeDeep implementation must remain available for security regression coverage');
+const mergeDeepSource = sheetSource.slice(mergeDeepStart, mergeDeepEnd);
+const mergeDeep = vm.runInNewContext(`(() => { ${mergeDeepSource}; return mergeDeep; })()`);
+const hostileSheetData = JSON.parse('{"profile":{"name":"safe"},"__proto__":{"polluted":true},"prototype":{"polluted":true},"constructor":{"prototype":{"polluted":true}}}');
+const mergedSheetData = mergeDeep({}, hostileSheetData);
+assert.strictEqual(mergedSheetData.profile.name, 'safe', 'safe sheet properties must still merge');
+assert.strictEqual(Object.prototype.polluted, undefined, 'hostile sheet JSON must not pollute the host object prototype');
+assert(!Object.prototype.hasOwnProperty.call(mergedSheetData, '__proto__'), 'prototype setter payload must be rejected');
+assert(!Object.prototype.hasOwnProperty.call(mergedSheetData, 'prototype'), 'prototype key must be rejected');
+assert(!Object.prototype.hasOwnProperty.call(mergedSheetData, 'constructor'), 'constructor key must be rejected');
+
 for (const marker of [
   'Atributo da ficha',
   'Personalidade',
