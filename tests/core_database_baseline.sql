@@ -108,6 +108,61 @@ VALUES
 ('00000000-0000-0000-0000-000000000201','Personagem do Jogador CI','{"test":true}'::jsonb),
 ('00000000-0000-0000-0000-000000000203','Personagem de Outro Jogador CI','{"test":true}'::jsonb);
 
+-- CAS regression uses separate autocommit statements, matching independent
+-- HTTP requests from two tabs. now() is transaction-stable, so two writes
+-- inside one DO/BEGIN block would intentionally share the same timestamp.
+SET ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000201"}',
+  false
+);
+SELECT id AS cas_character_id,
+       to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_expected_version
+FROM public.characters
+WHERE user_id='00000000-0000-0000-0000-000000000201'
+ORDER BY updated_at DESC
+LIMIT 1
+\gset
+
+WITH accepted_write AS (
+  UPDATE public.characters
+     SET name='Versão mais recente confirmada'
+   WHERE id=:'cas_character_id'::uuid
+     AND user_id='00000000-0000-0000-0000-000000000201'
+     AND updated_at=:'cas_expected_version'::timestamptz
+  RETURNING id
+)
+SELECT 1 / ((SELECT count(*) FROM accepted_write)=1)::int
+  AS cas_first_write_must_succeed;
+
+SELECT to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_new_version
+FROM public.characters
+WHERE id=:'cas_character_id'::uuid
+\gset
+
+SELECT 1 / (:'cas_new_version'::timestamptz <> :'cas_expected_version'::timestamptz)::int
+  AS cas_version_must_advance;
+
+WITH stale_write AS (
+  UPDATE public.characters
+     SET name='Escrita obsoleta não pode vencer'
+   WHERE id=:'cas_character_id'::uuid
+     AND user_id='00000000-0000-0000-0000-000000000201'
+     AND updated_at=:'cas_expected_version'::timestamptz
+  RETURNING id
+)
+SELECT 1 / ((SELECT count(*) FROM stale_write)=0)::int
+  AS cas_stale_write_must_be_rejected;
+
+SELECT 1 / (name='Versão mais recente confirmada')::int
+  AS cas_newer_state_must_be_preserved
+FROM public.characters
+WHERE id=:'cas_character_id'::uuid;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claims','',false);
+
 -- PLAYER: sees own profile/sheet; cannot see other users' rows or change roles.
 BEGIN;
 SET LOCAL ROLE authenticated;
