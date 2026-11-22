@@ -252,19 +252,26 @@ async function runMode(browser, mode, viewport) {
   try {
     await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
   } catch (error) {
+    // A primeira sincronização em dispositivo novo aplica a versão remota ao
+    // storage e faz uma única reidratação controlada. Se ela interromper a
+    // chamada do Router, aguarde o novo documento e retome a navegação.
     await page.waitForLoadState('domcontentloaded').catch(() => {});
-    const diagnostic = await page.evaluate(() => ({
-      href: location.href,
-      route: location.hash,
-      readyState: document.readyState,
-      userId: window.ChronusAuth?.getUser?.()?.id || null,
-      profileRole: window.ChronusAuth?.getProfile?.()?.role || null,
-      routerRoute: window.ChronusRouter?.getCurrentRoute?.() || null,
-      dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
-      logoutButtonCount: document.querySelectorAll('#btn-nav-logout, #btn-mobile-logout').length,
-      navigationTrace: (() => { try { return JSON.parse(sessionStorage.getItem('__chronus_v143_navigation_trace') || '[]'); } catch (_) { return []; } })()
-    })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
-    throw new Error(`Dashboard navigation interrupted: ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+    await page.waitForFunction(() => Boolean(
+      window.ChronusAuth?.getUser?.()?.id &&
+      window.ChronusRouter?.getCurrentRoute?.() === '#/home'
+    ), { timeout: 20000 }).catch(async () => {
+      const diagnostic = await page.evaluate(() => ({
+        href: location.href,
+        route: location.hash,
+        readyState: document.readyState,
+        userId: window.ChronusAuth?.getUser?.()?.id || null,
+        routerRoute: window.ChronusRouter?.getCurrentRoute?.() || null,
+        dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+        navigationTrace: (() => { try { return JSON.parse(sessionStorage.getItem('__chronus_v143_navigation_trace') || '[]'); } catch (_) { return []; } })()
+      })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
+      throw new Error(`Dashboard bootstrap did not recover after navigation: ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+    });
+    await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
   }
   await page.waitForFunction(() => (
     window.location.hash === '#/player' &&
