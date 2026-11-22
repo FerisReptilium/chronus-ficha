@@ -63,8 +63,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Run canonical narrative rules unit tests
-        run: node tests/rules/narrative_resolution.test.js
+      - name: Run JavaScript rules and integration regression tests
+        run: |
+          node tests/v135_dice_roller.test.js
+          node tests/v142_canon_1990.test.js
+          node tests/v144_sheet_dice_integration.test.js
+          node tests/rules/narrative_resolution.test.js
 
       - name: Verify all nine migrations were recorded
         run: |
