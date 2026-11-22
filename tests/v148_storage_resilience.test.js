@@ -136,7 +136,7 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     vm.runInContext(backupHelpers, restoreContext);
     assert.equal(await vm.runInContext('restoreInitialSheetBackup()', restoreContext), true);
     assert.equal(restoreContext.state.notes, 'latest-before-reload', 'reload must restore the newest account backup');
-    assert.ok(restoreContext.sheetBackupDirtyUsers.has('user-A'), 'recovered unsynced data must remain marked dirty');
+    assert.equal(vm.runInContext('isSheetDirty("user-A")', restoreContext), true, 'recovered unsynced data must remain marked dirty');
   }
 
   // A synced backup must override a stale local dirty marker after reload.
