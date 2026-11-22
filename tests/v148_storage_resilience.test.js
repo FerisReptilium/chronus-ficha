@@ -144,8 +144,21 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
     const h = createHarness({ quota: true, userId: 'user-A' });
     vm.runInContext('persistLocalState(true)', h.sandbox);
     await h.sandbox.window.__chronusSheetBackupWrite;
+    const own = await h.sandbox.dbGet('sheet.state.user-A');
     const other = await h.sandbox.dbGet('sheet.state.user-B');
+    assert.equal(own.owner, 'user-A');
     assert.equal(other, null, 'another account must not read the first account backup');
+  }
+
+  // A save acknowledged remotely must not clear a newer in-memory edit.
+  {
+    const h = createHarness({ quota: true });
+    const snapshot = JSON.stringify(h.sandbox.state);
+    await vm.runInContext('saveSheetBackup("user-A", ' + JSON.stringify(JSON.stringify({ identity: { name: 'A' }, notes: 'initial' })) + ', true)', h.sandbox);
+    h.sandbox.state.notes = 'newer-edit';
+    const cleared = await vm.runInContext('markSheetBackupSynced("user-A", ' + JSON.stringify(snapshot) + ')', h.sandbox);
+    assert.equal(cleared, false, 'stale cloud acknowledgement must not clear dirty state for a newer edit');
+    assert.equal(h.records.get('sheet.state.user-A').dirty, true, 'newer edit must remain pending in the backup');
   }
 
   // Production migration must hydrate only the authenticated user's backup.
@@ -157,7 +170,9 @@ function createHarness({ quota = false, indexedDb = true, initialState = { ident
   assert.ok(migration.includes('readSheetBackup(userId)'), 'account migration must request the authenticated user backup');
   assert.ok(migration.includes('backupRecord.savedAt > localSavedAt'), 'backup must replace only an older or missing local cache');
   assert.ok(migration.includes('restoredFromBackup'), 'restoration must trigger account-state rehydration');
+  assert.ok(migration.includes('Boolean(anonymousBackup)'), 'anonymous backup must not leak into an authenticated account when local metadata is unavailable');
   assert.ok(backupHelpers.includes("record.owner !== (userId || 'anonymous')"), 'backup reader must validate its owner');
+  assert.ok(backupHelpers.includes('if (JSON.stringify(state) !== snapshot) return false;'), 'stale cloud acknowledgement must not clear newer edits');
 
   console.log('CHRONUS v1.4.8 storage resilience regression: PASS');
 })().catch(error => {
