@@ -157,6 +157,8 @@ function setupAuthForms() {
     authMode = mode;
     const isSignup = mode === 'signup';
     if (signupName) signupName.hidden = !isSignup;
+    const signupNameLabel = document.getElementById('authDisplayNameLabel');
+    if (signupNameLabel) signupNameLabel.hidden = !isSignup;
     if (signupName) signupName.required = isSignup;
     if (forgotBtn) forgotBtn.hidden = isSignup;
     if (authTitle) authTitle.textContent = isSignup ? 'Criar conta' : 'CHRONUS';
