@@ -133,7 +133,7 @@ WITH accepted_write AS (
      AND updated_at=:'cas_expected_version'::timestamptz
   RETURNING id
 )
-SELECT CASE WHEN (SELECT count(*) FROM accepted_write)=1 THEN 1 ELSE 1/0 END
+SELECT 1 / ((SELECT count(*) FROM accepted_write)=1)::int
   AS cas_first_write_must_succeed;
 
 SELECT to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF') AS cas_new_version
@@ -141,10 +141,8 @@ FROM public.characters
 WHERE id=:'cas_character_id'::uuid
 \gset
 
-SELECT CASE
-  WHEN :'cas_new_version'::timestamptz <> :'cas_expected_version'::timestamptz THEN 1
-  ELSE 1/0
-END AS cas_version_must_advance;
+SELECT 1 / (:'cas_new_version'::timestamptz <> :'cas_expected_version'::timestamptz)::int
+  AS cas_version_must_advance;
 
 WITH stale_write AS (
   UPDATE public.characters
@@ -154,13 +152,11 @@ WITH stale_write AS (
      AND updated_at=:'cas_expected_version'::timestamptz
   RETURNING id
 )
-SELECT CASE WHEN (SELECT count(*) FROM stale_write)=0 THEN 1 ELSE 1/0 END
+SELECT 1 / ((SELECT count(*) FROM stale_write)=0)::int
   AS cas_stale_write_must_be_rejected;
 
-SELECT CASE
-  WHEN name='Versão mais recente confirmada' THEN 1
-  ELSE 1/0
-END AS cas_newer_state_must_be_preserved
+SELECT 1 / (name='Versão mais recente confirmada')::int
+  AS cas_newer_state_must_be_preserved
 FROM public.characters
 WHERE id=:'cas_character_id'::uuid;
 
