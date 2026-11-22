@@ -50,8 +50,7 @@ const supabaseMock = String.raw`
       limit() { return query; },
       update(value) { payload = value; return query; },
       insert() { return query; },
-      maybeSingle: async () => ({ data: result()[0] || null, error: null }),
-      single: async () => {
+      maybeSingle: async () => {
         if (payload && table === 'characters') {
           if (window.__CHRONUS_E2E_BLOCK_SAVE) return { data: null, error: { message: 'E2E interrupted write' } };
           const current = readCharacter(user.id);
@@ -61,6 +60,7 @@ const supabaseMock = String.raw`
         }
         return { data: result()[0] || null, error: null };
       },
+      single: async () => ({ data: result()[0] || null, error: null }),
       then(resolve, reject) { return Promise.resolve({ data: result(), error: null }).then(resolve, reject); }
     };
     return query;
@@ -79,17 +79,10 @@ const supabaseMock = String.raw`
 })();
 `;
 
-async function prepareContext(context, identity, failLocalStorage = false) {
-  await context.addInitScript(({ identity, failLocalStorage }) => {
+async function prepareContext(context, identity) {
+  await context.addInitScript(({ identity }) => {
     if (!localStorage.getItem('chronus.e2e.identity')) localStorage.setItem('chronus.e2e.identity', identity);
-    if (failLocalStorage) {
-      const original = Storage.prototype.setItem;
-      Storage.prototype.setItem = function(key, value) {
-        if (String(key) === 'chronus.sheet.' + identity) throw new DOMException('Injected quota failure', 'QuotaExceededError');
-        return original.call(this, key, value);
-      };
-    }
-  }, { identity, failLocalStorage });
+  }, { identity });
   await context.route('https://cdn.jsdelivr.net/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseMock }));
   await context.route('https://fonts.googleapis.com/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await context.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -112,9 +105,17 @@ async function openSheet(context) {
   let persistent;
   try {
     persistent = await chromium.launchPersistentContext(profileDir, { headless: true, viewport: { width: 1440, height: 1000 } });
-    await prepareContext(persistent, 'account-A', true);
+    await prepareContext(persistent, 'account-A');
     const first = await openSheet(persistent);
     const second = await openSheet(persistent);
+    await first.page.evaluate(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (String(key) === 'chronus.sheet.account-A') throw new DOMException('Injected quota failure', 'QuotaExceededError');
+        return original.call(this, key, value);
+      };
+      window.__CHRONUS_E2E_BLOCK_SAVE = true;
+    });
 
     const nameField = first.page.locator('[data-bind="identity.name"]');
     await nameField.fill('Personagem A — edição pendente');
@@ -127,12 +128,9 @@ async function openSheet(context) {
     await second.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — edição pendente', { timeout: 20000 });
 
     // Fault-inject a network failure during the cloud save, then restore connectivity.
-    await first.page.evaluate(() => { window.__CHRONUS_E2E_BLOCK_SAVE = true; });
     await nameField.fill('Personagem A — rede interrompida');
     await nameField.dispatchEvent('input');
-    await first.page.waitForTimeout(700);
-    await first.page.evaluate(() => { window.__CHRONUS_E2E_BLOCK_SAVE = false; window.dispatchEvent(new Event('online')); });
-    await first.page.waitForTimeout(1800);
+    await first.page.waitForTimeout(1700);
 
     // Closing the context and relaunching the same profile is stronger than a page reload.
     await second.page.close();
@@ -141,7 +139,7 @@ async function openSheet(context) {
     persistent = null;
 
     persistent = await chromium.launchPersistentContext(profileDir, { headless: true, viewport: { width: 1440, height: 1000 } });
-    await prepareContext(persistent, 'account-A', false);
+    await prepareContext(persistent, 'account-A');
     const recovered = await openSheet(persistent);
     const recoveredName = await recovered.page.locator('[data-bind="identity.name"]').inputValue();
     assert.equal(recoveredName, 'Personagem A — rede interrompida', 'closed browser profile must recover the last IndexedDB snapshot');
