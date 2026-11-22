@@ -312,7 +312,10 @@ window.ChronusAuth = (function() {
       }
 
       // Sucesso confirmado ou sem pendências -> Prossegue com o logout
-      if (client) await client.auth.signOut();
+      if (client) {
+        const { error: signOutError } = await client.auth.signOut();
+        if (signOutError) throw signOutError;
+      }
 
       // Limpar apenas referências de sessão ativa, preservando o cache local individual do usuário
       sessionStorage.removeItem(cfg.NARRATOR_VIEW_DATA_KEY);
