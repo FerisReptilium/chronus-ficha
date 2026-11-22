@@ -1568,6 +1568,7 @@ window.ChronusSheetEngine = (function() {
     let scopedData = safeLocalStorageGet(scopedKey);
     const localOwner = safeLocalStorageGet(CLOUD_USER_KEY);
     const backupRecord = await readSheetBackup(userId).catch(() => null);
+    const anonymousBackup = !localOwner ? await readSheetBackup(null).catch(() => null) : null;
     let localSavedAt = 0;
     try { localSavedAt = Number(safeLocalStorageGet(sheetBackupTimestampKey(userId))) || 0; } catch {}
     const restoredFromBackup = Boolean(backupRecord && backupRecord.savedAt > localSavedAt);
@@ -1631,6 +1632,7 @@ window.ChronusSheetEngine = (function() {
       (localOwner && localOwner !== userId) ||
       (activeSessionUser && activeSessionUser !== userId) ||
       (!activeSessionUser && scopedData) || migratedLegacyPortrait || restoredFromBackup
+      || (!localOwner && !restoredFromBackup && Boolean(anonymousBackup))
     );
     // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
     // Em narratorView, o snapshot do personagem selecionado pelo Narrador é a fonte correta.
