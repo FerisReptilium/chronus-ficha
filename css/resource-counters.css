@@ -1,0 +1,56 @@
+/* CHRONUS — contadores de recursos calculados pela ficha */
+.resource-counter {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border: 1px solid rgba(190, 166, 112, .78);
+  border-radius: 9px;
+  background: rgba(12, 16, 25, .91);
+  color: #eee5d1;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: clamp(10px, .92vw, 15px);
+  line-height: 1.15;
+  z-index: 8;
+  box-shadow: 0 2px 8px rgba(0,0,0,.28);
+}
+.resource-counter-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
+  letter-spacing: .025em;
+}
+.resource-counter input {
+  box-sizing: border-box;
+  width: 52px;
+  min-width: 42px;
+  height: 34px;
+  padding: 2px 4px;
+  border: 1px solid rgba(190, 166, 112, .7);
+  border-radius: 5px;
+  outline: none;
+  background: rgba(245, 239, 224, .96);
+  color: #171923;
+  font: 700 16px/1 "Montserrat", Arial, sans-serif;
+  text-align: center;
+}
+.resource-counter input:focus {
+  border-color: #f2d18a;
+  box-shadow: 0 0 0 2px rgba(242,209,138,.22);
+}
+.resource-counter-max {
+  flex: 0 0 auto;
+  min-width: 30px;
+  font: 700 15px/1 "Montserrat", Arial, sans-serif;
+  color: #d9c28e;
+}
+.resource-counter input::-webkit-inner-spin-button,
+.resource-counter input::-webkit-outer-spin-button { opacity: 1; }
+@media (max-width: 600px) {
+  .resource-counter { gap: 5px; padding: 4px 6px; }
+  .resource-counter input { width: 42px; min-width: 38px; height: 29px; font-size: 14px; }
+  .resource-counter-max { min-width: 24px; font-size: 13px; }
+}

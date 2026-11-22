@@ -6,8 +6,12 @@ window.ChronusAuth = (function() {
   let currentUser = null;
   let currentProfile = null;
   let passwordRecoveryAuthorized = false;
+  let authInitialized = false;
   let isLoggingOut = false;
   const authListeners = [];
+  let lastNotifiedAuthState = null;
+
+  function isInitialized() { return authInitialized; }
 
   function onAuthChange(cb) {
     if (typeof cb === 'function') {
@@ -18,10 +22,23 @@ window.ChronusAuth = (function() {
     }
   }
 
-  function notifyAuthListeners(user, profile) {
+  async function notifyAuthListeners(user, profile) {
+    const stateKey = user
+      ? [user.id, profile?.role || '', profile?.display_name || '', profile?.email || user.email || ''].join('|')
+      : 'signed-out';
+    if (stateKey === lastNotifiedAuthState) return;
+    lastNotifiedAuthState = stateKey;
+    const pending = [];
     authListeners.forEach(cb => {
-      try { cb(user, profile); } catch (e) { console.error('Auth listener error:', e); }
+      try {
+        pending.push(Promise.resolve(cb(user, profile)).catch(e => {
+          console.error('Auth listener error:', e);
+        }));
+      } catch (e) {
+        console.error('Auth listener error:', e);
+      }
     });
+    await Promise.all(pending);
   }
 
   function getPasswordRecoveryCallback() {
@@ -77,8 +94,9 @@ window.ChronusAuth = (function() {
   async function init() {
     const client = window.ChronusSupabase.getClient();
     if (!client) {
+      authInitialized = true;
       updateNavAuthUi(null, null);
-      notifyAuthListeners(null, null);
+      await notifyAuthListeners(null, null);
       return;
     }
 
@@ -92,10 +110,11 @@ window.ChronusAuth = (function() {
         showPasswordModal('recovery');
       }
       if (event === 'SIGNED_OUT') {
+        authInitialized = true;
         currentUser = null;
         currentProfile = null;
         updateNavAuthUi(null, null);
-        notifyAuthListeners(null, null);
+        notifyAuthListeners(null, null).catch(e => console.error('Auth listener error:', e));
       }
       if (event === 'SIGNED_IN' && session?.user) {
         currentUser = session.user;
@@ -106,7 +125,7 @@ window.ChronusAuth = (function() {
           if ((currentUser?.id || null) !== eventUserId) return;
           currentProfile = profile;
           updateNavAuthUi(currentUser, currentProfile);
-          notifyAuthListeners(currentUser, currentProfile);
+          await notifyAuthListeners(currentUser, currentProfile);
         }, 0);
       }
     });
@@ -126,21 +145,24 @@ window.ChronusAuth = (function() {
     try {
       const { data: { session }, error } = await client.auth.getSession();
       if (session?.user) {
+        authInitialized = true;
         currentUser = session.user;
         currentProfile = await fetchProfile(session.user);
         updateNavAuthUi(currentUser, currentProfile);
-        notifyAuthListeners(currentUser, currentProfile);
+        await notifyAuthListeners(currentUser, currentProfile);
       } else {
+        authInitialized = true;
         updateNavAuthUi(null, null);
-        notifyAuthListeners(null, null);
+        await notifyAuthListeners(null, null);
         if (window.location.hash === '#/login') {
           showAuthModal();
         }
       }
     } catch (e) {
       console.warn('CHRONUS: Erro ao checar sessão inicial:', e);
+      authInitialized = true;
       updateNavAuthUi(null, null);
-      notifyAuthListeners(null, null);
+      await notifyAuthListeners(null, null);
     }
   }
 
@@ -211,7 +233,7 @@ window.ChronusAuth = (function() {
     currentUser = data.user;
     currentProfile = await fetchProfile(data.user);
     updateNavAuthUi(currentUser, currentProfile);
-    notifyAuthListeners(currentUser, currentProfile);
+    await notifyAuthListeners(currentUser, currentProfile);
     hideAuthModal();
     return { user: currentUser, profile: currentProfile };
   }
@@ -233,7 +255,7 @@ window.ChronusAuth = (function() {
       currentUser = data.user;
       currentProfile = await fetchProfile(data.user);
       updateNavAuthUi(currentUser, currentProfile);
-      notifyAuthListeners(currentUser, currentProfile);
+      await notifyAuthListeners(currentUser, currentProfile);
       hideAuthModal();
       return { user: currentUser, profile: currentProfile, confirmationRequired: false };
     }
@@ -290,7 +312,10 @@ window.ChronusAuth = (function() {
       }
 
       // Sucesso confirmado ou sem pendências -> Prossegue com o logout
-      if (client) await client.auth.signOut();
+      if (client) {
+        const { error: signOutError } = await client.auth.signOut();
+        if (signOutError) throw signOutError;
+      }
 
       // Limpar apenas referências de sessão ativa, preservando o cache local individual do usuário
       sessionStorage.removeItem(cfg.NARRATOR_VIEW_DATA_KEY);
@@ -299,7 +324,7 @@ window.ChronusAuth = (function() {
       currentUser = null;
       currentProfile = null;
       updateNavAuthUi(null, null);
-      notifyAuthListeners(null, null);
+      await notifyAuthListeners(null, null);
 
       window.location.hash = '#/home';
       window.location.reload();
@@ -361,6 +386,7 @@ window.ChronusAuth = (function() {
     init,
     getUser: () => currentUser,
     getProfile: () => currentProfile,
+    isInitialized,
     onAuthChange,
     handleLogin,
     handleSignup,

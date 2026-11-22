@@ -8,7 +8,7 @@ window.ChronusRouter = (function() {
     '#/player': { viewId: 'view-player', title: 'Minha Área · CHRONUS', authRequired: true },
     '#/narrator': { viewId: 'view-narrator', title: 'Painel do Narrador · CHRONUS', narratorOnly: true },
     '#/live': { viewId: 'view-live', title: 'CHRONUS LIVE · Sala da Crônica', authRequired: true },
-    '#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS' },
+    '#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS', authRequired: true },
     '#/chronicle': { viewId: 'view-chronicle', title: 'Crônica · CHRONUS' },
     '#/sessions': { viewId: 'view-sessions', title: 'Sessões · CHRONUS' },
     '#/npcs': { viewId: 'view-npcs', title: 'NPCs · CHRONUS' },
@@ -48,6 +48,13 @@ window.ChronusRouter = (function() {
 
     const routeDef = routes[cleanHash];
     currentRoute = cleanHash;
+
+    // Não renderize uma ficha anterior enquanto a conta autenticada está
+    // sendo reidratada após troca de usuário ou migração de cache.
+    if (cleanHash === '#/sheet' && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === true) {
+      window.location.hash = '#/home';
+      return;
+    }
 
     // Checagem de Proteção de Rota
     const user = window.ChronusAuth?.getUser();

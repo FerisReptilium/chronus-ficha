@@ -41,9 +41,9 @@ const supabaseMock = `
       { id: ids.last, session_number: 3, title: 'O Arquivo Cinza', slug: 'arquivo-cinza', session_date: '2026-08-26', in_game_date: '12 de setembro de 1990', summary: 'A cabala decifrou o primeiro registro da K-17 e identificou um sinal vindo de Teufelsberg.', current_objective: null, status: 'completed', sort_order: 3 },
       { id: ids.active, session_number: 4, title: 'Sinal de Teufelsberg', slug: 'sinal-teufelsberg', session_date: '2026-09-02', in_game_date: '14 de setembro de 1990', summary: '', current_objective: 'Localizar a origem da transmissão <img data-xss src=x onerror=alert(2)> antes da meia-noite.', status: 'in_progress', sort_order: 4 }
     ],
-    session_npcs: [{ role_in_session: 'Contato <script data-xss>alert(3)</script>', npc: { id: 'n1', name: 'Viktor Kane', slug: 'viktor-kane', role_occupation: 'Antiquário', status: 'alive' } }],
-    session_locations: [{ notes: 'Origem provável do sinal', location: { id: 'l1', name: 'Teufelsberg', slug: 'teufelsberg', type: 'facility', district_region: 'Charlottenburg' } }],
-    session_documents: [{ discovery_context: 'Interceptada pela K-17', document: { id: 'd1', title: 'Fita Magnética 17-B', slug: 'fita-17-b', type: 'audio_log' } }]
+    session_npcs: [{ session_id: ids.active, role_in_session: 'Contato <script data-xss>alert(3)</script>', npc: { id: 'n1', name: 'Viktor Kane', slug: 'viktor-kane', role_occupation: 'Antiquário', status: 'alive' } }],
+    session_locations: [{ session_id: ids.active, notes: 'Origem provável do sinal', location: { id: 'l1', name: 'Teufelsberg', slug: 'teufelsberg', type: 'facility', district_region: 'Charlottenburg' } }],
+    session_documents: [{ session_id: ids.active, discovery_context: 'Interceptada pela K-17', document: { id: 'd1', title: 'Fita Magnética 17-B', slug: 'fita-17-b', type: 'audio_log' } }]
   };
 
   function createQuery(table) {
@@ -51,7 +51,7 @@ const supabaseMock = `
     const result = () => {
       let data = [...(records[table] || [])];
       for (const [column, value] of Object.entries(state.filters)) {
-        data = data.filter(row => row[column] === value || table.startsWith('session_'));
+        data = data.filter(row => row[column] === value);
       }
       if (state.statuses) data = data.filter(row => state.statuses.includes(row.status));
       if (state.limit) data = data.slice(0, state.limit);
@@ -88,7 +88,19 @@ const supabaseMock = `
 `;
 
 function watchErrors(page) {
-  const errors = { console: [], page: [] };
+  const errors = { console: [], page: [], navigations: [], navigationRequests: [] };
+  page.on('request', request => {
+    if (!request.isNavigationRequest()) return;
+    errors.navigationRequests.push({
+      url: request.url(),
+      method: request.method(),
+      redirectedFrom: request.redirectedFrom()?.url() || null,
+      resourceType: request.resourceType()
+    });
+  });
+  page.on('framenavigated', frame => {
+    if (frame === page.mainFrame()) errors.navigations.push(frame.url());
+  });
   page.on('console', message => {
     if (message.type() === 'error') errors.console.push(message.text());
   });
@@ -157,7 +169,11 @@ async function inspect(page) {
       fixedOverlayCollisions,
       brokenImages: [...root.querySelectorAll('img[src]')]
         .filter(image => !image.complete || image.naturalWidth === 0)
-        .map(image => image.getAttribute('src'))
+        .map(image => image.getAttribute('src')),
+      navigationTrace: (() => {
+        try { return JSON.parse(sessionStorage.getItem('__chronus_v143_navigation_trace') || '[]'); }
+        catch (_) { return []; }
+      })()
     };
   });
 }
@@ -185,11 +201,122 @@ async function runMode(browser, mode, viewport) {
   }));
 
   const errors = watchErrors(page);
-  const response = await page.goto(`${origin}/#/player`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForFunction(() => document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3');
-  await page.waitForSelector('.dashboard-related-group', { state: 'visible' });
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Network.enable');
+  errors.documentInitiators = [];
+  cdp.on('Network.requestWillBeSent', event => {
+    if (event.type !== 'Document') return;
+    errors.documentInitiators.push({
+      url: event.request.url,
+      loaderId: event.loaderId,
+      initiator: event.initiator
+    });
+  });
+  await page.addInitScript(() => {
+    const key = '__chronus_v143_navigation_trace';
+    const read = () => { try { return JSON.parse(sessionStorage.getItem(key) || '[]'); } catch (_) { return []; } };
+    const write = entry => {
+      const latest = read();
+      latest.push({ ...entry, time: Date.now() });
+      try { sessionStorage.setItem(key, JSON.stringify(latest.slice(-30))); } catch (_) {}
+    };
+    write({ phase: 'document-start', href: location.href, readyState: document.readyState, navigationType: performance.getEntriesByType('navigation')[0]?.type || null });
+    window.addEventListener('beforeunload', () => write({ phase: 'beforeunload', href: location.href, hash: location.hash }));
+    window.addEventListener('click', event => write({
+      phase: 'click',
+      target: event.target?.closest?.('button,a,[role="button"]')?.outerHTML?.slice(0, 240) || event.target?.tagName || null
+    }), true);
+    const originalConfirm = window.confirm.bind(window);
+    window.confirm = message => {
+      write({ phase: 'confirm', message: String(message).slice(0, 180), stack: new Error('confirm caller').stack });
+      return originalConfirm(message);
+    };
+    try {
+      const originalReload = Location.prototype.reload;
+      Location.prototype.reload = function(...args) {
+        write({ phase: 'reload-called', stack: new Error('location.reload caller').stack });
+        return originalReload.apply(this, args);
+      };
+    } catch (error) {
+      write({ phase: 'reload-instrumentation-error', message: error.message });
+    }
+  });
+  // Inicializa primeiro na rota pública. Só navega para a área protegida
+  // depois de Auth e Router concluírem o bootstrap, reproduzindo o fluxo real
+  // de navegação sem disputar a rota inicial durante a restauração da sessão.
+  const response = await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForFunction(() => Boolean(
+    window.ChronusAuth?.getUser?.()?.id &&
+    window.ChronusRouter?.getCurrentRoute?.() === '#/home' &&
+    window.ChronusSheetEngine?.isCloudReady?.() === true
+  ), { timeout: 25000 });
+  try {
+    await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
+  } catch (error) {
+    // A primeira sincronização em dispositivo novo aplica a versão remota ao
+    // storage e faz uma única reidratação controlada. Se ela interromper a
+    // chamada do Router, aguarde o novo documento e retome a navegação.
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await page.waitForFunction(() => Boolean(
+      window.ChronusAuth?.getUser?.()?.id &&
+      window.ChronusRouter?.getCurrentRoute?.() === '#/home'
+    ), { timeout: 20000 }).catch(async () => {
+      const diagnostic = await page.evaluate(() => ({
+        href: location.href,
+        route: location.hash,
+        readyState: document.readyState,
+        userId: window.ChronusAuth?.getUser?.()?.id || null,
+        routerRoute: window.ChronusRouter?.getCurrentRoute?.() || null,
+        dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+        navigationTrace: (() => { try { return JSON.parse(sessionStorage.getItem('__chronus_v143_navigation_trace') || '[]'); } catch (_) { return []; } })()
+      })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
+      throw new Error(`Dashboard bootstrap did not recover after navigation: ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+    });
+    await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
+  }
+  await page.waitForFunction(() => (
+    window.location.hash === '#/player' &&
+    window.ChronusRouter?.getCurrentRoute?.() === '#/player' &&
+    document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3'
+  ), { timeout: 20000 });
+  try {
+    await page.waitForFunction(() => {
+      const view = document.getElementById('view-player');
+      const groups = document.querySelectorAll('#dashboard-related-content > .dashboard-related-group');
+      return view && !view.hidden && view.classList.contains('is-active') && groups.length === 3;
+    }, { timeout: 8000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      route: window.location.hash,
+      dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+      dashboardText: document.getElementById('player-dashboard-content')?.innerText?.slice(0, 1800) || '',
+      relationContainerExists: Boolean(document.getElementById('dashboard-related-content')),
+      relationGroupCount: document.querySelectorAll('.dashboard-related-group').length,
+      playerViewHidden: document.getElementById('view-player')?.hidden ?? null,
+      playerViewActive: document.getElementById('view-player')?.classList.contains('is-active') ?? false,
+      contentServiceAvailable: typeof window.ChronusContent?.getPlayerBriefing === 'function',
+      relatedContainerHtml: document.getElementById('dashboard-related-content')?.innerHTML?.slice(0, 1800) || '',
+      loadError: document.getElementById('dashboard-load-error')?.textContent || null
+    }));
+    throw new Error(`${mode}: dashboard relations did not render within 8s; ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+  }
 
-  const state = await inspect(page);
+  let state;
+  try {
+    state = await inspect(page);
+  } catch (error) {
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    const diagnostic = await page.evaluate(() => ({
+      href: location.href,
+      route: location.hash,
+      readyState: document.readyState,
+      dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+      playerViewHidden: document.getElementById('view-player')?.hidden ?? null,
+      playerViewActive: document.getElementById('view-player')?.classList.contains('is-active') ?? false,
+      relationGroupCount: document.querySelectorAll('.dashboard-related-group').length
+    })).catch(e => ({ diagnosticError: e.message, href: page.url() }));
+    throw new Error(`${mode}: page navigated while inspecting dashboard; ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+  }
   await page.screenshot({ path: path.join(outputDir, `${mode}-player-dashboard.png`), fullPage: true });
 
   if (response?.status() !== 200) throw new Error(`${mode}: preview HTTP ${response?.status()}`);
@@ -206,6 +333,11 @@ async function runMode(browser, mode, viewport) {
   if (state.horizontalOverflow || state.boxesOutsideViewport.length) throw new Error(`${mode}: horizontal layout regression`);
   if (state.fixedOverlayCollisions.length) throw new Error(`${mode}: global controls overlap dashboard content: ${state.fixedOverlayCollisions.join(', ')}`);
   if (state.brokenImages.length) throw new Error(`${mode}: broken dashboard images`);
+  const documentStarts = state.navigationTrace.filter(entry => entry.phase === 'document-start').length;
+  const beforeUnloads = state.navigationTrace.filter(entry => entry.phase === 'beforeunload').length;
+  if (documentStarts > 2 || beforeUnloads > 1) {
+    throw new Error(`${mode}: cloud bootstrap repeated document reloads (${documentStarts} document starts, ${beforeUnloads} unloads); trace=${JSON.stringify(state.navigationTrace)}`);
+  }
   if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected: ${JSON.stringify(errors)}`);
 
   await context.close();
@@ -219,15 +351,17 @@ async function runMode(browser, mode, viewport) {
     launchOptions.executablePath = process.env.CHRONUS_CHROMIUM_EXECUTABLE;
   }
   const browser = await chromium.launch(launchOptions);
-  const results = {};
-
-  for (const [mode, viewport] of Object.entries(viewports)) {
-    results[mode] = await runMode(browser, mode, viewport);
+  try {
+    const results = {};
+    for (const [mode, viewport] of Object.entries(viewports)) {
+      results[mode] = await runMode(browser, mode, viewport);
+    }
+    fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\\n`);
+    console.log('v1.4.3 player dashboard desktop/mobile visual QA: PASS');
+  } finally {
+    // Fecha todas as páginas/contextos mesmo quando uma asserção falha.
+    await browser.close();
   }
-
-  await browser.close();
-  fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
-  console.log('v1.4.3 player dashboard desktop/mobile visual QA: PASS');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

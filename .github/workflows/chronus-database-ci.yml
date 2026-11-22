@@ -24,11 +24,11 @@ jobs:
     timeout-minutes: 35
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 3.2.0
 
       - name: Build isolated migration directory
         run: |
@@ -53,8 +53,13 @@ jobs:
         run: |
           set -euo pipefail
           if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor > supabase-start.log 2>&1; then
-            echo "Supabase local bootstrap failed. Sanitized diagnostics:"
-            grep -E 'Applying migration|ERROR:|failed:|At statement:|Try rerunning|WARN:' supabase-start.log || true
+            echo "Supabase local bootstrap failed. Sanitized startup log (last 180 lines):"
+            sed -E \
+              -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g' \
+              -e 's/sb_(secret|publishable)_[A-Za-z0-9_-]+/[REDACTED_SUPABASE_KEY]/g' \
+              supabase-start.log | tail -n 180
+            echo "Docker container summary:"
+            docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
             exit 1
           fi
           supabase status -o env > ../supabase-local.env

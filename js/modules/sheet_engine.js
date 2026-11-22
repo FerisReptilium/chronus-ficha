@@ -15,13 +15,12 @@ window.ChronusSheetEngine = (function() {
   const STORAGE_KEY = 'chronus.sheet.v4';
   const LEGACY_KEYS = ['chronus.sheet.v3', 'chronus.sheet.v2', 'chronus.sheet.v1'];
 
-  // Supabase — chave publicável (segura para uso no navegador com RLS habilitado)
-  const SUPABASE_URL = 'https://phxqtkdumgwacrqsflqe.supabase.co';
-  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nl4ksY4d4ZFWENQ1_93wQQ_MXHih6uK';
   const CLOUD_USER_KEY = 'chronus.cloud.user.v1';
+  const ACTIVE_USER_SESSION_KEY = 'chronus.cloud.active-user.session.v1';
   const CLOUD_CHARACTER_KEY = 'chronus.cloud.character.v1';
   const CLOUD_DIRTY_KEY = 'chronus.cloud.dirty.v1';
   const CLOUD_SYNCED_KEY = 'chronus.cloud.synced.v1';
+  const CLOUD_CONFLICT_KEY = 'chronus.cloud.conflict.v1';
   const PORTRAIT_DIRTY_KEY = 'chronus.cloud.portrait.dirty.v1';
   const NARRATOR_VIEW_DATA_KEY = 'chronus.narrator.view.data.v1';
   const NARRATOR_VIEW_META_KEY = 'chronus.narrator.view.meta.v1';
@@ -85,6 +84,9 @@ window.ChronusSheetEngine = (function() {
   function mergeDeep(target, source) {
     if (!source || typeof source !== 'object') return target;
     Object.entries(source).forEach(([k,v]) => {
+      // Dados da ficha vêm do cliente e da nuvem; rejeite chaves capazes de
+      // alterar o protótipo durante a normalização de objetos JSON.
+      if (k === '__proto__' || k === 'prototype' || k === 'constructor') return;
       if (Array.isArray(v)) target[k] = v;
       else if (v && typeof v === 'object') {
         if (!target[k] || typeof target[k] !== 'object') target[k] = {};
@@ -94,13 +96,54 @@ window.ChronusSheetEngine = (function() {
     return target;
   }
   function normalizeState(s) {
-    if (!s.attributes || typeof s.attributes !== 'object') s.attributes = {};
+    if (!s || typeof s !== 'object' || Array.isArray(s)) s = clone(defaultState);
+    if (!s.identity || typeof s.identity !== 'object' || Array.isArray(s.identity)) s.identity = clone(defaultState.identity);
+    if (!Array.isArray(s.personalities)) s.personalities = clone(defaultState.personalities);
+    if (!s.xp || typeof s.xp !== 'object' || Array.isArray(s.xp)) s.xp = clone(defaultState.xp);
+    if (!s.lists || typeof s.lists !== 'object' || Array.isArray(s.lists)) s.lists = clone(defaultState.lists);
+    ['skills','advantages','equipment','formulas'].forEach(key => {
+      if (!Array.isArray(s.lists[key])) s.lists[key] = [];
+    });
+    if (!s.lists.arcana || typeof s.lists.arcana !== 'object' || Array.isArray(s.lists.arcana)) s.lists.arcana = {};
+    if (!s.page2 || typeof s.page2 !== 'object' || Array.isArray(s.page2)) s.page2 = clone(defaultState.page2);
+    if (!Array.isArray(s.page2.formulas)) s.page2.formulas = [];
+    if (!Array.isArray(s.page2.inventory)) s.page2.inventory = [];
+    if (!s.attributes || typeof s.attributes !== 'object' || Array.isArray(s.attributes)) s.attributes = {};
+
     Object.keys(ATTRIBUTE_POINTS).forEach(name => {
       const value = String(s.attributes[name] || '').toLowerCase();
-      s.attributes[name] = ['d4','d6','d8','d10'].includes(value) ? value : '';
+      s.attributes[name] = ['d4','d6','d8','d10','d12'].includes(value) ? value : '';
     });
 
-    if (!s.markers || typeof s.markers !== 'object') s.markers = {};
+    if (!s.markers || typeof s.markers !== 'object' || Array.isArray(s.markers)) s.markers = {};
+    const dieValue = value => Number(String(value || '').replace('d', '')) || 0;
+    const illumination = String(s.illumination || 'd4').toLowerCase();
+    s.illumination = ['d4','d6','d8','d10','d12'].includes(illumination) ? illumination : 'd4';
+    const initialDetermination = Math.min(dieValue(s.attributes.Perseverança), dieValue(s.attributes.Vontade));
+    const initialMana = ({d4:10,d6:15,d8:25,d10:40,d12:60})[s.illumination];
+    const initialWounds = 5 + dieValue(s.attributes.Vigor);
+    if (!s.resources || typeof s.resources !== 'object' || Array.isArray(s.resources)) s.resources = {};
+    const hasValidResourceValue = value => (
+      (typeof value === 'number' && Number.isFinite(value)) ||
+      (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)))
+    );
+    if (!hasValidResourceValue(s.resources.determination)) {
+      const hasLegacy = [0,1,2].some(i => Object.prototype.hasOwnProperty.call(s.markers, `determination.${i}`));
+      const legacy = [0,1,2].filter(i => s.markers[`determination.${i}`] === 'filled').length;
+      s.resources.determination = hasLegacy ? (legacy === 3 ? initialDetermination : legacy) : initialDetermination;
+    }
+    if (!hasValidResourceValue(s.resources.mana)) {
+      const manaKeys = Object.keys(s.markers).filter(key => /^mana\.\d+$/.test(key));
+      const legacy = manaKeys.filter(key => s.markers[key] === 'filled').length;
+      s.resources.mana = manaKeys.length ? (legacy === manaKeys.length ? initialMana : legacy) : initialMana;
+    }
+    if (!hasValidResourceValue(s.resources.wounds)) {
+      s.resources.wounds = Object.keys(s.markers).filter(key => key.startsWith('wounds.') && s.markers[key] !== 'empty').length;
+    }
+    s.resources.determination = Math.max(0, Math.min(initialDetermination, Math.floor(Number(s.resources.determination))));
+    s.resources.mana = Math.max(0, Math.min(initialMana, Math.floor(Number(s.resources.mana))));
+    s.resources.wounds = Math.max(0, Math.min(initialWounds, Math.floor(Number(s.resources.wounds))));
+    s.resources.max = { determination: initialDetermination, mana: initialMana, wounds: initialWounds };
     Object.entries(s.markers).forEach(([key,value]) => {
       if (key.startsWith('wounds.')) {
         s.markers[key] = WOUND_STATES.includes(value) ? value : 'empty';
@@ -122,29 +165,48 @@ window.ChronusSheetEngine = (function() {
       text: item?.text || ''
     }));
     while (s.lists.equipment.length < 4) s.lists.equipment.push({name:'',damage:'',type:'',properties:''});
-    s.lists.equipment = s.lists.equipment.slice(0,4);
+    s.lists.equipment = s.lists.equipment.slice(0,4).map(item => ({
+      name: String(item?.name || ''), damage: String(item?.damage || ''),
+      type: String(item?.type || ''), properties: String(item?.properties || '')
+    }));
     while (s.lists.formulas.length < 3) s.lists.formulas.push({name:'',notes:''});
-    s.lists.formulas = s.lists.formulas.slice(0,3);
+    s.lists.formulas = s.lists.formulas.slice(0,3).map(item => ({
+      name: String(item?.name || ''), notes: String(item?.notes || '')
+    }));
     if (!s.lists.arcana) s.lists.arcana = {};
     ARCANA.forEach(a => {
       if (!Array.isArray(s.lists.arcana[a])) s.lists.arcana[a] = Array(5).fill('empty');
       while (s.lists.arcana[a].length < 5) s.lists.arcana[a].push('empty');
       s.lists.arcana[a] = s.lists.arcana[a].slice(0,5).map(v => v && v !== 'empty' ? 'filled' : 'empty');
     });
-    if (!s.page2) s.page2 = clone(defaultState.page2);
     while (s.page2.formulas.length < 12) s.page2.formulas.push('');
     while (s.page2.inventory.length < 16) s.page2.inventory.push('');
+    s.page2.formulas = s.page2.formulas.slice(0,12).map(value => String(value ?? ''));
+    s.page2.inventory = s.page2.inventory.slice(0,16).map(value => String(value ?? ''));
+    const paradox = Number(s.paradox);
+    s.paradox = Number.isFinite(paradox) ? Math.max(0, Math.min(21, Math.floor(paradox))) : 0;
+    s.pain = Boolean(s.pain);
+    if (!['page-1','page-2'].includes(s.activePage)) s.activePage = 'page-1';
     return s;
   }
   function loadState() {
     const base = clone(defaultState);
     try {
       const params = new URLSearchParams(location.search);
-      if (params.get('narratorView') === '1') {
+      if (params.get('narratorView') === '1' && sessionStorage.getItem(ACTIVE_USER_SESSION_KEY)) {
         const snapshot = sessionStorage.getItem(NARRATOR_VIEW_DATA_KEY);
         if (snapshot) return normalizeState(mergeDeep(base, JSON.parse(snapshot)));
       }
-      const raw = localStorage.getItem(STORAGE_KEY) || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean);
+      const ownerId = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
+      const knownOwner = localStorage.getItem(CLOUD_USER_KEY);
+      const scopedKey = ownerId && window.CHRONUS_CONFIG?.getStorageKey(ownerId);
+      const scopedRaw = scopedKey ? localStorage.getItem(scopedKey) : null;
+      // Cache de conta só é carregado após a sessão autenticada ser confirmada.
+      // O marcador persistente identifica o dono do legado, não prova login ativo.
+      const legacyRaw = (!knownOwner && !ownerId)
+        ? (localStorage.getItem(STORAGE_KEY) || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean))
+        : null;
+      const raw = scopedRaw || legacyRaw;
       return normalizeState(raw ? mergeDeep(base, JSON.parse(raw)) : base);
     } catch { return base; }
   }
@@ -157,6 +219,10 @@ window.ChronusSheetEngine = (function() {
   let cloudReady = false;
   let cloudSaving = false;
   let cloudSaveAgain = false;
+  // Per-tab optimistic concurrency token. Never read this from shared localStorage
+  // when saving: another tab may have advanced it while this tab remains stale.
+  let cloudVersion = null;
+  let cloudConflict = false;
   let bootstrapInProgress = false;
   let currentProfile = null;
   let narratorReadOnly = false;
@@ -164,6 +230,13 @@ window.ChronusSheetEngine = (function() {
   let passwordRecoveryMode = false;
   let passwordRecoveryAuthorized = false;
   const indicator = document.getElementById('saveIndicator');
+
+  window.addEventListener('storage', event => {
+    if (event.key && event.key.startsWith(CLOUD_CONFLICT_KEY + '.') && event.newValue === '1') {
+      cloudConflict = true;
+      setSaveStatus('Conflito de sincronização em outra aba • sincronização automática pausada', 'offline');
+    }
+  });
 
   function setSaveStatus(text, mode='') {
     if (!indicator) return;
@@ -181,8 +254,12 @@ window.ChronusSheetEngine = (function() {
 
   function persistLocalState(markDirty=true) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      if (markDirty) localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+      const userId = cloudUser?.id || null;
+      const cfg = window.CHRONUS_CONFIG;
+      const storageKey = userId && cfg ? cfg.getStorageKey(userId) : STORAGE_KEY;
+      const dirtyKey = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      if (markDirty) localStorage.setItem(dirtyKey, '1');
     } catch (e) { console.warn('CHRONUS: falha ao salvar localmente', e); }
   }
 
@@ -193,7 +270,7 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Offline • salvo local', 'offline');
       return;
     }
-    cloudSaveTimer = setTimeout(() => pushStateToCloud(), delay);
+    cloudSaveTimer = setTimeout(() => { cloudSaveTimer = 0; pushStateToCloud(); }, delay);
   }
 
   function scheduleSave() {
@@ -202,6 +279,7 @@ window.ChronusSheetEngine = (function() {
     setSaveStatus('Salvando…', 'saving');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
+      saveTimer = 0;
       persistLocalState(true);
       if (cloudUser) {
         setSaveStatus(navigator.onLine ? 'Salvo local • sincronizando…' : 'Offline • salvo local', navigator.onLine ? 'saving' : 'offline');
@@ -212,17 +290,81 @@ window.ChronusSheetEngine = (function() {
     }, 180);
   }
 
+  function getResourceMaxima() {
+    const sides = name => Number(String(state.attributes?.[name] || '').replace('d', '')) || 0;
+    return {
+      determination: Math.min(sides('Perseverança'), sides('Vontade')),
+      wounds: 5 + sides('Vigor'),
+      mana: ({d4:10,d6:15,d8:25,d10:40,d12:60})[state.illumination] || 10
+    };
+  }
+
+  function reconcileResourceMaxima(previous) {
+    const next = getResourceMaxima();
+    ['determination','mana','wounds'].forEach(key => {
+      const current = Math.max(0, Number(state.resources?.[key]) || 0);
+      const oldMax = Number(previous?.[key]) || 0;
+      state.resources[key] = current >= oldMax ? next[key] : Math.min(current, next[key]);
+    });
+    state.resources.max = next;
+  }
+
+  function updateResourceCounters() {
+    const maxima = getResourceMaxima();
+    document.querySelectorAll('[data-resource-counter]').forEach(host => {
+      const key = host.dataset.resourceCounter;
+      const input = host.querySelector('input');
+      const maxLabel = host.querySelector('[data-resource-max]');
+      if (!input || !maxLabel) return;
+      const max = maxima[key] || 0;
+      const current = Math.max(0, Math.min(max, Number(state.resources?.[key]) || 0));
+      state.resources[key] = current;
+      input.max = String(max);
+      input.value = String(current);
+      maxLabel.textContent = `/ ${max}`;
+      input.disabled = narratorReadOnly;
+    });
+    state.resources.max = maxima;
+  }
+
+  function renderResourceCounter(host, key, label, x, y, width, height) {
+    const wrap = document.createElement('div');
+    wrap.className = 'resource-counter';
+    wrap.dataset.resourceCounter = key;
+    placeBox(wrap, x, y, width, height);
+    const caption = document.createElement('span');
+    caption.className = 'resource-counter-label';
+    caption.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.inputMode = 'numeric';
+    input.setAttribute('aria-label', label + ' atual');
+    input.addEventListener('change', () => {
+      const max = getResourceMaxima()[key];
+      state.resources[key] = Math.max(0, Math.min(max, Math.floor(Number(input.value) || 0)));
+      updateResourceCounters();
+      scheduleSave();
+    });
+    const maxLabel = document.createElement('span');
+    maxLabel.className = 'resource-counter-max';
+    maxLabel.dataset.resourceMax = '';
+    wrap.append(caption, input, maxLabel);
+    host.append(wrap);
+  }
+
   function getRollProfile() {
     const attributes = Object.entries(state.attributes || {})
       .map(([name, die]) => ({ name, die: String(die || '').toLowerCase(), sides: Number(String(die || '').replace('d', '')) }))
-      .filter(attribute => [4, 6, 8, 10].includes(attribute.sides));
+      .filter(attribute => [4, 6, 8, 10, 12].includes(attribute.sides));
     const personalities = (state.personalities || [])
       .map(value => String(value || '').trim())
       .filter(Boolean);
     const skills = (state.lists?.skills || [])
       .map(item => String(item?.text || '').trim())
       .filter(Boolean);
-    const determination = [0, 1, 2].filter(index => state.markers?.[`determination.${index}`] === 'filled').length;
+    const determination = Number(state.resources?.determination) || 0;
+    const maxima = getResourceMaxima();
 
     return clone({
       characterName: String(state.identity?.name || '').trim(),
@@ -230,6 +372,11 @@ window.ChronusSheetEngine = (function() {
       personalities,
       skills,
       determination,
+      determinationMax: maxima.determination,
+      mana: Number(state.resources?.mana) || 0,
+      manaMax: maxima.mana,
+      wounds: Number(state.resources?.wounds) || 0,
+      woundsMax: maxima.wounds,
       paradox: Math.max(0, Number(state.paradox) || 0),
       readOnly: narratorReadOnly
     });
@@ -237,11 +384,9 @@ window.ChronusSheetEngine = (function() {
 
   function spendDetermination() {
     if (narratorReadOnly) return { ok: false, error: 'Ficha em modo somente leitura.' };
-    const spentIndex = [2, 1, 0].find(index => state.markers?.[`determination.${index}`] === 'filled');
-    if (spentIndex === undefined) return { ok: false, error: 'Sem Determinação disponível.' };
-    state.markers[`determination.${spentIndex}`] = 'empty';
-    const marker = document.querySelector(`[aria-label="determination.${spentIndex}"]`);
-    if (marker) marker.dataset.state = 'empty';
+    if ((Number(state.resources?.determination) || 0) <= 0) return { ok: false, error: 'Sem Determinação disponível.' };
+    state.resources.determination -= 1;
+    updateResourceCounters();
     scheduleSave();
     return { ok: true, remaining: getRollProfile().determination };
   }
@@ -332,25 +477,34 @@ window.ChronusSheetEngine = (function() {
       select.className='attribute-die-select';
       select.setAttribute('aria-label',`${name}: dado do atributo`);
       placeBox(select,centerX-35,centerY-22,70,44);
-      select.innerHTML='<option value="">—</option><option value="d4">d4</option><option value="d6">d6</option><option value="d8">d8</option><option value="d10">d10</option>';
+      select.innerHTML='<option value="">—</option><option value="d4">d4</option><option value="d6">d6</option><option value="d8">d8</option><option value="d10">d10</option><option value="d12">d12</option>';
       select.value=state.attributes[name] || '';
-      select.addEventListener('change',()=>{state.attributes[name]=select.value;scheduleSave();});
+      select.addEventListener('change',()=>{
+        const previous = getResourceMaxima();
+        state.attributes[name]=select.value;
+        reconcileResourceMaxima(previous);
+        updateResourceCounters();
+        scheduleSave();
+      });
       host.append(select);
     });
   }
 
   function renderResources() {
     const host=document.getElementById('resourceLayer');
-    [[87,1143],[148,1143],[208,1143]].forEach((p,i) => host.append(binaryMarker({x:p[0],y:p[1],size:48,key:`determination.${i}`,shape:'diamond'})));
+    renderResourceCounter(host, 'determination', 'Determinação', 55, 1118, 205, 58);
 
-    const illum = [['d4',291.5],['d6',341.5],['d8',388.5],['d10',431.5]];
+    const illum = [['d4',291.5],['d6',341.5],['d8',388.5],['d10',431.5],['d12',480]];
     illum.forEach(([value,x]) => {
       const b=document.createElement('button'); b.type='button'; b.className='illumination-hit';
       placeBox(b,x-18,1138,36,36); b.classList.toggle('is-active',state.illumination===value);
       b.setAttribute('aria-label',`Iluminação ${value}`);
       b.addEventListener('click',()=>{
+        const previous = getResourceMaxima();
         state.illumination=value;
+        reconcileResourceMaxima(previous);
         host.querySelectorAll('.illumination-hit').forEach(n=>n.classList.toggle('is-active',n.getAttribute('aria-label')===`Iluminação ${value}`));
+        updateResourceCounters();
         scheduleSave();
       }); host.append(b);
     });
@@ -358,13 +512,13 @@ window.ChronusSheetEngine = (function() {
 
   function renderMana() {
     const host=document.getElementById('manaLayer');
-    MANA_POINTS.forEach((p,i)=>host.append(binaryMarker({x:p[0],y:p[1],size:31,key:`mana.${i}`})));
+    renderResourceCounter(host, 'mana', 'Mana', 1000, 925, 375, 70);
+    updateResourceCounters();
   }
 
   function renderWounds() {
     const host=document.getElementById('woundsLayer');
-    const centers=[78.5,103.5,129.5,155,179.5,205,231,256.5,280.5,304.5];
-    centers.forEach((x,i)=>host.append(woundMarker({x,y:1316,size:28,key:`wounds.${i}`})));
+    renderResourceCounter(host, 'wounds', 'Feridas', 65, 1290, 250, 58);
     const pain=document.createElement('button'); pain.type='button'; pain.className='pain-hit'; placeBox(pain,167,1368,34,38);
     pain.classList.toggle('is-active',!!state.pain); pain.setAttribute('aria-label','Dor');
     pain.addEventListener('click',()=>{state.pain=!state.pain; pain.classList.toggle('is-active',state.pain); scheduleSave();}); host.append(pain);
@@ -455,39 +609,144 @@ window.ChronusSheetEngine = (function() {
     makeLines('page2Formulas',state.page2.formulas,12); makeLines('page2Inventory',state.page2.inventory,16);
   }
 
-  // IndexedDB do retrato, com fallback em localStorage
+  function refreshAccountStateFromMemory() {
+    [
+      'attributeLayer','resourceLayer','manaLayer','woundsLayer','skillsLayer',
+      'advantagesLayer','paradoxLayer','arcanaLayer','equipmentLayer','formulasLayer',
+      'page2Formulas','page2Inventory'
+    ].forEach(id => document.getElementById(id)?.replaceChildren());
+
+    document.querySelectorAll('[data-bind]').forEach(el => {
+      el.value = getByPath(state, el.dataset.bind) ?? '';
+    });
+    renderAttributes();
+    renderResources();
+    renderMana();
+    renderWounds();
+    renderList('skillsLayer', SKILL_Y, 'skills');
+    renderList('advantagesLayer', ADV_Y, 'advantages');
+    renderParadox();
+    renderArcana();
+    renderEquipment();
+    renderFormulas();
+    renderPage2();
+    document.querySelectorAll('.sheet-page').forEach(page => {
+      page.classList.toggle('is-active', page.id === (state.activePage || 'page-1'));
+    });
+    document.querySelectorAll('[data-page-target]').forEach(tab => {
+      tab.classList.toggle('is-active', tab.dataset.pageTarget === (state.activePage || 'page-1'));
+    });
+    updateResourceCounters();
+  }
+
+  // Retratos isolados por conta: IndexedDB é compartilhado entre usuários no mesmo navegador.
   const DB_NAME='chronus-sheet-db-v3', STORE='assets';
   function openDb(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-  async function dbPut(blob){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,'portrait');tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
-  async function dbGet(){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get('portrait');r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error);});}
-  async function dbDelete(){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete('portrait');tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
+  function portraitOwnerId(){return cloudUser?.id || sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null;}
+  function portraitStorageKey(userId=portraitOwnerId()){return userId ? `portrait.${userId}` : 'portrait.anonymous';}
+  function portraitFallbackKey(userId=portraitOwnerId()){return userId ? `chronus.portrait.fallback.${userId}` : 'chronus.portrait.fallback.anonymous';}
+  function portraitTombstoneKey(userId=portraitOwnerId()){return `chronus.portrait.deleted.${userId || 'anonymous'}`;}
+  async function dbPut(blob,key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+  async function dbGet(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error);});}
+  async function dbDelete(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   function blobToDataUrl(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});}
-  async function savePortrait(blob){try{await dbPut(blob);}catch{try{localStorage.setItem('chronus.portrait.fallback',await blobToDataUrl(blob));}catch{}}}
-  async function loadPortrait(){try{return await dbGet();}catch{const d=localStorage.getItem('chronus.portrait.fallback');return d||null;}}
-  async function clearPortrait(){try{await dbDelete();}catch{} localStorage.removeItem('chronus.portrait.fallback');}
+  async function dataUrlToBlob(dataUrl){const response=await fetch(dataUrl);if(!response.ok)throw new Error('Falha ao converter retrato local');return response.blob();}
+  async function savePortrait(blob,userId=portraitOwnerId()){
+    const fallbackKey=portraitFallbackKey(userId);
+    try {
+      await dbPut(blob,portraitStorageKey(userId));
+      try { localStorage.removeItem(fallbackKey); }
+      catch { localStorage.setItem(fallbackKey,await blobToDataUrl(blob)); }
+      localStorage.removeItem(portraitTombstoneKey(userId));
+      return true;
+    } catch {
+      try {
+        localStorage.setItem(fallbackKey,await blobToDataUrl(blob));
+        localStorage.removeItem(portraitTombstoneKey(userId));
+        return true;
+      } catch { return false; }
+    }
+  }
+  async function loadPortrait(userId=portraitOwnerId()){
+    if(localStorage.getItem(portraitTombstoneKey(userId))==='1'){
+      try {
+        await dbDelete(portraitStorageKey(userId));
+        localStorage.removeItem(portraitTombstoneKey(userId));
+      } catch {}
+      localStorage.removeItem(portraitFallbackKey(userId));
+      return null;
+    }
+    const fallback=localStorage.getItem(portraitFallbackKey(userId));
+    if(fallback){
+      try{return await dataUrlToBlob(fallback);}catch{return fallback;}
+    }
+    const scoped=await dbGet(portraitStorageKey(userId)).catch(()=>null);
+    if(scoped)return scoped;
+    if(!userId && !localStorage.getItem(CLOUD_USER_KEY)){
+      if(localStorage.getItem(portraitTombstoneKey('legacy'))==='1'){
+        try { await dbDelete('portrait'); localStorage.removeItem(portraitTombstoneKey('legacy')); } catch {}
+        return null;
+      }
+      const legacyFallback=localStorage.getItem('chronus.portrait.fallback');
+      if(legacyFallback){try{return await dataUrlToBlob(legacyFallback);}catch{return legacyFallback;}}
+      return await dbGet('portrait').catch(()=>null);
+    }
+    return null;
+  }
+  async function clearPortrait(userId=portraitOwnerId()){
+    let tombstoneSaved = false;
+    try {
+      localStorage.removeItem(portraitFallbackKey(userId));
+      localStorage.setItem(portraitTombstoneKey(userId),'1');
+      tombstoneSaved = true;
+    } catch {}
+    if(!userId && !localStorage.getItem(CLOUD_USER_KEY)){
+      try { localStorage.removeItem('chronus.portrait.fallback'); } catch {}
+      try { localStorage.setItem(portraitTombstoneKey('legacy'),'1'); } catch {}
+    }
+    try {
+      await dbDelete(portraitStorageKey(userId));
+      if(!userId && !localStorage.getItem(CLOUD_USER_KEY)) await dbDelete('portrait');
+      localStorage.removeItem(portraitTombstoneKey(userId));
+      if(!userId && !localStorage.getItem(CLOUD_USER_KEY)) localStorage.removeItem(portraitTombstoneKey('legacy'));
+      return true;
+    } catch { return false; }
+  }
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
     let objectUrl='';
-    const show=(data)=>{if(objectUrl)URL.revokeObjectURL(objectUrl); if(typeof data==='string')preview.src=data; else {objectUrl=URL.createObjectURL(data);preview.src=objectUrl;} preview.hidden=false;button.classList.add('has-portrait');};
+    const show=(data)=>{if(objectUrl)URL.revokeObjectURL(objectUrl); objectUrl=''; if(typeof data==='string')preview.src=data; else {objectUrl=URL.createObjectURL(data);preview.src=objectUrl;} preview.hidden=false;button.classList.add('has-portrait');};
+    const clear=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl='';preview.src='';preview.hidden=true;input.value='';button.classList.remove('has-portrait');};
     window.__chronusShowPortrait = show;
+    window.__chronusClearPortrait = clear;
     const saved=await loadPortrait().catch(()=>null); if(saved)show(saved);
     const choose=()=>input.click(); button.addEventListener('click',choose); action.addEventListener('click',choose);
     input.addEventListener('change',async()=>{
       const file=input.files?.[0]; if(!file)return;
       if(file.size>12*1024*1024){alert('Use uma imagem de até 12 MB.');return;}
-      await savePortrait(file); show(file); localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+      await savePortrait(file); show(file); localStorage.setItem(getScopedKey('portraitDirty'),'1');
       if(cloudUser && cloudReady && navigator.onLine) await pushPortraitToCloud(file);
     });
     button.addEventListener('contextmenu',async(e)=>{
       e.preventDefault();
       if(!preview.hidden&&confirm('Remover o retrato?')){
-        await clearPortrait(); preview.hidden=true; preview.src=''; button.classList.remove('has-portrait');
-        localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+        const localRemoved = await clearPortrait();
+        clear();
+        localStorage.setItem(getScopedKey('portraitDirty'),'1');
         if(cloudUser && cloudReady && navigator.onLine) await deletePortraitFromCloud();
+        if(!localRemoved) setSaveStatus('Retrato ocultado; limpeza local pendente','offline');
       }
     });
   }
 
+
+  function cloudSessionBaseKey(userId=cloudUser?.id, characterId=cloudCharacterId) {
+    return userId && characterId ? `chronus.cloud.base.${userId}.${characterId}` : '';
+  }
+
+  function cloudConflictStorageKey(userId=cloudUser?.id, characterId=cloudCharacterId) {
+    return userId && characterId ? `${CLOUD_CONFLICT_KEY}.${userId}.${characterId}` : '';
+  }
 
   function cloudCharacterName() {
     return String(state?.identity?.name || '').trim() || 'Novo personagem';
@@ -497,28 +756,52 @@ window.ChronusSheetEngine = (function() {
     if (!supabaseClient || !cloudUser || !cloudCharacterId || !cloudReady) return;
     if (!navigator.onLine) { setSaveStatus('Offline • salvo local', 'offline'); return; }
     if (cloudSaving) { cloudSaveAgain = true; return; }
+    if (cloudConflict) { setSaveStatus('Conflito de sincronização • alterações preservadas neste dispositivo', 'offline'); return; }
+    if (!cloudVersion) {
+      localStorage.setItem(getScopedKey('dirty'), '1');
+      setSaveStatus('Sincronização pausada • versão remota não confirmada', 'offline');
+      return;
+    }
 
     cloudSaving = true;
     setSaveStatus('Sincronizando…', 'saving');
     try {
+      // Compare-and-swap: a write succeeds only if the row is still the exact
+      // version this tab loaded. A stale tab must never overwrite newer data.
       const { data, error } = await supabaseClient
         .from('characters')
         .update({ name: cloudCharacterName(), data: clone(state) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
+        .eq('updated_at', cloudVersion)
         .select('updated_at')
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-      localStorage.setItem(CLOUD_SYNCED_KEY, data?.updated_at || new Date().toISOString());
+      if (!data?.updated_at) {
+        cloudConflict = true;
+        const conflictKey = cloudConflictStorageKey();
+        if (conflictKey) localStorage.setItem(conflictKey, '1');
+        localStorage.setItem(getScopedKey('dirty'), '1');
+        setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
+        return;
+      }
+      cloudVersion = data.updated_at;
+      const baseKey = cloudSessionBaseKey();
+      if (baseKey) sessionStorage.setItem(baseKey, cloudVersion);
+      cloudConflict = false;
+      const conflictKey = cloudConflictStorageKey();
+      if (conflictKey) localStorage.removeItem(conflictKey);
+      localStorage.setItem(getScopedKey('dirty'), '0');
+      localStorage.setItem(getScopedKey('synced'), cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
     } catch (e) {
       console.error('CHRONUS: erro de sincronização', e);
-      localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+      localStorage.setItem(getScopedKey('dirty'), '1');
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       cloudSaving = false;
-      if (cloudSaveAgain) { cloudSaveAgain = false; scheduleCloudSave(250); }
+      if (cloudSaveAgain && !cloudConflict) { cloudSaveAgain = false; scheduleCloudSave(250); }
+      else cloudSaveAgain = false;
     }
   }
 
@@ -533,12 +816,12 @@ window.ChronusSheetEngine = (function() {
           cacheControl: '3600'
         });
       if (error) throw error;
-      localStorage.setItem(PORTRAIT_DIRTY_KEY,'0');
+      localStorage.setItem(getScopedKey('portraitDirty'),'0');
       setSaveStatus('Retrato salvo na nuvem ✓', 'cloud');
       return true;
     } catch (e) {
       console.warn('CHRONUS: retrato salvo apenas localmente (bucket portraits pode ainda não estar configurado)', e);
-      localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
       setSaveStatus('Retrato salvo localmente', 'offline');
       return false;
     }
@@ -552,18 +835,23 @@ window.ChronusSheetEngine = (function() {
       if (data) {
         await savePortrait(data);
         window.__chronusShowPortrait?.(data);
-        localStorage.setItem(PORTRAIT_DIRTY_KEY,'0');
+        localStorage.setItem(getScopedKey('portraitDirty'),'0');
       }
     } catch (e) { console.warn('CHRONUS: não foi possível baixar o retrato', e); }
   }
 
   async function deletePortraitFromCloud() {
-    if (!supabaseClient || !cloudUser || !navigator.onLine) return;
+    if (!supabaseClient || !cloudUser || !navigator.onLine) return false;
     try {
       const { error } = await supabaseClient.storage.from('portraits').remove([`${cloudUser.id}/portrait`]);
       if (error) throw error;
-      localStorage.setItem(PORTRAIT_DIRTY_KEY,'0');
-    } catch (e) { console.warn('CHRONUS: não foi possível remover o retrato na nuvem', e); }
+      localStorage.setItem(getScopedKey('portraitDirty'),'0');
+      return true;
+    } catch (e) {
+      console.warn('CHRONUS: não foi possível remover o retrato na nuvem', e);
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      return false;
+    }
   }
 
   function showAuthGate(message='', isError=false) {
@@ -661,18 +949,57 @@ window.ChronusSheetEngine = (function() {
     }
   }
 
+  function stableSerialize(value) {
+    if (Array.isArray(value)) return '[' + value.map(stableSerialize).join(',') + ']';
+    if (value && typeof value === 'object') {
+      return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableSerialize(value[key])).join(',') + '}';
+    }
+    return JSON.stringify(value);
+  }
+
   function statesEqual(a,b) {
-    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+    try { return stableSerialize(a) === stableSerialize(b); } catch { return false; }
   }
 
   async function applyRemoteAndReload(remoteData, userId, characterId, updatedAt) {
     const merged = normalizeState(mergeDeep(clone(defaultState), remoteData || {}));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    const snapshot = updatedAt || stableSerialize(merged);
+    const appliedKey = `chronus.cloud.applied.${userId}.${characterId}`;
+    const cfg = window.CHRONUS_CONFIG;
+    localStorage.setItem(cfg.getStorageKey(userId), JSON.stringify(merged));
     localStorage.setItem(CLOUD_USER_KEY, userId);
+    localStorage.setItem(cfg.getCharacterIdKey(userId), characterId);
     localStorage.setItem(CLOUD_CHARACTER_KEY, characterId);
-    localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-    localStorage.setItem(CLOUD_SYNCED_KEY, updatedAt || new Date().toISOString());
+    localStorage.setItem(cfg.getDirtyKey(userId), '0');
+    localStorage.setItem(cfg.getSyncedKey(userId), updatedAt || new Date().toISOString());
+    cloudVersion = updatedAt || null;
+    const baseKey = cloudSessionBaseKey(userId, characterId);
+    if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
+    cloudConflict = false;
+    localStorage.removeItem(cloudConflictStorageKey(userId, characterId));
+
+    // Uma mesma versão remota pode exigir reidratação uma vez. Se a normalização
+    // produzir diferenças não relevantes após o reload, não entre em ciclo infinito.
+    if (sessionStorage.getItem(appliedKey) === snapshot) {
+      cloudUser = { id: userId };
+      cloudCharacterId = characterId;
+      cloudReady = true;
+      setSaveStatus('Salvo na nuvem ✓', 'cloud');
+      return false;
+    }
+
+    sessionStorage.setItem(appliedKey, snapshot);
     location.reload();
+    return true;
+  }
+
+  function setAccountHydrationPending(pending) {
+    window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = Boolean(pending);
+    const sheet = document.getElementById('view-sheet');
+    if (sheet) {
+      sheet.style.visibility = pending ? 'hidden' : '';
+      sheet.style.pointerEvents = pending ? 'none' : '';
+    }
   }
 
   async function bootstrapCloudForUser(user) {
@@ -695,12 +1022,14 @@ window.ChronusSheetEngine = (function() {
       if (error) throw error;
 
       const localOwner = localStorage.getItem(CLOUD_USER_KEY);
-      const dirty = localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
+      const cfg = window.CHRONUS_CONFIG;
+      const hasScopedCache = Boolean(localStorage.getItem(cfg.getStorageKey(user.id)));
+      const dirty = localStorage.getItem(getScopedKey('dirty')) === '1';
 
       if (!row) {
         // Primeira migração: se ainda não havia dono local, envia a ficha v0.3/v0.4 atual.
         // Se o navegador pertencia a outra conta, cria uma ficha limpa para evitar vazamento entre jogadores.
-        const initialState = localOwner && localOwner !== user.id ? clone(defaultState) : clone(state);
+        const initialState = localOwner && localOwner !== user.id && !hasScopedCache ? clone(defaultState) : clone(state);
         if (!String(initialState?.identity?.player || '').trim() && currentProfile?.display_name) initialState.identity.player = currentProfile.display_name;
         const { data: created, error: insertError } = await supabaseClient
           .from('characters')
@@ -709,10 +1038,16 @@ window.ChronusSheetEngine = (function() {
           .single();
         if (insertError) throw insertError;
         cloudCharacterId = created.id;
+        cloudVersion = created.updated_at || null;
+        const baseKey = cloudSessionBaseKey(user.id, created.id);
+        if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
+        cloudConflict = false;
+        localStorage.removeItem(cloudConflictStorageKey(user.id, created.id));
         localStorage.setItem(CLOUD_USER_KEY, user.id);
+        localStorage.setItem(getScopedKey('characterId'), created.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, created.id);
-        localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-        localStorage.setItem(CLOUD_SYNCED_KEY, created.updated_at || new Date().toISOString());
+        localStorage.setItem(getScopedKey('dirty'), '0');
+        localStorage.setItem(getScopedKey('synced'), created.updated_at || new Date().toISOString());
         cloudReady = true;
         if (localOwner && localOwner !== user.id) {
           await applyRemoteAndReload(initialState,user.id,created.id,created.updated_at);
@@ -721,38 +1056,51 @@ window.ChronusSheetEngine = (function() {
         setSaveStatus('Salvo na nuvem ✓', 'cloud');
       } else {
         cloudCharacterId = row.id;
+        cloudVersion = row.updated_at || null;
+        const baseKey = cloudSessionBaseKey(user.id, row.id);
+        const localBaseVersion = baseKey ? sessionStorage.getItem(baseKey) : null;
+        cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1'
+          || (localStorage.getItem(getScopedKey('dirty')) === '1' && localBaseVersion !== cloudVersion);
+        localStorage.setItem(getScopedKey('characterId'), row.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
-        if (localOwner && localOwner !== user.id) {
+        if (localOwner && localOwner !== user.id && !dirty) {
           await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
           return;
         }
-        if (!localOwner) {
-          // Dispositivo novo: se há ficha na nuvem, a nuvem é a fonte principal.
+        if (!localOwner && !dirty) {
+          // Dispositivo novo sem rascunho pendente: a nuvem é a fonte principal.
           await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
           return;
         }
 
         cloudReady = true;
         localStorage.setItem(CLOUD_USER_KEY, user.id);
-        if (dirty) {
+        if (cloudConflict) {
+          const conflictKey = cloudConflictStorageKey(user.id, row.id);
+          if (conflictKey) localStorage.setItem(conflictKey, '1');
+          localStorage.setItem(getScopedKey('dirty'), '1');
+          setSaveStatus('Conflito pendente • alterações locais preservadas; sincronização automática pausada', 'offline');
+        } else if (dirty) {
           await pushStateToCloud();
         } else {
+          if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
           const remoteNormalized = normalizeState(mergeDeep(clone(defaultState), row.data || {}));
           if (!statesEqual(remoteNormalized, state)) {
             await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
             return;
           }
-          localStorage.setItem(CLOUD_SYNCED_KEY,row.updated_at||new Date().toISOString());
+          localStorage.setItem(getScopedKey('synced'),row.updated_at||new Date().toISOString());
           setSaveStatus('Salvo na nuvem ✓', 'cloud');
         }
       }
 
       // Retrato: se existe alteração local pendente, envia; caso contrário tenta recuperar da nuvem.
-      const portraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY) === '1';
+      const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1' || localStorage.getItem(portraitTombstoneKey(user.id)) === '1';
       if (portraitDirty) {
         const localPortrait = await loadPortrait().catch(()=>null);
         if(localPortrait) await pushPortraitToCloud(localPortrait);
+        else await deletePortraitFromCloud();
       } else {
         await pullPortraitFromCloud();
       }
@@ -762,6 +1110,7 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       bootstrapInProgress = false;
+      setAccountHydrationPending(false);
     }
   }
 
@@ -777,6 +1126,11 @@ window.ChronusSheetEngine = (function() {
   }
 
   function clearNarratorModes() {
+    narratorReadOnly = false;
+    document.querySelectorAll('.workspace input,.workspace textarea,.workspace select,.workspace button').forEach(el => {
+      el.disabled = false;
+      el.removeAttribute('aria-readonly');
+    });
     document.body.classList.remove('narrator-dashboard','narrator-readonly');
     const panel=document.getElementById('narratorPanel'); if(panel) panel.hidden=true;
   }
@@ -892,22 +1246,26 @@ window.ChronusSheetEngine = (function() {
   }
 
   async function bootstrapNarrator(user, profile) {
-    cloudUser=user; cloudCharacterId=null; cloudReady=false;
-    updateAccountUi(user);
-    hideAuthGate();
-    const panelButton=document.getElementById('narratorPanelButton'); if(panelButton) panelButton.hidden=false;
-    const params=new URLSearchParams(location.search);
-    if(params.get('narratorView')==='1'){
-      try { narratorViewMeta=JSON.parse(sessionStorage.getItem(NARRATOR_VIEW_META_KEY)||'null'); } catch { narratorViewMeta=null; }
-      if(!narratorViewMeta?.user_id){
-        location.href=location.pathname;
+    try {
+      cloudUser=user; cloudCharacterId=null; cloudReady=false;
+      updateAccountUi(user);
+      hideAuthGate();
+      const panelButton=document.getElementById('narratorPanelButton'); if(panelButton) panelButton.hidden=false;
+      const params=new URLSearchParams(location.search);
+      if(params.get('narratorView')==='1'){
+        try { narratorViewMeta=JSON.parse(sessionStorage.getItem(NARRATOR_VIEW_META_KEY)||'null'); } catch { narratorViewMeta=null; }
+        if(!narratorViewMeta?.user_id){
+          location.href=location.pathname;
+          return;
+        }
+        applyNarratorReadOnly(narratorViewMeta);
+        await pullPortraitFromCloudForUser(narratorViewMeta.user_id);
         return;
       }
-      applyNarratorReadOnly(narratorViewMeta);
-      await pullPortraitFromCloudForUser(narratorViewMeta.user_id);
-      return;
+      await loadNarratorDashboard();
+    } finally {
+      setAccountHydrationPending(false);
     }
-    await loadNarratorDashboard();
   }
 
   async function bootstrapRoleForUser(user) {
@@ -947,19 +1305,32 @@ window.ChronusSheetEngine = (function() {
         alert('Para limpar a ficha definitivamente da nuvem, conecte este dispositivo à internet e tente novamente.');
         return;
       }
+      if(cloudUser && !cloudReady){
+        alert('A conexão com a nuvem ainda não foi confirmada. Aguarde a sincronização da ficha antes de solicitar a limpeza definitiva.');
+        return;
+      }
       const who=currentProfile?.display_name ? ` de ${currentProfile.display_name}` : '';
       const typed=prompt(`ATENÇÃO: isto apagará todos os campos e o retrato da ficha${who}, inclusive a cópia na nuvem.\n\nDigite LIMPAR para confirmar:`);
       if(typed!=='LIMPAR') return;
-      const fresh=clone(defaultState);
+      const fresh=normalizeState(clone(defaultState));
       if(currentProfile?.display_name) fresh.identity.player=currentProfile.display_name;
       Object.keys(state).forEach(k=>delete state[k]); Object.assign(state,fresh);
       persistLocalState(true);
-      await clearPortrait(); localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+      const localPortraitClearOk = await clearPortrait();
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      let cloudSyncOk = !cloudUser;
+      let portraitSyncOk = !cloudUser;
       if(cloudUser && cloudReady){
-        await deletePortraitFromCloud();
-        await pushStateToCloud();
+        portraitSyncOk = await deletePortraitFromCloud();
+        const syncResult = await pushStateToCloudConfirmed();
+        cloudSyncOk = Boolean(syncResult?.ok);
       }
-      alert('Ficha limpa com sucesso.');
+      if(!localPortraitClearOk || !cloudSyncOk || !portraitSyncOk){
+        alert('A ficha foi limpa neste dispositivo, mas a nuvem não confirmou a remoção completa. Os dados locais e o marcador de sincronização pendente foram preservados. Tente sincronizar novamente antes de considerar a limpeza concluída.');
+        location.reload();
+        return;
+      }
+      alert(cloudUser ? 'Ficha e retrato removidos da nuvem com confirmação.' : 'Ficha limpa neste dispositivo.');
       location.reload();
     });
   }
@@ -973,6 +1344,7 @@ window.ChronusSheetEngine = (function() {
     renderResources();
     renderMana();
     renderWounds();
+    updateResourceCounters();
     renderList('skillsLayer', SKILL_Y, 'skills');
     renderList('advantagesLayer', ADV_Y, 'advantages');
     renderParadox();
@@ -1008,18 +1380,97 @@ window.ChronusSheetEngine = (function() {
   }
 
   // Migração transparente de chaves legadas (chronus.sheet.v4) para escopo de usuário
-  function migrateLegacyStorageForUser(userId) {
-    if (!userId) return;
+  async function migrateLegacyStorageForUser(userId) {
+    if (!userId) return false;
     const cfg = window.CHRONUS_CONFIG;
+    const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';
     const scopedKey = cfg.getStorageKey(userId);
-    const legacyData = localStorage.getItem(cfg.LEGACY_STORAGE_KEY);
-    const scopedData = localStorage.getItem(scopedKey);
+    const legacyKey = (cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])
+      .find(key => Boolean(localStorage.getItem(key)));
+    const legacyData = legacyKey ? localStorage.getItem(legacyKey) : null;
+    let scopedData = localStorage.getItem(scopedKey);
+    const localOwner = localStorage.getItem(CLOUD_USER_KEY);
 
-    if (legacyData && !scopedData) {
+    // Nunca copie cache ou retrato global de outra conta para o usuário que acabou
+    // de entrar neste navegador.
+    let migratedLegacyCache = false;
+    if (!isNarratorView && legacyData && !scopedData && (!localOwner || localOwner === userId)) {
       localStorage.setItem(scopedKey, legacyData);
-      localStorage.setItem(cfg.getDirtyKey(userId), '0');
+      const legacyDirty = localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true;
+      localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
+      scopedData = legacyData;
+      migratedLegacyCache = true;
     }
+
+    let migratedLegacyPortrait = false;
+    if (!isNarratorView && (!localOwner || localOwner === userId)) {
+      const targetPortraitDeleted = localStorage.getItem(portraitTombstoneKey(userId)) === '1';
+      const legacyPortraitDeleted = localStorage.getItem(portraitTombstoneKey(null)) === '1'
+        || localStorage.getItem(portraitTombstoneKey('legacy')) === '1';
+      const scopedPortrait = targetPortraitDeleted ? null : await dbGet(portraitStorageKey(userId)).catch(() => null);
+      const scopedFallback = targetPortraitDeleted ? null : localStorage.getItem(portraitFallbackKey(userId));
+      const anonymousPortrait = !localOwner && !legacyPortraitDeleted ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
+      const legacyPortrait = scopedPortrait || legacyPortraitDeleted ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
+      const anonymousFallback = !localOwner && !legacyPortraitDeleted ? localStorage.getItem(portraitFallbackKey(null)) : null;
+      const legacyFallback = legacyPortraitDeleted ? null : (anonymousFallback || localStorage.getItem('chronus.portrait.fallback'));
+      if (!targetPortraitDeleted && !scopedFallback && legacyFallback) {
+        localStorage.setItem(portraitFallbackKey(userId), legacyFallback);
+        migratedLegacyPortrait = true;
+      } else if (!targetPortraitDeleted && !scopedPortrait && legacyPortrait) {
+        await dbPut(legacyPortrait, portraitStorageKey(userId));
+        migratedLegacyPortrait = true;
+      }
+      const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
+        || localStorage.getItem(cfg.getPortraitDirtyKey(null));
+      const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
+      if (legacyPortraitDirty && !scopedPortraitDirty) {
+        localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
+      }
+      if (migratedLegacyPortrait) {
+        if (!localOwner) localStorage.setItem(cfg.getPortraitDirtyKey(userId), '1');
+        localStorage.setItem(portraitTombstoneKey(null), '1');
+        localStorage.setItem(portraitTombstoneKey('legacy'), '1');
+      }
+    }
+
+    // Uma conta só pode hidratar seu cache depois de a sessão ser confirmada.
+    // Em uma primeira entrada sem cache legado, não há estado anterior a reidratar:
+    // a própria hidratação remota faz a única recarga necessária.
+    const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
+    if (isNarratorView && !activeSessionUser) {
+      localStorage.setItem(CLOUD_USER_KEY, userId);
+      sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+      setAccountHydrationPending(true);
+      return true;
+    }
+    const accountChanged = Boolean(
+      (localOwner && localOwner !== userId) ||
+      (activeSessionUser && activeSessionUser !== userId) ||
+      (!activeSessionUser && scopedData) || migratedLegacyPortrait
+    );
+    // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
+    // Em narratorView, o snapshot do personagem selecionado pelo Narrador é a fonte correta.
+    if (accountChanged && !isNarratorView) {
+      let scopedState = null;
+      try { scopedState = scopedData ? JSON.parse(scopedData) : null; }
+      catch (error) { console.warn('CHRONUS: cache da conta inválido; usando estado limpo.', error); }
+      const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));
+      Object.keys(state).forEach(key => delete state[key]);
+      Object.assign(state, accountState);
+      refreshAccountStateFromMemory();
+    }
+    localStorage.setItem(CLOUD_USER_KEY, userId);
+    sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+    if (accountChanged) {
+      window.__chronusClearPortrait?.();
+      if (!isNarratorView) {
+        const accountPortrait = await loadPortrait(userId).catch(() => null);
+        if (accountPortrait) window.__chronusShowPortrait?.(accountPortrait);
+      }
+    }
+    setAccountHydrationPending(true);
+    return false;
   }
 
   // pushStateToCloud com retorno explícito de resultado { ok: true/false }
@@ -1031,32 +1482,78 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Offline • salvo local', 'offline');
       return { ok: false, error: 'Dispositivo offline' };
     }
+    if (cloudSaving) {
+      return { ok: false, error: 'Já existe uma sincronização em andamento. Tente novamente.' };
+    }
 
+    // O logout pode acontecer antes do debounce local/cloud. Persiste e envia
+    // imediatamente o estado atual, sem deixar timers gravarem após o signOut.
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+      persistLocalState(true);
+    }
+    if (cloudSaveTimer) {
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = 0;
+    }
+    cloudSaving = true;
     setSaveStatus('Sincronizando…', 'saving');
     try {
       const dirtyKey = getScopedKey('dirty');
       const syncedKey = getScopedKey('synced');
 
+      if (cloudConflict && !window.confirm('Existe uma versão mais recente na nuvem. Deseja substituir essa versão pelas alterações locais deste dispositivo? Esta ação não pode ser desfeita.')) {
+        return { ok: false, conflict: true, error: 'Conflito mantido; alterações locais preservadas' };
+      }
+      let expectedVersion = cloudVersion;
+      if (cloudConflict) {
+        const latest = await supabaseClient.from('characters').select('updated_at').eq('id', cloudCharacterId).eq('user_id', cloudUser.id).maybeSingle();
+        if (latest.error) throw latest.error;
+        expectedVersion = latest.data?.updated_at || null;
+      }
+      if (!expectedVersion) return { ok: false, conflict: true, error: 'Versão remota não confirmada' };
       const { data, error } = await supabaseClient
         .from('characters')
         .update({ name: cloudCharacterName(), data: clone(state) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
+        .eq('updated_at', expectedVersion)
         .select('updated_at')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-
+      if (!data?.updated_at) {
+        cloudConflict = true;
+        const conflictKey = cloudConflictStorageKey();
+        if (conflictKey) localStorage.setItem(conflictKey, '1');
+        localStorage.setItem(dirtyKey, '1');
+        setSaveStatus('Conflito de sincronização • alterações locais preservadas', 'offline');
+        return { ok: false, conflict: true, error: 'A versão remota mudou durante a confirmação' };
+      }
+      cloudVersion = data.updated_at;
+      const baseKey = cloudSessionBaseKey();
+      if (baseKey) sessionStorage.setItem(baseKey, cloudVersion);
+      cloudConflict = false;
+      const conflictKey = cloudConflictStorageKey();
+      if (conflictKey) localStorage.removeItem(conflictKey);
       localStorage.setItem(dirtyKey, '0');
-      localStorage.setItem(syncedKey, data?.updated_at || new Date().toISOString());
+      localStorage.setItem(syncedKey, cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
-      return { ok: true, updated_at: data?.updated_at };
+      return { ok: true, updated_at: cloudVersion };
     } catch (e) {
       console.error('CHRONUS: Erro ao sincronizar ficha na nuvem:', e);
       const dirtyKey = getScopedKey('dirty');
       localStorage.setItem(dirtyKey, '1');
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
       return { ok: false, error: e.message || e };
+    } finally {
+      cloudSaving = false;
+      cloudSaveAgain = false;
+      if (cloudSaveTimer) {
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = 0;
+      }
     }
   }
 
@@ -1070,7 +1567,11 @@ window.ChronusSheetEngine = (function() {
         supabaseClient = window.ChronusSupabase.getClient();
       }
       if (user) {
-        migrateLegacyStorageForUser(user.id);
+        setAccountHydrationPending(true);
+        if (await migrateLegacyStorageForUser(user.id)) {
+          location.reload();
+          return;
+        }
         if (profile?.role === 'narrator') {
           await bootstrapNarrator(user, profile);
         } else {
@@ -1078,13 +1579,28 @@ window.ChronusSheetEngine = (function() {
           await bootstrapCloudForUser(user);
         }
       } else {
+        const authResolved = window.ChronusAuth?.isInitialized?.() === true;
+        const hadAuthenticatedCache = authResolved && Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY));
+        if (authResolved) {
+          sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);
+          sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY);
+          sessionStorage.removeItem(NARRATOR_VIEW_META_KEY);
+          setAccountHydrationPending(hadAuthenticatedCache);
+        }
         cloudUser = null;
         cloudCharacterId = null;
+        cloudVersion = null;
         cloudReady = false;
+        cloudConflict = false;
         currentProfile = null;
         narratorReadOnly = false;
         clearNarratorModes();
         updateAccountUi(null);
+        if (hadAuthenticatedCache) {
+          setAccountHydrationPending(true);
+          location.reload();
+          return;
+        }
       }
     });
   }
@@ -1106,9 +1622,10 @@ window.ChronusSheetEngine = (function() {
       } catch (e) { console.error('Erro ao restaurar modo jogador na ficha:', e); }
     },
     pushStateToCloud: pushStateToCloudConfirmed,
+    isCloudReady: () => cloudReady,
     isDirty: () => {
       const dirtyKey = getScopedKey('dirty');
-      return localStorage.getItem(dirtyKey) === '1';
+      return Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === '1');
     },
     getRollProfile,
     spendDetermination,
