@@ -141,6 +141,7 @@ assert(sheetSource.includes("const authResolved = window.ChronusAuth?.isInitiali
 assert(sheetSource.includes("sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY)"), 'sign-out must revoke access to the account-scoped cache in this tab');
 assert(authSource.includes('function isInitialized() { return authInitialized; }'), 'auth service must expose a reliable initialization boundary');
 assert(authSource.includes('async function notifyAuthListeners(user, profile)'), 'auth bootstrap must await asynchronous listeners');
+assert(authSource.includes('if (stateKey === lastNotifiedAuthState) return;'), 'duplicate SIGNED_IN and explicit login notifications must not race cache hydration');
 assert(authSource.includes('await notifyAuthListeners(currentUser, currentProfile)'), 'initial authenticated session must wait for sheet hydration before routing');
 assert(sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true'), 'account cache migration must expose a pending hydration guard');
 assert(routerSource.includes("cleanHash === '#/sheet' && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === true"), 'router must not render a previous account sheet during rehydration');
