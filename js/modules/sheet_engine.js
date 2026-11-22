@@ -574,16 +574,19 @@ window.ChronusSheetEngine = (function() {
     makeLines('page2Formulas',state.page2.formulas,12); makeLines('page2Inventory',state.page2.inventory,16);
   }
 
-  // IndexedDB do retrato, com fallback em localStorage
+  // Retratos isolados por conta: IndexedDB é compartilhado entre usuários no mesmo navegador.
   const DB_NAME='chronus-sheet-db-v3', STORE='assets';
   function openDb(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-  async function dbPut(blob){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,'portrait');tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
-  async function dbGet(){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get('portrait');r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error);});}
-  async function dbDelete(){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete('portrait');tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
+  function portraitOwnerId(){return cloudUser?.id || localStorage.getItem(CLOUD_USER_KEY) || null;}
+  function portraitStorageKey(userId=portraitOwnerId()){return userId ? `portrait.${userId}` : 'portrait.anonymous';}
+  function portraitFallbackKey(userId=portraitOwnerId()){return userId ? `chronus.portrait.fallback.${userId}` : 'chronus.portrait.fallback.anonymous';}
+  async function dbPut(blob,key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+  async function dbGet(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error);});}
+  async function dbDelete(key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   function blobToDataUrl(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});}
-  async function savePortrait(blob){try{await dbPut(blob);}catch{try{localStorage.setItem('chronus.portrait.fallback',await blobToDataUrl(blob));}catch{}}}
-  async function loadPortrait(){try{return await dbGet();}catch{const d=localStorage.getItem('chronus.portrait.fallback');return d||null;}}
-  async function clearPortrait(){try{await dbDelete();}catch{} localStorage.removeItem('chronus.portrait.fallback');}
+  async function savePortrait(blob,userId=portraitOwnerId()){const fallbackKey=portraitFallbackKey(userId);try{await dbPut(blob,portraitStorageKey(userId));localStorage.removeItem(fallbackKey);}catch{try{localStorage.setItem(fallbackKey,await blobToDataUrl(blob));}catch{}}}
+  async function loadPortrait(userId=portraitOwnerId()){try{const scoped=await dbGet(portraitStorageKey(userId));if(scoped)return scoped;if(!userId)return await dbGet('portrait');return null;}catch{const scoped=localStorage.getItem(portraitFallbackKey(userId));if(scoped)return scoped;return !userId ? localStorage.getItem('chronus.portrait.fallback') : null;}}
+  async function clearPortrait(userId=portraitOwnerId()){try{await dbDelete(portraitStorageKey(userId));}catch{}localStorage.removeItem(portraitFallbackKey(userId));if(!userId)localStorage.removeItem('chronus.portrait.fallback');}
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
     let objectUrl='';
@@ -1210,15 +1213,15 @@ window.ChronusSheetEngine = (function() {
   }
 
   // Migração transparente de chaves legadas (chronus.sheet.v4) para escopo de usuário
-  function migrateLegacyStorageForUser(userId) {
-    if (!userId) return;
+  async function migrateLegacyStorageForUser(userId) {
+    if (!userId) return false;
     const cfg = window.CHRONUS_CONFIG;
     const scopedKey = cfg.getStorageKey(userId);
     const legacyData = localStorage.getItem(cfg.LEGACY_STORAGE_KEY);
     let scopedData = localStorage.getItem(scopedKey);
     const localOwner = localStorage.getItem(CLOUD_USER_KEY);
 
-    // Nunca copie o cache global de outra conta para o usuário que acabou
+    // Nunca copie cache ou retrato global de outra conta para o usuário que acabou
     // de entrar neste navegador.
     let migratedLegacyCache = false;
     if (legacyData && !scopedData && (!localOwner || localOwner === userId)) {
@@ -1230,16 +1233,31 @@ window.ChronusSheetEngine = (function() {
       migratedLegacyCache = true;
     }
 
-    const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
-      || localStorage.getItem(cfg.getPortraitDirtyKey(null));
-    const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
-    if (legacyPortraitDirty && !scopedPortraitDirty && (!localOwner || localOwner === userId)) {
-      localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
+    let migratedLegacyPortrait = false;
+    if (!localOwner || localOwner === userId) {
+      const scopedPortrait = await dbGet(portraitStorageKey(userId)).catch(() => null);
+      const legacyPortrait = scopedPortrait ? null : await dbGet('portrait').catch(() => null);
+      const legacyFallback = localStorage.getItem('chronus.portrait.fallback');
+      if (!scopedPortrait && (legacyPortrait || legacyFallback)) {
+        if (legacyPortrait) await dbPut(legacyPortrait, portraitStorageKey(userId));
+        else localStorage.setItem(portraitFallbackKey(userId), legacyFallback);
+        migratedLegacyPortrait = true;
+      }
+      const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
+        || localStorage.getItem(cfg.getPortraitDirtyKey(null));
+      const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
+      if (legacyPortraitDirty && !scopedPortraitDirty) {
+        localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
+      }
     }
 
-    // Trocar a conta ativa exige recarregar a ficha a partir do cache correto;
-    // apenas substituir o objeto JS deixaria os campos já renderizados antigos.
-    if (migratedLegacyCache || (scopedData && localOwner !== userId)) {
+    // Trocar de conta sempre reidrata o documento com o cache daquela conta
+    // (ou com uma ficha vazia), mesmo quando ela ainda não tem cache local.
+    if (localOwner && localOwner !== userId) {
+      localStorage.setItem(CLOUD_USER_KEY, userId);
+      return true;
+    }
+    if (migratedLegacyCache || migratedLegacyPortrait) {
       localStorage.setItem(CLOUD_USER_KEY, userId);
       return true;
     }
@@ -1318,7 +1336,7 @@ window.ChronusSheetEngine = (function() {
         supabaseClient = window.ChronusSupabase.getClient();
       }
       if (user) {
-        if (migrateLegacyStorageForUser(user.id)) {
+        if (await migrateLegacyStorageForUser(user.id)) {
           location.reload();
           return;
         }
