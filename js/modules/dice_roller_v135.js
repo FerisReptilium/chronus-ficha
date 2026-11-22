@@ -91,11 +91,10 @@ window.ChronusDiceRollerV135 = (function() {
   }
 
   function evaluateStandard(values, difficulty) {
-    const best = Math.max(...values);
-    const margin = best - difficulty;
-    if (margin > 0) return { best, margin, key: 'success', label: 'Sucesso' };
-    if (margin === 0) return { best, margin, key: 'complication', label: 'Sucesso com Complicação' };
-    return { best, margin, key: 'failure', label: 'Falha ou Complicação' };
+    if (!window.ChronusNarrativeRules?.resolve) {
+      throw new Error('Motor de autoridade narrativa não foi carregado.');
+    }
+    return window.ChronusNarrativeRules.resolve(values, difficulty);
   }
 
   function paradoxIntensity(successes) {
@@ -241,6 +240,7 @@ window.ChronusDiceRollerV135 = (function() {
                 <div id="dice-result-values" class="dice-result-values"></div>
                 <div id="dice-result-verdict" class="dice-result-verdict" role="status" aria-live="polite"></div>
                 <p id="dice-result-rule" class="dice-result-rule"></p>
+                <section id="dice-result-narrative" class="dice-result-narrative" aria-live="polite" hidden></section>
                 <div class="dice-result-actions">
                   <button type="button" id="dice-repeat-roll">↻ Repetir</button>
                   <button type="button" id="dice-copy-result">Copiar resultado</button>
@@ -528,7 +528,7 @@ window.ChronusDiceRollerV135 = (function() {
     if (record.type === 'paradox') {
       return `${record.title} — ${record.expression} contra Dificuldade ${record.difficulty}: [${values}]. ${record.successes} sucesso(s) — Intensidade ${record.intensity}.`;
     }
-    return `${record.title} — ${record.expression} contra Dificuldade ${record.difficulty}: [${values}]. Maior ${record.best}; Margem ${formatMargin(record.margin)} — ${record.label}.`;
+    return `${record.title} — ${record.expression} contra Dificuldade ${record.difficulty}: [${values}]. Maior ${record.best}; Margem ${formatMargin(record.margin)} — ${record.label}. Autoridade narrativa: ${record.narrative?.authorityLabel || 'não definida'}. ${record.narrative?.instruction || ''}`;
   }
 
   function renderRecord(record) {
@@ -549,6 +549,16 @@ window.ChronusDiceRollerV135 = (function() {
       verdict.className = `dice-result-verdict is-${record.key}`;
       verdict.innerHTML = `<span>Margem ${formatMargin(record.margin)}</span><strong>${escapeHtml(record.label)}</strong>`;
       rule.textContent = `Maior resultado ${record.best} − Dificuldade ${record.difficulty} = Margem ${formatMargin(record.margin)}.`;
+      const narrative = document.getElementById('dice-result-narrative');
+      const guidance = record.narrative;
+      if (narrative && guidance) {
+        narrative.hidden = false;
+        narrative.innerHTML = `<strong>Quem descreve: ${escapeHtml(guidance.authorityLabel)}</strong><p>${escapeHtml(guidance.instruction)}</p>${record.consequences?.acts ? '<small>Consequência mecânica: +1 Ato.</small>' : ''}${record.consequences?.condition ? '<small>Condição: uma Condição é gerada.</small>' : ''}`;
+      }
+    }
+    if (record.type === 'paradox') {
+      const narrative = document.getElementById('dice-result-narrative');
+      if (narrative) { narrative.hidden = true; narrative.textContent = ''; }
     }
     animateDice(record.dice);
     addHistory(record);
