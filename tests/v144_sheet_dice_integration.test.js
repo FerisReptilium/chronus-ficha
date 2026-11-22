@@ -145,3 +145,6 @@ assert(sheetSource.includes("if(!cloudSyncOk || !portraitSyncOk)"), 'reset must 
 assert(sheetSource.includes("localStorage.setItem(getScopedKey('portraitDirty'),'1')"), 'failed portrait deletion must remain pending for retry');
 assert(sheetSource.includes('else await deletePortraitFromCloud();'), 'bootstrap must retry a pending portrait deletion when no local portrait remains');
 assert(routerSource.includes("'#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS', authRequired: true }"), 'private character sheet route must require an authenticated user');
+
+assert(sheetSource.includes('legacy === 3 ? initialDetermination : legacy'), 'a fully filled legacy Determination pool must expand to the new derived maximum');
+assert(sheetSource.includes('legacy === manaKeys.length ? initialMana : legacy'), 'a fully filled legacy Mana pool must expand to the new Illumination maximum');
