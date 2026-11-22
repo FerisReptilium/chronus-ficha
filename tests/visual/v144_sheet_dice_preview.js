@@ -87,6 +87,11 @@ async function runMode(browser, mode, viewport) {
   await page.waitForFunction(() => document.documentElement.dataset.chronusDice === 'v1.3.5-preview');
   await page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Mara');
 
+  const illuminationButtons = page.locator('.illumination-hit');
+  const illuminationLabels = await illuminationButtons.evaluateAll(buttons => buttons.map(button => button.textContent.trim().toLowerCase()));
+  if (JSON.stringify(illuminationLabels) !== JSON.stringify(['d4','d6','d8','d10','d12'])) throw new Error(`${mode}: all five visible Illumination choices are required: ${JSON.stringify(illuminationLabels)}`);
+  if (!(await page.getByRole('button', { name: 'Iluminação d12' }).isVisible())) throw new Error(`${mode}: d12 Illumination choice must be visible`);
+
   const readResource = async key => page.locator(`[data-resource-counter="${key}"] input`).inputValue();
   const setResource = async (key, value) => {
     const input = page.locator(`[data-resource-counter="${key}"] input`);
@@ -96,6 +101,16 @@ async function runMode(browser, mode, viewport) {
   const selectAttribute = async (name, die) => page.locator(`[aria-label="${name}: dado do atributo"]`).selectOption(die);
   const selectIllumination = async die => page.locator(`[aria-label="Iluminação ${die}"]`).click();
   const readResourceMax = async key => page.locator(`[data-resource-counter="${key}"] [data-resource-max]`).textContent();
+
+  // Controles acessíveis de incremento/decremento devem alterar e limitar os recursos.
+  await page.getByRole('button', { name: 'Aumentar Determinação' }).click();
+  if (await readResource('determination') !== '3') throw new Error(`${mode}: Determination increment control failed`);
+  await page.getByRole('button', { name: 'Diminuir Determinação' }).click();
+  if (await readResource('determination') !== '2') throw new Error(`${mode}: Determination decrement control failed`);
+  await page.getByRole('button', { name: 'Aumentar Mana' }).click();
+  if (await readResource('mana') !== '10') throw new Error(`${mode}: Mana increment must clamp at its maximum`);
+  await page.getByRole('button', { name: 'Diminuir Mana' }).click();
+  if (await readResource('mana') !== '9') throw new Error(`${mode}: Mana decrement control failed`);
 
   const initialResources = {
     determination: await readResource('determination'),
@@ -108,7 +123,7 @@ async function runMode(browser, mode, viewport) {
   if (initialResources.determination !== '2' || initialResources.determinationMax !== '/ 8') {
     throw new Error(`${mode}: derived Determination maximum failed: ${JSON.stringify(initialResources)}`);
   }
-  if (initialResources.mana !== '10' || initialResources.manaMax !== '/ 10') {
+  if (initialResources.mana !== '9' || initialResources.manaMax !== '/ 10') {
     throw new Error(`${mode}: initial Mana maximum failed: ${JSON.stringify(initialResources)}`);
   }
   if (initialResources.wounds !== '0' || initialResources.woundsMax !== '/ 11') {
@@ -147,6 +162,7 @@ async function runMode(browser, mode, viewport) {
   await selectAttribute('Vontade', 'd12');
   const determinationD12 = { current: await readResource('determination'), max: await readResourceMax('determination') };
 
+  await setResource('mana', 10); // Restore the full d4 pool before checking full-resource expansion.
   await selectIllumination('d8');
   const manaExpanded = { current: await readResource('mana'), max: await readResourceMax('mana') };
   await setResource('mana', 7);

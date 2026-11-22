@@ -323,6 +323,7 @@ window.ChronusSheetEngine = (function() {
       input.value = String(current);
       maxLabel.textContent = `/ ${max}`;
       input.disabled = narratorReadOnly;
+      host.querySelectorAll('.resource-counter-step').forEach(button => { button.disabled = narratorReadOnly; });
     });
     state.resources.max = maxima;
   }
@@ -335,21 +336,38 @@ window.ChronusSheetEngine = (function() {
     const caption = document.createElement('span');
     caption.className = 'resource-counter-label';
     caption.textContent = label;
+    const controls = document.createElement('div');
+    controls.className = 'resource-counter-controls';
+    const decrease = document.createElement('button');
+    decrease.type = 'button';
+    decrease.className = 'resource-counter-step';
+    decrease.textContent = '−';
+    decrease.setAttribute('aria-label', 'Diminuir ' + label);
     const input = document.createElement('input');
     input.type = 'number';
     input.min = '0';
+    input.step = '1';
     input.inputMode = 'numeric';
     input.setAttribute('aria-label', label + ' atual');
-    input.addEventListener('change', () => {
+    const increase = document.createElement('button');
+    increase.type = 'button';
+    increase.className = 'resource-counter-step';
+    increase.textContent = '+';
+    increase.setAttribute('aria-label', 'Aumentar ' + label);
+    const commit = value => {
       const max = getResourceMaxima()[key];
-      state.resources[key] = Math.max(0, Math.min(max, Math.floor(Number(input.value) || 0)));
+      state.resources[key] = Math.max(0, Math.min(max, Math.floor(Number(value) || 0)));
       updateResourceCounters();
       scheduleSave();
-    });
+    };
+    input.addEventListener('change', () => commit(input.value));
+    decrease.addEventListener('click', () => commit((Number(state.resources?.[key]) || 0) - 1));
+    increase.addEventListener('click', () => commit((Number(state.resources?.[key]) || 0) + 1));
     const maxLabel = document.createElement('span');
     maxLabel.className = 'resource-counter-max';
     maxLabel.dataset.resourceMax = '';
-    wrap.append(caption, input, maxLabel);
+    controls.append(decrease, input, increase);
+    wrap.append(caption, controls, maxLabel);
     host.append(wrap);
   }
 
@@ -498,12 +516,16 @@ window.ChronusSheetEngine = (function() {
     illum.forEach(([value,x]) => {
       const b=document.createElement('button'); b.type='button'; b.className='illumination-hit';
       placeBox(b,x-18,1138,36,36); b.classList.toggle('is-active',state.illumination===value);
-      b.setAttribute('aria-label',`Iluminação ${value}`);
+      b.textContent=value.toUpperCase(); b.title=`Selecionar Iluminação ${value}`;
+      b.setAttribute('aria-label',`Iluminação ${value}`); b.setAttribute('aria-pressed',String(state.illumination===value));
       b.addEventListener('click',()=>{
         const previous = getResourceMaxima();
         state.illumination=value;
         reconcileResourceMaxima(previous);
-        host.querySelectorAll('.illumination-hit').forEach(n=>n.classList.toggle('is-active',n.getAttribute('aria-label')===`Iluminação ${value}`));
+        host.querySelectorAll('.illumination-hit').forEach(n=>{
+          const active=n.getAttribute('aria-label')===`Iluminação ${value}`;
+          n.classList.toggle('is-active',active); n.setAttribute('aria-pressed',String(active));
+        });
         updateResourceCounters();
         scheduleSave();
       }); host.append(b);
