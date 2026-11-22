@@ -1428,6 +1428,7 @@ window.ChronusSheetEngine = (function() {
         localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
       }
       if (migratedLegacyPortrait) {
+        if (!localOwner) localStorage.setItem(cfg.getPortraitDirtyKey(userId), '1');
         localStorage.setItem(portraitTombstoneKey(null), '1');
         localStorage.setItem(portraitTombstoneKey('legacy'), '1');
       }
