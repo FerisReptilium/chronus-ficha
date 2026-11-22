@@ -166,6 +166,7 @@ function setupAuthForms() {
       ? 'Crie sua conta de jogador para acessar sua ficha.'
       : 'Acesso exclusivo aos jogadores cadastrados e ao Narrador.';
     if (loginButton) loginButton.textContent = isSignup ? 'Criar minha conta' : 'Entrar';
+    if (loginPassword) loginPassword.autocomplete = isSignup ? 'new-password' : 'current-password';
     if (modeToggle) modeToggle.textContent = isSignup ? 'Já tenho uma conta — Entrar' : 'Ainda não tenho conta — Criar conta';
     const msg = document.getElementById('authMessage');
     if (msg) { msg.textContent = ''; msg.classList.remove('is-error'); }
@@ -176,7 +177,6 @@ function setupAuthForms() {
   const loginForm = document.getElementById('authForm');
   const loginEmail = document.getElementById('authEmail');
   const loginPassword = document.getElementById('authPassword');
-  const forgotBtn = document.getElementById('authForgotButton');
   const btnCloseAuth = document.getElementById('btn-close-auth-modal');
 
   const passwordForm = document.getElementById('passwordForm');
