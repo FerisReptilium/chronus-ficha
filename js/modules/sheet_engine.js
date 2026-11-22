@@ -872,12 +872,14 @@ window.ChronusSheetEngine = (function() {
       if (error) throw error;
 
       const localOwner = localStorage.getItem(CLOUD_USER_KEY);
+      const cfg = window.CHRONUS_CONFIG;
+      const hasScopedCache = Boolean(localStorage.getItem(cfg.getStorageKey(user.id)));
       const dirty = localStorage.getItem(getScopedKey('dirty')) === '1';
 
       if (!row) {
         // Primeira migração: se ainda não havia dono local, envia a ficha v0.3/v0.4 atual.
         // Se o navegador pertencia a outra conta, cria uma ficha limpa para evitar vazamento entre jogadores.
-        const initialState = localOwner && localOwner !== user.id ? clone(defaultState) : clone(state);
+        const initialState = localOwner && localOwner !== user.id && !hasScopedCache ? clone(defaultState) : clone(state);
         if (!String(initialState?.identity?.player || '').trim() && currentProfile?.display_name) initialState.identity.player = currentProfile.display_name;
         const { data: created, error: insertError } = await supabaseClient
           .from('characters')
@@ -912,12 +914,12 @@ window.ChronusSheetEngine = (function() {
         localStorage.setItem(getScopedKey('characterId'), row.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
-        if (localOwner && localOwner !== user.id) {
+        if (localOwner && localOwner !== user.id && !cloudConflict) {
           await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
           return;
         }
-        if (!localOwner) {
-          // Dispositivo novo: se há ficha na nuvem, a nuvem é a fonte principal.
+        if (!localOwner && !dirty) {
+          // Dispositivo novo sem rascunho pendente: a nuvem é a fonte principal.
           await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
           return;
         }
@@ -1209,7 +1211,7 @@ window.ChronusSheetEngine = (function() {
     const cfg = window.CHRONUS_CONFIG;
     const scopedKey = cfg.getStorageKey(userId);
     const legacyData = localStorage.getItem(cfg.LEGACY_STORAGE_KEY);
-    const scopedData = localStorage.getItem(scopedKey);
+    let scopedData = localStorage.getItem(scopedKey);
     const localOwner = localStorage.getItem(CLOUD_USER_KEY);
 
     // Nunca copie o cache global de outra conta para o usuário que acabou
@@ -1219,6 +1221,19 @@ window.ChronusSheetEngine = (function() {
       const legacyDirty = localOwner === userId && localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
       localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
+      scopedData = legacyData;
+    }
+
+    // Se esta conta já tem cache próprio, restaure-o antes do bootstrap remoto.
+    // A troca de usuário não pode reaproveitar o objeto de estado da conta anterior.
+    if (scopedData && localOwner !== userId) {
+      try {
+        const restored = normalizeState(mergeDeep(clone(defaultState), JSON.parse(scopedData)));
+        Object.keys(state).forEach(key => delete state[key]);
+        Object.assign(state, restored);
+      } catch (error) {
+        console.warn('CHRONUS: cache isolado inválido; mantendo estado seguro', error);
+      }
     }
 
     const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY);
