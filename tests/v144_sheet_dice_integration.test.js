@@ -145,6 +145,10 @@ assert(sheetSource.includes('saveTimer = 0;'), 'completed debounce must clear th
 assert(sheetSource.includes('cloudSaveTimer = 0; pushStateToCloud();'), 'completed cloud debounce must clear the pending-sync marker');
 assert(sheetSource.includes('if (saveTimer) {\n      clearTimeout(saveTimer);\n      saveTimer = 0;\n      persistLocalState(true);'), 'logout sync must flush pending edits to account-scoped local storage');
 assert(sheetSource.includes('if (cloudSaving) {\n      return { ok: false'), 'logout must not race an in-flight automatic cloud save');
+assert(sheetSource.includes("window.addEventListener('offline'"), 'offline transition must expose the local-save state');
+assert(sheetSource.includes("window.addEventListener('online'"), 'online transition must resume pending cloud synchronization');
+assert(sheetSource.includes("localStorage.getItem(getScopedKey('dirty')) === '1'"), 'reconnect must retry only when a local sheet write is pending');
+assert(sheetSource.includes("if (!cloudReady || !cloudUser || !cloudCharacterId || cloudConflict) return;"), 'reconnect must never bypass initialization or an unresolved revision conflict');
 assert(sheetSource.includes('Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === \'1\')'), 'dirty detection must include pending debounce timers and in-flight saves');
 assert(sheetSource.includes('const legacyRaw = (!knownOwner && !ownerId)'), 'logged-out or switched accounts must not fall back to a previous account legacy cache');
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
