@@ -187,3 +187,7 @@ assert(sheetSource.includes("sheet.style.visibility = pending ? 'hidden' : '';")
 assert(sheetSource.includes('setAccountHydrationPending(true);\n        if (await migrateLegacyStorageForUser(user.id))'), 'authentication must block the sheet before awaiting account migration');
 assert(sheetSource.includes('setAccountHydrationPending(hadAuthenticatedCache)'), 'resolved signed-out sessions must release stale sheet visibility while revoking account cache');
 assert(sheetSource.includes("if (k === '__proto__' || k === 'prototype' || k === 'constructor') return;"), 'untrusted sheet JSON must not be able to pollute object prototypes');
+
+assert(sheetSource.includes("const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';"), 'narratorView must be detected before account cache rehydration');
+assert(sheetSource.includes('if (accountChanged && !isNarratorView)'), 'account cache changes must not overwrite the narrator-selected character snapshot');
+assert(sheetSource.includes('if (!isNarratorView) {\n        const accountPortrait'), 'narratorView must load the selected player portrait, not the narrator account portrait');
