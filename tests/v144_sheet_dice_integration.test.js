@@ -113,5 +113,6 @@ assert(sheetSource.includes('cfg.getSyncedKey(userId)'), 'remote sync timestamps
 assert(sheetSource.includes('cfg.getPortraitDirtyKey(userId)'), 'portrait dirty state must be account-scoped');
 assert(sheetSource.includes('(!localOwner || localOwner === userId)'), 'legacy cache migration must not copy another account cache');
 assert(sheetSource.includes('if (scopedData && localOwner !== userId)'), 'switching accounts must restore that account own local cache');
+assert(sheetSource.includes('if (migrateLegacyStorageForUser(user.id))'), 'switching account caches must trigger a controlled reload before rendering');
 assert(sheetSource.includes('localOwner && localOwner !== user.id && !dirty'), 'switching accounts must not discard a pending draft with a valid base');
 assert(sheetSource.includes('const fresh=normalizeState(clone(defaultState))'), 'reset must initialize calculated resource state');
