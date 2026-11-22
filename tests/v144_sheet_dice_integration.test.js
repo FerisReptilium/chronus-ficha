@@ -169,3 +169,6 @@ assert(sheetSource.includes('function refreshAccountStateFromMemory()'), 'accoun
 assert(sheetSource.includes("document.getElementById(id)?.replaceChildren()"), 'account switching must clear dynamic layers before rebuilding controls');
 assert(sheetSource.includes('window.__chronusClearPortrait = clear'), 'account switching must clear the previous account portrait');
 assert(sheetSource.includes('window.__chronusAccountRehydrationPending = false') || sheetSource.includes('window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false'), 'narrator and player bootstrap must release the protected sheet route');
+assert(sheetSource.includes('function setAccountHydrationPending(pending)'), 'private sheet must be hidden during account hydration');
+assert(sheetSource.includes("sheet.style.visibility = pending ? 'hidden' : '';"), 'account hydration must prevent visual exposure of the previous account sheet');
+assert(sheetSource.includes('setAccountHydrationPending(true);\n        if (await migrateLegacyStorageForUser(user.id))'), 'authentication must block the sheet before awaiting account migration');
