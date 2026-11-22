@@ -33,7 +33,7 @@ assert(sheetSource.includes("renderResourceCounter(host, 'determination'"), 'Det
 assert(sheetSource.includes("renderResourceCounter(host, 'mana'"), 'Mana must use a dynamic counter');
 assert(sheetSource.includes("renderResourceCounter(host, 'wounds'"), 'Wounds must use a dynamic counter');
 assert(sheetSource.includes('updateResourceCounters();'), 'resource counters must refresh after derived maxima change');
-assert(sheetSource.includes("state.markers[`determination.${spentIndex}`] = 'empty'"), 'Determination must be consumed in the sheet state');
+assert(sheetSource.includes('state.resources.determination -= 1'), 'Determination must be consumed from the dynamic resource counter');
 assert(sheetSource.includes('state.paradox = next'), 'Paradox discharge must update the sheet state');
 assert(sheetSource.includes("new CustomEvent('chronus:sheet-updated')"), 'sheet changes must notify the roller');
 assert(diceSource.includes('window.confirm(`Consumir 1 ponto de Determinação'), 'Determination consumption must require confirmation');
