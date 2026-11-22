@@ -187,7 +187,20 @@ async function runMode(browser, mode, viewport) {
   const errors = watchErrors(page);
   const response = await page.goto(`${origin}/#/player`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(() => document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3');
-  await page.waitForSelector('.dashboard-related-group', { state: 'visible' });
+  try {
+    await page.waitForSelector('.dashboard-related-group', { state: 'visible', timeout: 8000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      route: window.location.hash,
+      dashboardMarker: document.documentElement.dataset.chronusPlayerDashboard || null,
+      dashboardText: document.getElementById('player-dashboard-content')?.innerText?.slice(0, 1800) || '',
+      relationContainerExists: Boolean(document.getElementById('dashboard-related-content')),
+      relationGroupCount: document.querySelectorAll('.dashboard-related-group').length,
+      relatedContainerHtml: document.getElementById('dashboard-related-content')?.innerHTML?.slice(0, 1800) || '',
+      loadError: document.getElementById('dashboard-load-error')?.textContent || null
+    }));
+    throw new Error(`${mode}: dashboard relations did not render within 8s; ${JSON.stringify({ diagnostic, errors, cause: error.message })}`);
+  }
 
   const state = await inspect(page);
   await page.screenshot({ path: path.join(outputDir, `${mode}-player-dashboard.png`), fullPage: true });
@@ -219,15 +232,17 @@ async function runMode(browser, mode, viewport) {
     launchOptions.executablePath = process.env.CHRONUS_CHROMIUM_EXECUTABLE;
   }
   const browser = await chromium.launch(launchOptions);
-  const results = {};
-
-  for (const [mode, viewport] of Object.entries(viewports)) {
-    results[mode] = await runMode(browser, mode, viewport);
+  try {
+    const results = {};
+    for (const [mode, viewport] of Object.entries(viewports)) {
+      results[mode] = await runMode(browser, mode, viewport);
+    }
+    fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\\n`);
+    console.log('v1.4.3 player dashboard desktop/mobile visual QA: PASS');
+  } finally {
+    // Fecha todas as páginas/contextos mesmo quando uma asserção falha.
+    await browser.close();
   }
-
-  await browser.close();
-  fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
-  console.log('v1.4.3 player dashboard desktop/mobile visual QA: PASS');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
