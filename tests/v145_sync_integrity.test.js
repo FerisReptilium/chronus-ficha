@@ -67,13 +67,13 @@ function section(source, start, end, label) {
   assert(reconnect.includes("window.addEventListener('online'"), 'online transition listener must exist');
   assert(reconnect.includes('if (!cloudUser) return;'), 'reconnect must require an authenticated identity');
   assert(reconnect.includes('if (!cloudReady) {') && reconnect.includes('void bootstrapCloudForUser(cloudUser)'), 'reconnect must retry a bootstrap interrupted by network failure');
-  assert(reconnect.includes("cloudCharacterId && !cloudConflict && localStorage.getItem(getScopedKey('dirty')) === '1'"), 'reconnect must retry pending sheet writes only when CAS has no conflict');
+  assert(reconnect.includes("cloudCharacterId && !cloudConflict && isSheetDirty(cloudUser.id)"), 'reconnect must retry pending sheet writes only when CAS has no conflict');
   assert(reconnect.includes('scheduleCloudSave(500)'), 'reconnect must schedule a bounded retry rather than requiring another edit');
   assert(reconnect.includes("localStorage.getItem(getScopedKey('portraitDirty')) === '1'") && reconnect.includes('void syncPendingPortrait()'), 'reconnect must retry pending portrait work independently from sheet conflicts');
   const save = section(sheet, 'async function pushStateToCloud()', 'async function pushStateToCloudConfirmed()', 'automatic cloud save');
   assert(save.includes(".eq('user_id', cloudUser.id)"), 'cloud update must be scoped to authenticated owner');
   assert(save.includes(".eq('revision', cloudVersion)"), 'cloud update must use monotonic compare-and-swap');
-  assert(save.includes("localStorage.setItem(getScopedKey('dirty'), '1')"), 'failed or stale writes must remain dirty');
+  assert(save.includes('markSheetDirty(cloudUser.id, true)'), 'failed or stale writes must remain dirty even when localStorage is full');
   assert(save.includes("if (cloudConflict)"), 'automatic retry must not silently overwrite a conflict');
   assert(save.includes("setSaveStatus('Conflito de sincronização"), 'stale revision must be surfaced to the player');
 }
@@ -86,7 +86,7 @@ function section(source, start, end, label) {
   assert(confirmed.includes(".select('revision')"), 'overwrite must read the current remote revision');
   assert(confirmed.includes(".eq('revision', expectedVersion)"), 'confirmed overwrite must still use CAS');
   assert(confirmed.includes('if (data?.revision == null)'), 'zero-row CAS result must be treated as a conflict');
-  assert(confirmed.includes("localStorage.setItem(dirtyKey, '1')"), 'failed confirmed write must preserve dirty local data');
+  assert(confirmed.includes('markSheetDirty(cloudUser.id, true)'), 'failed confirmed write must preserve dirty local data when localStorage is unavailable');
   assert(confirmed.includes('return { ok: true, revision: cloudVersion }'), 'success must return the server-confirmed revision');
 }
 
