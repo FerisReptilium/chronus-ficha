@@ -701,7 +701,7 @@ window.ChronusSheetEngine = (function() {
       await dbDelete(portraitStorageKey(userId));
       if(!userId && !localStorage.getItem(CLOUD_USER_KEY)) await dbDelete('portrait');
       return true;
-    } catch { return false && tombstoneSaved; }
+    } catch { return false; }
   }
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
@@ -721,9 +721,11 @@ window.ChronusSheetEngine = (function() {
     button.addEventListener('contextmenu',async(e)=>{
       e.preventDefault();
       if(!preview.hidden&&confirm('Remover o retrato?')){
-        await clearPortrait(); preview.hidden=true; preview.src=''; button.classList.remove('has-portrait');
+        const localRemoved = await clearPortrait();
+        clear();
         localStorage.setItem(getScopedKey('portraitDirty'),'1');
         if(cloudUser && cloudReady && navigator.onLine) await deletePortraitFromCloud();
+        if(!localRemoved) setSaveStatus('Retrato ocultado; limpeza local pendente','offline');
       }
     });
   }
@@ -1305,7 +1307,8 @@ window.ChronusSheetEngine = (function() {
       if(currentProfile?.display_name) fresh.identity.player=currentProfile.display_name;
       Object.keys(state).forEach(k=>delete state[k]); Object.assign(state,fresh);
       persistLocalState(true);
-      await clearPortrait(); localStorage.setItem(getScopedKey('portraitDirty'),'1');
+      const localPortraitClearOk = await clearPortrait();
+      localStorage.setItem(getScopedKey('portraitDirty'),'1');
       let cloudSyncOk = !cloudUser;
       let portraitSyncOk = !cloudUser;
       if(cloudUser && cloudReady){
@@ -1313,7 +1316,7 @@ window.ChronusSheetEngine = (function() {
         const syncResult = await pushStateToCloudConfirmed();
         cloudSyncOk = Boolean(syncResult?.ok);
       }
-      if(!cloudSyncOk || !portraitSyncOk){
+      if(!localPortraitClearOk || !cloudSyncOk || !portraitSyncOk){
         alert('A ficha foi limpa neste dispositivo, mas a nuvem não confirmou a remoção completa. Os dados locais e o marcador de sincronização pendente foram preservados. Tente sincronizar novamente antes de considerar a limpeza concluída.');
         location.reload();
         return;
