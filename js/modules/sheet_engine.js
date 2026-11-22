@@ -1475,6 +1475,7 @@ window.ChronusSheetEngine = (function() {
           sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);
           sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY);
           sessionStorage.removeItem(NARRATOR_VIEW_META_KEY);
+          setAccountHydrationPending(hadAuthenticatedCache);
         }
         cloudUser = null;
         cloudCharacterId = null;
