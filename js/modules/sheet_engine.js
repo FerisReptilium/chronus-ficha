@@ -1291,7 +1291,8 @@ window.ChronusSheetEngine = (function() {
     const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
     const accountChanged = Boolean(
       (localOwner && localOwner !== userId) ||
-      (activeSessionUser && activeSessionUser !== userId)
+      (activeSessionUser && activeSessionUser !== userId) ||
+      (!localOwner && !activeSessionUser && scopedData)
     );
     // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
     // A hidratação remota fará, se necessária, uma única recarga controlada.
