@@ -16,6 +16,7 @@ window.ChronusSheetEngine = (function() {
   const LEGACY_KEYS = ['chronus.sheet.v3', 'chronus.sheet.v2', 'chronus.sheet.v1'];
 
   const CLOUD_USER_KEY = 'chronus.cloud.user.v1';
+  const ACTIVE_USER_SESSION_KEY = 'chronus.cloud.active-user.session.v1';
   const CLOUD_CHARACTER_KEY = 'chronus.cloud.character.v1';
   const CLOUD_DIRTY_KEY = 'chronus.cloud.dirty.v1';
   const CLOUD_SYNCED_KEY = 'chronus.cloud.synced.v1';
@@ -160,18 +161,19 @@ window.ChronusSheetEngine = (function() {
     const base = clone(defaultState);
     try {
       const params = new URLSearchParams(location.search);
-      if (params.get('narratorView') === '1') {
+      if (params.get('narratorView') === '1' && sessionStorage.getItem(ACTIVE_USER_SESSION_KEY)) {
         const snapshot = sessionStorage.getItem(NARRATOR_VIEW_DATA_KEY);
         if (snapshot) return normalizeState(mergeDeep(base, JSON.parse(snapshot)));
       }
-      const ownerId = localStorage.getItem(CLOUD_USER_KEY);
+      const ownerId = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
+      const knownOwner = localStorage.getItem(CLOUD_USER_KEY);
       const scopedKey = ownerId && window.CHRONUS_CONFIG?.getStorageKey(ownerId);
       const scopedRaw = scopedKey ? localStorage.getItem(scopedKey) : null;
-      // Quando já existe um dono associado ao cache global, nunca recorra ao
-      // cache legado se o cache isolado estiver ausente: aguarde a migração
-      // validada no bootstrap da conta em vez de exibir dados de outro usuário.
-      const legacyRaw = ownerId ? null
-        : (localStorage.getItem(STORAGE_KEY) || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean));
+      // Cache de conta só é carregado após a sessão autenticada ser confirmada.
+      // O marcador persistente identifica o dono do legado, não prova login ativo.
+      const legacyRaw = (!knownOwner && !ownerId)
+        ? (localStorage.getItem(STORAGE_KEY) || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean))
+        : null;
       const raw = scopedRaw || legacyRaw;
       return normalizeState(raw ? mergeDeep(base, JSON.parse(raw)) : base);
     } catch { return base; }
@@ -578,7 +580,7 @@ window.ChronusSheetEngine = (function() {
   // Retratos isolados por conta: IndexedDB é compartilhado entre usuários no mesmo navegador.
   const DB_NAME='chronus-sheet-db-v3', STORE='assets';
   function openDb(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-  function portraitOwnerId(){return cloudUser?.id || localStorage.getItem(CLOUD_USER_KEY) || null;}
+  function portraitOwnerId(){return cloudUser?.id || sessionStorage.getItem(ACTIVE_USER_SESSION_KEY) || null;}
   function portraitStorageKey(userId=portraitOwnerId()){return userId ? `portrait.${userId}` : 'portrait.anonymous';}
   function portraitFallbackKey(userId=portraitOwnerId()){return userId ? `chronus.portrait.fallback.${userId}` : 'chronus.portrait.fallback.anonymous';}
   async function dbPut(blob,key=portraitStorageKey()){const db=await openDb();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(blob,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
@@ -1264,14 +1266,12 @@ window.ChronusSheetEngine = (function() {
       }
     }
 
-    // Trocar de conta sempre reidrata o documento com o cache daquela conta
-    // (ou com uma ficha vazia), mesmo quando ela ainda não tem cache local.
-    if (localOwner && localOwner !== userId) {
+    // Uma conta só pode hidratar seu cache depois de a sessão ser confirmada.
+    // Isso também evita mostrar a ficha do último usuário após logout ou em outra aba.
+    const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
+    if (localOwner !== userId || activeSessionUser !== userId || migratedLegacyCache || migratedLegacyPortrait) {
       localStorage.setItem(CLOUD_USER_KEY, userId);
-      return true;
-    }
-    if (migratedLegacyCache || migratedLegacyPortrait) {
-      localStorage.setItem(CLOUD_USER_KEY, userId);
+      sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
       return true;
     }
     return false;
@@ -1382,13 +1382,23 @@ window.ChronusSheetEngine = (function() {
           await bootstrapCloudForUser(user);
         }
       } else {
+        const hadAuthenticatedCache = Boolean(sessionStorage.getItem(ACTIVE_USER_SESSION_KEY));
+        sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);
+        sessionStorage.removeItem(NARRATOR_VIEW_DATA_KEY);
+        sessionStorage.removeItem(NARRATOR_VIEW_META_KEY);
         cloudUser = null;
         cloudCharacterId = null;
+        cloudVersion = null;
         cloudReady = false;
+        cloudConflict = false;
         currentProfile = null;
         narratorReadOnly = false;
         clearNarratorModes();
         updateAccountUi(null);
+        if (hadAuthenticatedCache) {
+          location.reload();
+          return;
+        }
       }
     });
   }
