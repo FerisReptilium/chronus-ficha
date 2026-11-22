@@ -728,6 +728,9 @@ window.ChronusSheetEngine = (function() {
   // uma cópia mais recente quando o navegador conclui transações fora de ordem.
   let sheetBackupWriteChain = Promise.resolve();
   const sheetBackupDirtyUsers = new Set();
+  function safeLocalStorageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+  function safeLocalStorageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (error) { console.warn('CHRONUS: metadado local indisponível', error); return false; } }
+  function safeLocalStorageRemove(key) { try { localStorage.removeItem(key); return true; } catch { return false; } }
   function sheetBackupKey(userId) { return `sheet.state.${userId || 'anonymous'}`; }
   function sheetBackupTimestampKey(userId) { return `chronus.sheet.backup.timestamp.${userId || 'anonymous'}`; }
   function currentStorageOwner() {
@@ -1560,13 +1563,13 @@ window.ChronusSheetEngine = (function() {
     const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';
     const scopedKey = cfg.getStorageKey(userId);
     const legacyKey = (cfg.LEGACY_KEYS || [cfg.LEGACY_STORAGE_KEY])
-      .find(key => Boolean(localStorage.getItem(key)));
-    const legacyData = legacyKey ? localStorage.getItem(legacyKey) : null;
-    let scopedData = localStorage.getItem(scopedKey);
-    const localOwner = localStorage.getItem(CLOUD_USER_KEY);
+      .find(key => Boolean(safeLocalStorageGet(key)));
+    const legacyData = legacyKey ? safeLocalStorageGet(legacyKey) : null;
+    let scopedData = safeLocalStorageGet(scopedKey);
+    const localOwner = safeLocalStorageGet(CLOUD_USER_KEY);
     const backupRecord = await readSheetBackup(userId).catch(() => null);
     let localSavedAt = 0;
-    try { localSavedAt = Number(localStorage.getItem(sheetBackupTimestampKey(userId))) || 0; } catch {}
+    try { localSavedAt = Number(safeLocalStorageGet(sheetBackupTimestampKey(userId))) || 0; } catch {}
     const restoredFromBackup = Boolean(backupRecord && backupRecord.savedAt > localSavedAt);
     if (restoredFromBackup) scopedData = JSON.stringify(backupRecord.state);
     if (restoredFromBackup && backupRecord.dirty) markSheetDirty(userId, true);
@@ -1575,9 +1578,9 @@ window.ChronusSheetEngine = (function() {
     // de entrar neste navegador.
     let migratedLegacyCache = false;
     if (!isNarratorView && legacyData && !scopedData && (!localOwner || localOwner === userId)) {
-      localStorage.setItem(scopedKey, legacyData);
-      const legacyDirty = localOwner === userId ? localStorage.getItem(CLOUD_DIRTY_KEY) === '1' : true;
-      localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
+      safeLocalStorageSet(scopedKey, legacyData);
+      const legacyDirty = localOwner === userId ? safeLocalStorageGet(CLOUD_DIRTY_KEY) === '1' : true;
+      safeLocalStorageSet(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
       scopedData = legacyData;
       migratedLegacyCache = true;
@@ -1585,32 +1588,32 @@ window.ChronusSheetEngine = (function() {
 
     let migratedLegacyPortrait = false;
     if (!isNarratorView && (!localOwner || localOwner === userId)) {
-      const targetPortraitDeleted = localStorage.getItem(portraitTombstoneKey(userId)) === '1';
-      const legacyPortraitDeleted = localStorage.getItem(portraitTombstoneKey(null)) === '1'
-        || localStorage.getItem(portraitTombstoneKey('legacy')) === '1';
+      const targetPortraitDeleted = safeLocalStorageGet(portraitTombstoneKey(userId)) === '1';
+      const legacyPortraitDeleted = safeLocalStorageGet(portraitTombstoneKey(null)) === '1'
+        || safeLocalStorageGet(portraitTombstoneKey('legacy')) === '1';
       const scopedPortrait = targetPortraitDeleted ? null : await dbGet(portraitStorageKey(userId)).catch(() => null);
-      const scopedFallback = targetPortraitDeleted ? null : localStorage.getItem(portraitFallbackKey(userId));
+      const scopedFallback = targetPortraitDeleted ? null : safeLocalStorageGet(portraitFallbackKey(userId));
       const anonymousPortrait = !localOwner && !legacyPortraitDeleted ? await dbGet(portraitStorageKey(null)).catch(() => null) : null;
       const legacyPortrait = scopedPortrait || legacyPortraitDeleted ? null : (anonymousPortrait || await dbGet('portrait').catch(() => null));
-      const anonymousFallback = !localOwner && !legacyPortraitDeleted ? localStorage.getItem(portraitFallbackKey(null)) : null;
-      const legacyFallback = legacyPortraitDeleted ? null : (anonymousFallback || localStorage.getItem('chronus.portrait.fallback'));
+      const anonymousFallback = !localOwner && !legacyPortraitDeleted ? safeLocalStorageGet(portraitFallbackKey(null)) : null;
+      const legacyFallback = legacyPortraitDeleted ? null : (anonymousFallback || safeLocalStorageGet('chronus.portrait.fallback'));
       if (!targetPortraitDeleted && !scopedFallback && legacyFallback) {
-        localStorage.setItem(portraitFallbackKey(userId), legacyFallback);
+        safeLocalStorageSet(portraitFallbackKey(userId), legacyFallback);
         migratedLegacyPortrait = true;
       } else if (!targetPortraitDeleted && !scopedPortrait && legacyPortrait) {
         await dbPut(legacyPortrait, portraitStorageKey(userId));
         migratedLegacyPortrait = true;
       }
-      const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
-        || localStorage.getItem(cfg.getPortraitDirtyKey(null));
-      const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
+      const legacyPortraitDirty = safeLocalStorageGet(PORTRAIT_DIRTY_KEY)
+        || safeLocalStorageGet(cfg.getPortraitDirtyKey(null));
+      const scopedPortraitDirty = safeLocalStorageGet(cfg.getPortraitDirtyKey(userId));
       if (legacyPortraitDirty && !scopedPortraitDirty) {
-        localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
+        safeLocalStorageSet(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
       }
       if (migratedLegacyPortrait) {
-        if (!localOwner) localStorage.setItem(cfg.getPortraitDirtyKey(userId), '1');
-        localStorage.setItem(portraitTombstoneKey(null), '1');
-        localStorage.setItem(portraitTombstoneKey('legacy'), '1');
+        if (!localOwner) safeLocalStorageSet(cfg.getPortraitDirtyKey(userId), '1');
+        safeLocalStorageSet(portraitTombstoneKey(null), '1');
+        safeLocalStorageSet(portraitTombstoneKey('legacy'), '1');
       }
     }
 
@@ -1619,7 +1622,7 @@ window.ChronusSheetEngine = (function() {
     // a própria hidratação remota faz a única recarga necessária.
     const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
     if (isNarratorView && !activeSessionUser) {
-      localStorage.setItem(CLOUD_USER_KEY, userId);
+      safeLocalStorageSet(CLOUD_USER_KEY, userId);
       sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
       setAccountHydrationPending(true);
       return true;
@@ -1640,7 +1643,7 @@ window.ChronusSheetEngine = (function() {
       Object.assign(state, accountState);
       refreshAccountStateFromMemory();
     }
-    localStorage.setItem(CLOUD_USER_KEY, userId);
+    safeLocalStorageSet(CLOUD_USER_KEY, userId);
     sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
     if (accountChanged) {
       window.__chronusClearPortrait?.();
