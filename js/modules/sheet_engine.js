@@ -1285,11 +1285,19 @@ window.ChronusSheetEngine = (function() {
     }
 
     // Uma conta só pode hidratar seu cache depois de a sessão ser confirmada.
-    // Isso também evita mostrar a ficha do último usuário após logout ou em outra aba.
+    // Em uma primeira entrada sem cache legado, não há estado anterior a reidratar:
+    // a própria hidratação remota faz a única recarga necessária.
     const activeSessionUser = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
-    if (localOwner !== userId || activeSessionUser !== userId || migratedLegacyCache || migratedLegacyPortrait) {
-      localStorage.setItem(CLOUD_USER_KEY, userId);
-      sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+    const accountChanged = Boolean(
+      (localOwner && localOwner !== userId) ||
+      (activeSessionUser && activeSessionUser !== userId)
+    );
+    const hasPriorLocalState = Boolean(localOwner || scopedData || migratedLegacyCache || migratedLegacyPortrait);
+    const needsReload = accountChanged || (activeSessionUser !== userId && hasPriorLocalState)
+      || migratedLegacyCache || migratedLegacyPortrait;
+    localStorage.setItem(CLOUD_USER_KEY, userId);
+    sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
+    if (needsReload) {
       window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true;
       return true;
     }
