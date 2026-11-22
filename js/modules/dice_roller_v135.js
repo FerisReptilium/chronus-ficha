@@ -241,6 +241,7 @@ window.ChronusDiceRollerV135 = (function() {
                 <div id="dice-result-verdict" class="dice-result-verdict" role="status" aria-live="polite"></div>
                 <p id="dice-result-rule" class="dice-result-rule"></p>
                 <section id="dice-result-narrative" class="dice-result-narrative" aria-live="polite" hidden></section>
+                <p id="dice-live-sync-status" class="dice-live-sync-status" role="status" aria-live="polite" hidden></p>
                 <div class="dice-result-actions">
                   <button type="button" id="dice-repeat-roll">↻ Repetir</button>
                   <button type="button" id="dice-copy-result">Copiar resultado</button>
@@ -562,6 +563,35 @@ window.ChronusDiceRollerV135 = (function() {
     }
     animateDice(record.dice);
     addHistory(record);
+
+    const syncStatus = document.getElementById('dice-live-sync-status');
+    if (record.type === 'standard' && syncStatus) {
+      syncStatus.hidden = false;
+      syncStatus.textContent = 'Compartilhando resultado com a mesa…';
+      if (window.ChronusNarrativeLive?.publish) {
+        window.ChronusNarrativeLive.publish(record).then(result => {
+          if (!syncStatus.isConnected) return;
+          if (result?.ok) {
+            syncStatus.textContent = '✓ Rolagem compartilhada com o Narrador.';
+          } else if (result?.reason === 'not_player') {
+            syncStatus.textContent = 'Conta de Narrador: rolagens não são publicadas como jogadas de personagem.';
+          } else if (result?.reason === 'not_signed_in') {
+            syncStatus.textContent = 'Entre com sua conta de jogador para compartilhar a rolagem.';
+          } else if (result?.skipped) {
+            syncStatus.textContent = 'Rolagem mantida apenas no histórico local.';
+          } else {
+            syncStatus.textContent = 'Não foi possível sincronizar; a rolagem continua no histórico local.';
+          }
+        }).catch(() => {
+          if (syncStatus.isConnected) syncStatus.textContent = 'Não foi possível sincronizar; a rolagem continua no histórico local.';
+        });
+      } else {
+        syncStatus.textContent = 'Sincronização indisponível; resultado salvo no histórico local.';
+      }
+    } else if (syncStatus) {
+      syncStatus.hidden = true;
+      syncStatus.textContent = '';
+    }
   }
 
   function addHistory(record) {
