@@ -210,3 +210,5 @@ assert(sheetSource.includes("preview.hidden=true;input.value='';button.classList
 assert(sheetSource.includes('function portraitTombstoneKey(userId=portraitOwnerId())'), 'deleted portrait tombstones must prevent stale IndexedDB images from reappearing');
 assert(sheetSource.includes("localStorage.getItem(portraitTombstoneKey(userId))==='1'"), 'portrait reads must honor deletion tombstones before IndexedDB fallback');
 assert(sheetSource.includes('const localPortraitClearOk = await clearPortrait()'), 'reset must verify local portrait deletion as well as remote deletion');
+assert(sheetSource.includes("if(localStorage.getItem(portraitTombstoneKey('legacy'))==='1')"), 'legacy portrait deletion tombstones must suppress old global IndexedDB records');
+assert(sheetSource.includes("localStorage.setItem(portraitTombstoneKey('legacy'), '1')"), 'migrated legacy portraits must no longer be visible through anonymous storage');
