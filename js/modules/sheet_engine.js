@@ -795,11 +795,11 @@ window.ChronusSheetEngine = (function() {
         .update({ name: cloudCharacterName(), data: clone(state) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
-        .eq('updated_at', cloudVersion)
-        .select('updated_at')
+        .eq('revision', cloudVersion)
+        .select('revision')
         .maybeSingle();
       if (error) throw error;
-      if (!data?.updated_at) {
+      if (data?.revision == null) {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
@@ -807,7 +807,7 @@ window.ChronusSheetEngine = (function() {
         setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
         return;
       }
-      cloudVersion = data.updated_at;
+      cloudVersion = String(data.revision);
       const baseKey = cloudSessionBaseKey();
       if (baseKey) sessionStorage.setItem(baseKey, cloudVersion);
       cloudConflict = false;
@@ -983,9 +983,9 @@ window.ChronusSheetEngine = (function() {
     try { return stableSerialize(a) === stableSerialize(b); } catch { return false; }
   }
 
-  async function applyRemoteAndReload(remoteData, userId, characterId, updatedAt) {
+  async function applyRemoteAndReload(remoteData, userId, characterId, revision) {
     const merged = normalizeState(mergeDeep(clone(defaultState), remoteData || {}));
-    const snapshot = updatedAt || stableSerialize(merged);
+    const snapshot = revision != null ? String(revision) : stableSerialize(merged);
     const appliedKey = `chronus.cloud.applied.${userId}.${characterId}`;
     const cfg = window.CHRONUS_CONFIG;
     localStorage.setItem(cfg.getStorageKey(userId), JSON.stringify(merged));
@@ -993,8 +993,8 @@ window.ChronusSheetEngine = (function() {
     localStorage.setItem(cfg.getCharacterIdKey(userId), characterId);
     localStorage.setItem(CLOUD_CHARACTER_KEY, characterId);
     localStorage.setItem(cfg.getDirtyKey(userId), '0');
-    localStorage.setItem(cfg.getSyncedKey(userId), updatedAt || new Date().toISOString());
-    cloudVersion = updatedAt || null;
+    localStorage.setItem(cfg.getSyncedKey(userId), revision != null ? String(revision) : '');
+    cloudVersion = revision != null ? String(revision) : null;
     const baseKey = cloudSessionBaseKey(userId, characterId);
     if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
     cloudConflict = false;
@@ -1036,7 +1036,7 @@ window.ChronusSheetEngine = (function() {
     try {
       const { data: row, error } = await supabaseClient
         .from('characters')
-        .select('id,name,data,updated_at')
+        .select('id,name,data,revision')
         .eq('user_id', user.id)
         .order('updated_at', { ascending:false })
         .limit(1)
@@ -1056,11 +1056,11 @@ window.ChronusSheetEngine = (function() {
         const { data: created, error: insertError } = await supabaseClient
           .from('characters')
           .insert({ user_id:user.id, name:String(initialState?.identity?.name||'').trim()||'Novo personagem', data:initialState })
-          .select('id,updated_at')
+          .select('id,revision')
           .single();
         if (insertError) throw insertError;
         cloudCharacterId = created.id;
-        cloudVersion = created.updated_at || null;
+        cloudVersion = created.revision != null ? String(created.revision) : null;
         const baseKey = cloudSessionBaseKey(user.id, created.id);
         if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
         cloudConflict = false;
@@ -1069,16 +1069,16 @@ window.ChronusSheetEngine = (function() {
         localStorage.setItem(getScopedKey('characterId'), created.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, created.id);
         localStorage.setItem(getScopedKey('dirty'), '0');
-        localStorage.setItem(getScopedKey('synced'), created.updated_at || new Date().toISOString());
+        localStorage.setItem(getScopedKey('synced'), cloudVersion || '');
         cloudReady = true;
         if (localOwner && localOwner !== user.id) {
-          await applyRemoteAndReload(initialState,user.id,created.id,created.updated_at);
+          await applyRemoteAndReload(initialState,user.id,created.id,created.revision);
           return;
         }
         setSaveStatus('Salvo na nuvem ✓', 'cloud');
       } else {
         cloudCharacterId = row.id;
-        cloudVersion = row.updated_at || null;
+        cloudVersion = row.revision != null ? String(row.revision) : null;
         const baseKey = cloudSessionBaseKey(user.id, row.id);
         const localBaseVersion = baseKey ? sessionStorage.getItem(baseKey) : null;
         cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1'
@@ -1087,7 +1087,7 @@ window.ChronusSheetEngine = (function() {
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
         if (localOwner && localOwner !== user.id && !dirty) {
-          await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
+          await applyRemoteAndReload(row.data,user.id,row.id,row.revision);
           return;
         }
         if (!localOwner && !dirty) {
@@ -1530,9 +1530,9 @@ window.ChronusSheetEngine = (function() {
       }
       let expectedVersion = cloudVersion;
       if (cloudConflict) {
-        const latest = await supabaseClient.from('characters').select('updated_at').eq('id', cloudCharacterId).eq('user_id', cloudUser.id).maybeSingle();
+        const latest = await supabaseClient.from('characters').select('revision').eq('id', cloudCharacterId).eq('user_id', cloudUser.id).maybeSingle();
         if (latest.error) throw latest.error;
-        expectedVersion = latest.data?.updated_at || null;
+        expectedVersion = latest.data?.revision != null ? String(latest.data.revision) : null;
       }
       if (!expectedVersion) return { ok: false, conflict: true, error: 'Versão remota não confirmada' };
       const { data, error } = await supabaseClient
@@ -1540,12 +1540,12 @@ window.ChronusSheetEngine = (function() {
         .update({ name: cloudCharacterName(), data: clone(state) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
-        .eq('updated_at', expectedVersion)
-        .select('updated_at')
+        .eq('revision', expectedVersion)
+        .select('revision')
         .maybeSingle();
 
       if (error) throw error;
-      if (!data?.updated_at) {
+      if (data?.revision == null) {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
@@ -1553,7 +1553,7 @@ window.ChronusSheetEngine = (function() {
         setSaveStatus('Conflito de sincronização • alterações locais preservadas', 'offline');
         return { ok: false, conflict: true, error: 'A versão remota mudou durante a confirmação' };
       }
-      cloudVersion = data.updated_at;
+      cloudVersion = String(data.revision);
       const baseKey = cloudSessionBaseKey();
       if (baseKey) sessionStorage.setItem(baseKey, cloudVersion);
       cloudConflict = false;
@@ -1562,7 +1562,7 @@ window.ChronusSheetEngine = (function() {
       localStorage.setItem(dirtyKey, '0');
       localStorage.setItem(syncedKey, cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
-      return { ok: true, updated_at: cloudVersion };
+      return { ok: true, revision: cloudVersion };
     } catch (e) {
       console.error('CHRONUS: Erro ao sincronizar ficha na nuvem:', e);
       const dirtyKey = getScopedKey('dirty');
