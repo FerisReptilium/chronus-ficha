@@ -10,7 +10,6 @@ const index = read('index.html');
 const router = read('js/router.js');
 const auth = read('js/services/auth.js');
 const assets = read('js/services/assets.js');
-const supabaseSdkScript = index.match(/<script\\s+src=[\"']([^\"']*supabase-js[^\"']*)[\"']/i)?.[1] || '';
 const content = read('js/services/content.js');
 
 const routes = [
@@ -30,7 +29,7 @@ const routes = [
 ];
 
 // External SDK supply-chain integrity: pin the tested Supabase client release.
-assert.strictEqual(supabaseSdkScript, 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2', 'Supabase JS SDK must remain pinned to an exact tested version');
+assert(index.includes('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>'), 'Supabase JS SDK must remain pinned to an exact tested version');
 
 // Route/view integrity.
 for (const [route, viewId] of routes) {
