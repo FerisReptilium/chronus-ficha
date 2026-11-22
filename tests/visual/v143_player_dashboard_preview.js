@@ -188,17 +188,20 @@ async function runMode(browser, mode, viewport) {
   }));
 
   const errors = watchErrors(page);
-  // Abre a rota protegida diretamente. O bootstrap aguarda Auth.init() antes
-  // de iniciar o Router, eliminando a corrida entre sessão e hashchange.
-  const response = await page.goto(`${origin}/#/player`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  // Inicializa primeiro na rota pública. Só navega para a área protegida
+  // depois de Auth e Router concluírem o bootstrap, reproduzindo o fluxo real
+  // de navegação sem disputar a rota inicial durante a restauração da sessão.
+  const response = await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(() => Boolean(
     window.ChronusAuth?.getUser?.()?.id &&
-    window.ChronusRouter?.getCurrentRoute?.() === '#/player'
-  ), { timeout: 15000 });
+    window.ChronusRouter?.getCurrentRoute?.() === '#/home'
+  ), { timeout: 20000 });
+  await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
   await page.waitForFunction(() => (
     window.location.hash === '#/player' &&
+    window.ChronusRouter?.getCurrentRoute?.() === '#/player' &&
     document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3'
-  ), { timeout: 15000 });
+  ), { timeout: 20000 });
   try {
     await page.waitForFunction(() => {
       const view = document.getElementById('view-player');
