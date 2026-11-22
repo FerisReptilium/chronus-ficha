@@ -593,7 +593,7 @@ window.ChronusSheetEngine = (function() {
     if(scoped)return scoped;
     const fallback=localStorage.getItem(portraitFallbackKey(userId));
     if(fallback)return fallback;
-    if(!userId){
+    if(!userId && !localStorage.getItem(CLOUD_USER_KEY)){
       const legacy=await dbGet('portrait').catch(()=>null);
       return legacy || localStorage.getItem('chronus.portrait.fallback') || null;
     }
@@ -1438,6 +1438,7 @@ window.ChronusSheetEngine = (function() {
       } catch (e) { console.error('Erro ao restaurar modo jogador na ficha:', e); }
     },
     pushStateToCloud: pushStateToCloudConfirmed,
+    isCloudReady: () => cloudReady,
     isDirty: () => {
       const dirtyKey = getScopedKey('dirty');
       return Boolean(saveTimer || cloudSaveTimer || cloudSaving || localStorage.getItem(dirtyKey) === '1');

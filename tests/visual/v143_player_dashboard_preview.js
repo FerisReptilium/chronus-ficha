@@ -247,8 +247,9 @@ async function runMode(browser, mode, viewport) {
   const response = await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(() => Boolean(
     window.ChronusAuth?.getUser?.()?.id &&
-    window.ChronusRouter?.getCurrentRoute?.() === '#/home'
-  ), { timeout: 20000 });
+    window.ChronusRouter?.getCurrentRoute?.() === '#/home' &&
+    window.ChronusSheetEngine?.isCloudReady?.() === true
+  ), { timeout: 25000 });
   try {
     await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
   } catch (error) {
