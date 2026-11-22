@@ -107,6 +107,48 @@ VALUES
 ('20000000-0000-0000-0000-000000000003','library','v12/private.pdf','chapter','10000000-0000-0000-0000-000000000003','narrator',false,null)
 ON CONFLICT (id) DO NOTHING;
 
+-- Private narrator-only fixtures exercise every secret table through real RLS.
+INSERT INTO public.campaign_sessions
+  (id, session_number, title, slug, summary, status, visibility, published)
+VALUES
+  ('40000000-0000-0000-0000-000000000001', 9001, 'V12 Secret Session', 'v12-secret-session', 'Private RLS fixture', 'planned', 'narrator', false)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.npcs (id, name, slug, visibility, published)
+VALUES
+  ('50000000-0000-0000-0000-000000000001', 'V12 Secret NPC', 'v12-secret-npc', 'narrator', false)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.locations (id, name, slug, type, visibility, published)
+VALUES
+  ('60000000-0000-0000-0000-000000000001', 'V12 Secret Location', 'v12-secret-location', 'other', 'narrator', false)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.campaign_documents (id, title, slug, type, visibility, published)
+VALUES
+  ('70000000-0000-0000-0000-000000000001', 'V12 Secret Document', 'v12-secret-document', 'other', 'narrator', false)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.chapter_secrets (chapter_id, narrator_notes, hidden_truth)
+VALUES ('10000000-0000-0000-0000-000000000003', 'Narrator-only chapter note', 'Hidden chapter truth')
+ON CONFLICT (chapter_id) DO UPDATE SET narrator_notes = EXCLUDED.narrator_notes, hidden_truth = EXCLUDED.hidden_truth;
+
+INSERT INTO public.session_secrets (session_id, narrator_notes, hidden_events)
+VALUES ('40000000-0000-0000-0000-000000000001', 'Narrator-only session note', 'Hidden session event')
+ON CONFLICT (session_id) DO UPDATE SET narrator_notes = EXCLUDED.narrator_notes, hidden_events = EXCLUDED.hidden_events;
+
+INSERT INTO public.npc_secrets (npc_id, true_identity, secrets)
+VALUES ('50000000-0000-0000-0000-000000000001', 'Hidden identity', 'Narrator-only NPC secret')
+ON CONFLICT (npc_id) DO UPDATE SET true_identity = EXCLUDED.true_identity, secrets = EXCLUDED.secrets;
+
+INSERT INTO public.location_secrets (location_id, narrator_notes, supernatural_truth)
+VALUES ('60000000-0000-0000-0000-000000000001', 'Narrator-only location note', 'Hidden location truth')
+ON CONFLICT (location_id) DO UPDATE SET narrator_notes = EXCLUDED.narrator_notes, supernatural_truth = EXCLUDED.supernatural_truth;
+
+INSERT INTO public.document_secrets (document_id, narrator_notes, hidden_meaning)
+VALUES ('70000000-0000-0000-0000-000000000001', 'Narrator-only document note', 'Hidden document meaning')
+ON CONFLICT (document_id) DO UPDATE SET narrator_notes = EXCLUDED.narrator_notes, hidden_meaning = EXCLUDED.hidden_meaning;
+
 -- ANON: public editorial content only; no authenticated character/profile access.
 BEGIN;
 SET LOCAL ROLE anon;
@@ -164,6 +206,28 @@ BEGIN
     '00000000-0000-0000-0000-000000000103'::uuid
   );
   IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL player profile visibility: %', v_count; END IF;
+
+  -- Every secret relation must remain invisible to a normal player.
+  SELECT count(*) INTO v_count FROM public.chapter_secrets WHERE chapter_id = '10000000-0000-0000-0000-000000000003';
+  IF v_count <> 0 THEN RAISE EXCEPTION 'FAIL player read chapter secrets'; END IF;
+  SELECT count(*) INTO v_count FROM public.session_secrets WHERE session_id = '40000000-0000-0000-0000-000000000001';
+  IF v_count <> 0 THEN RAISE EXCEPTION 'FAIL player read session secrets'; END IF;
+  SELECT count(*) INTO v_count FROM public.npc_secrets WHERE npc_id = '50000000-0000-0000-0000-000000000001';
+  IF v_count <> 0 THEN RAISE EXCEPTION 'FAIL player read NPC secrets'; END IF;
+  SELECT count(*) INTO v_count FROM public.location_secrets WHERE location_id = '60000000-0000-0000-0000-000000000001';
+  IF v_count <> 0 THEN RAISE EXCEPTION 'FAIL player read location secrets'; END IF;
+  SELECT count(*) INTO v_count FROM public.document_secrets WHERE document_id = '70000000-0000-0000-0000-000000000001';
+  IF v_count <> 0 THEN RAISE EXCEPTION 'FAIL player read document secrets'; END IF;
+
+  -- A player must not create narrator-only notes even when the parent ID is known.
+  v_blocked := false;
+  BEGIN
+    INSERT INTO public.chapter_secrets (chapter_id, narrator_notes)
+    VALUES ('10000000-0000-0000-0000-000000000003', 'Unauthorized player note');
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_blocked := true;
+  END;
+  IF NOT v_blocked THEN RAISE EXCEPTION 'FAIL player inserted chapter secrets'; END IF;
 
   SELECT count(*) INTO v_count FROM public.characters WHERE name LIKE 'V12 % Character';
   IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL player character SELECT visibility: %', v_count; END IF;
@@ -232,6 +296,24 @@ BEGIN
   IF NOT chronus_private.can_read_portal_asset('library','v12/private.pdf') THEN
     RAISE EXCEPTION 'FAIL narrator private asset';
   END IF;
+
+  -- Narrator must retain access to every secret relation.
+  SELECT count(*) INTO v_count FROM public.chapter_secrets WHERE chapter_id = '10000000-0000-0000-0000-000000000003';
+  IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL narrator read chapter secrets: %', v_count; END IF;
+  SELECT count(*) INTO v_count FROM public.session_secrets WHERE session_id = '40000000-0000-0000-0000-000000000001';
+  IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL narrator read session secrets: %', v_count; END IF;
+  SELECT count(*) INTO v_count FROM public.npc_secrets WHERE npc_id = '50000000-0000-0000-0000-000000000001';
+  IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL narrator read NPC secrets: %', v_count; END IF;
+  SELECT count(*) INTO v_count FROM public.location_secrets WHERE location_id = '60000000-0000-0000-0000-000000000001';
+  IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL narrator read location secrets: %', v_count; END IF;
+  SELECT count(*) INTO v_count FROM public.document_secrets WHERE document_id = '70000000-0000-0000-0000-000000000001';
+  IF v_count <> 1 THEN RAISE EXCEPTION 'FAIL narrator read document secrets: %', v_count; END IF;
+
+  UPDATE public.chapter_secrets
+     SET narrator_notes = 'Narrator authorized update'
+   WHERE chapter_id = '10000000-0000-0000-0000-000000000003';
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 1 THEN RAISE EXCEPTION 'FAIL narrator update chapter secrets: %', v_rows; END IF;
 
   SELECT count(*) INTO v_count
   FROM public.profiles
