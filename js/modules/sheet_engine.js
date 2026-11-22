@@ -985,6 +985,7 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       bootstrapInProgress = false;
+      window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = false;
     }
   }
 
@@ -1292,15 +1293,32 @@ window.ChronusSheetEngine = (function() {
       (localOwner && localOwner !== userId) ||
       (activeSessionUser && activeSessionUser !== userId)
     );
-    const hasPriorLocalState = Boolean(localOwner || scopedData || migratedLegacyCache || migratedLegacyPortrait);
-    const needsReload = accountChanged || (activeSessionUser !== userId && hasPriorLocalState)
-      || migratedLegacyCache || migratedLegacyPortrait;
+    // Substitui o estado em memória pelo cache exclusivo da conta autenticada.
+    // A hidratação remota fará, se necessária, uma única recarga controlada.
+    if (accountChanged) {
+      let scopedState = null;
+      try { scopedState = scopedData ? JSON.parse(scopedData) : null; }
+      catch (error) { console.warn('CHRONUS: cache da conta inválido; usando estado limpo.', error); }
+      const accountState = normalizeState(mergeDeep(clone(defaultState), scopedState || {}));
+      Object.keys(state).forEach(key => delete state[key]);
+      Object.assign(state, accountState);
+      applyDataBoxes();
+      renderAttributes();
+      renderResources();
+      renderMana();
+      renderWounds();
+      updateResourceCounters();
+      renderList('skillsLayer', SKILL_Y, 'skills');
+      renderList('advantagesLayer', ADV_Y, 'advantages');
+      renderParadox();
+      renderArcana();
+      renderEquipment();
+      renderFormulas();
+      renderPage2();
+    }
     localStorage.setItem(CLOUD_USER_KEY, userId);
     sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, userId);
-    if (needsReload) {
-      window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true;
-      return true;
-    }
+    window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING = true;
     return false;
   }
 
