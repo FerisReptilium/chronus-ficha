@@ -191,3 +191,6 @@ assert(sheetSource.includes("if (k === '__proto__' || k === 'prototype' || k ===
 assert(sheetSource.includes("const isNarratorView = new URLSearchParams(location.search).get('narratorView') === '1';"), 'narratorView must be detected before account cache rehydration');
 assert(sheetSource.includes('if (accountChanged && !isNarratorView)'), 'account cache changes must not overwrite the narrator-selected character snapshot');
 assert(sheetSource.includes('if (!isNarratorView) {\n        const accountPortrait'), 'narratorView must load the selected player portrait, not the narrator account portrait');
+assert(sheetSource.includes("if (!isNarratorView && legacyData && !scopedData"), 'narrator view must not migrate an anonymous player sheet into the narrator account');
+assert(sheetSource.includes("if (!isNarratorView && (!localOwner || localOwner === userId))"), 'narrator view must not migrate anonymous portrait data into the narrator account');
+assert(sheetSource.includes("if (isNarratorView && !activeSessionUser)"), 'first-time narrator view must reload after establishing the authenticated session so its snapshot is loaded');
