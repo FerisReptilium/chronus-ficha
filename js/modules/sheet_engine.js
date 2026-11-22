@@ -164,7 +164,11 @@ window.ChronusSheetEngine = (function() {
         const snapshot = sessionStorage.getItem(NARRATOR_VIEW_DATA_KEY);
         if (snapshot) return normalizeState(mergeDeep(base, JSON.parse(snapshot)));
       }
-      const raw = localStorage.getItem(STORAGE_KEY) || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean);
+      const ownerId = localStorage.getItem(CLOUD_USER_KEY);
+      const scopedKey = ownerId && window.CHRONUS_CONFIG?.getStorageKey(ownerId);
+      const raw = (scopedKey && localStorage.getItem(scopedKey))
+        || localStorage.getItem(STORAGE_KEY)
+        || LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean);
       return normalizeState(raw ? mergeDeep(base, JSON.parse(raw)) : base);
     } catch { return base; }
   }
@@ -212,8 +216,12 @@ window.ChronusSheetEngine = (function() {
 
   function persistLocalState(markDirty=true) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      if (markDirty) localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+      const userId = cloudUser?.id || null;
+      const cfg = window.CHRONUS_CONFIG;
+      const storageKey = userId && cfg ? cfg.getStorageKey(userId) : STORAGE_KEY;
+      const dirtyKey = userId && cfg ? cfg.getDirtyKey(userId) : CLOUD_DIRTY_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      if (markDirty) localStorage.setItem(dirtyKey, '1');
     } catch (e) { console.warn('CHRONUS: falha ao salvar localmente', e); }
   }
 
@@ -582,7 +590,7 @@ window.ChronusSheetEngine = (function() {
     input.addEventListener('change',async()=>{
       const file=input.files?.[0]; if(!file)return;
       if(file.size>12*1024*1024){alert('Use uma imagem de até 12 MB.');return;}
-      await savePortrait(file); show(file); localStorage.setItem(PORTRAIT_DIRTY_KEY,'1');
+      await savePortrait(file); show(file); localStorage.setItem(getScopedKey('portraitDirty'),'1');
       if(cloudUser && cloudReady && navigator.onLine) await pushPortraitToCloud(file);
     });
     button.addEventListener('contextmenu',async(e)=>{
@@ -614,7 +622,7 @@ window.ChronusSheetEngine = (function() {
     if (cloudSaving) { cloudSaveAgain = true; return; }
     if (cloudConflict) { setSaveStatus('Conflito de sincronização • alterações preservadas neste dispositivo', 'offline'); return; }
     if (!cloudVersion) {
-      localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+      localStorage.setItem(getScopedKey('dirty'), '1');
       setSaveStatus('Sincronização pausada • versão remota não confirmada', 'offline');
       return;
     }
@@ -637,7 +645,7 @@ window.ChronusSheetEngine = (function() {
         cloudConflict = true;
         const conflictKey = cloudConflictStorageKey();
         if (conflictKey) localStorage.setItem(conflictKey, '1');
-        localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+        localStorage.setItem(getScopedKey('dirty'), '1');
         setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
         return;
       }
@@ -647,12 +655,12 @@ window.ChronusSheetEngine = (function() {
       cloudConflict = false;
       const conflictKey = cloudConflictStorageKey();
       if (conflictKey) localStorage.removeItem(conflictKey);
-      localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-      localStorage.setItem(CLOUD_SYNCED_KEY, cloudVersion);
+      localStorage.setItem(getScopedKey('dirty'), '0');
+      localStorage.setItem(getScopedKey('synced'), cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
     } catch (e) {
       console.error('CHRONUS: erro de sincronização', e);
-      localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+      localStorage.setItem(getScopedKey('dirty'), '1');
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       cloudSaving = false;
@@ -672,7 +680,7 @@ window.ChronusSheetEngine = (function() {
           cacheControl: '3600'
         });
       if (error) throw error;
-      localStorage.setItem(PORTRAIT_DIRTY_KEY,'0');
+      localStorage.setItem(getScopedKey('portraitDirty'),'0');
       setSaveStatus('Retrato salvo na nuvem ✓', 'cloud');
       return true;
     } catch (e) {
@@ -816,11 +824,13 @@ window.ChronusSheetEngine = (function() {
     const merged = normalizeState(mergeDeep(clone(defaultState), remoteData || {}));
     const snapshot = updatedAt || stableSerialize(merged);
     const appliedKey = `chronus.cloud.applied.${userId}.${characterId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    const cfg = window.CHRONUS_CONFIG;
+    localStorage.setItem(cfg.getStorageKey(userId), JSON.stringify(merged));
     localStorage.setItem(CLOUD_USER_KEY, userId);
+    localStorage.setItem(cfg.getCharacterIdKey(userId), characterId);
     localStorage.setItem(CLOUD_CHARACTER_KEY, characterId);
-    localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-    localStorage.setItem(CLOUD_SYNCED_KEY, updatedAt || new Date().toISOString());
+    localStorage.setItem(cfg.getDirtyKey(userId), '0');
+    localStorage.setItem(cfg.getSyncedKey(userId), updatedAt || new Date().toISOString());
     cloudVersion = updatedAt || null;
     const baseKey = cloudSessionBaseKey(userId, characterId);
     if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
@@ -862,7 +872,7 @@ window.ChronusSheetEngine = (function() {
       if (error) throw error;
 
       const localOwner = localStorage.getItem(CLOUD_USER_KEY);
-      const dirty = localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
+      const dirty = localStorage.getItem(getScopedKey('dirty')) === '1';
 
       if (!row) {
         // Primeira migração: se ainda não havia dono local, envia a ficha v0.3/v0.4 atual.
@@ -882,9 +892,10 @@ window.ChronusSheetEngine = (function() {
         cloudConflict = false;
         localStorage.removeItem(cloudConflictStorageKey(user.id, created.id));
         localStorage.setItem(CLOUD_USER_KEY, user.id);
+        localStorage.setItem(getScopedKey('characterId'), created.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, created.id);
-        localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-        localStorage.setItem(CLOUD_SYNCED_KEY, created.updated_at || new Date().toISOString());
+        localStorage.setItem(getScopedKey('dirty'), '0');
+        localStorage.setItem(getScopedKey('synced'), created.updated_at || new Date().toISOString());
         cloudReady = true;
         if (localOwner && localOwner !== user.id) {
           await applyRemoteAndReload(initialState,user.id,created.id,created.updated_at);
@@ -898,6 +909,7 @@ window.ChronusSheetEngine = (function() {
         const localBaseVersion = baseKey ? sessionStorage.getItem(baseKey) : null;
         cloudConflict = localStorage.getItem(cloudConflictStorageKey(user.id, row.id)) === '1'
           || (localStorage.getItem(CLOUD_DIRTY_KEY) === '1' && localBaseVersion !== cloudVersion);
+        localStorage.setItem(getScopedKey('characterId'), row.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
         if (localOwner && localOwner !== user.id) {
@@ -915,7 +927,7 @@ window.ChronusSheetEngine = (function() {
         if (cloudConflict) {
           const conflictKey = cloudConflictStorageKey(user.id, row.id);
           if (conflictKey) localStorage.setItem(conflictKey, '1');
-          localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+          localStorage.setItem(getScopedKey('dirty'), '1');
           setSaveStatus('Conflito pendente • alterações locais preservadas; sincronização automática pausada', 'offline');
         } else if (dirty) {
           await pushStateToCloud();
@@ -926,13 +938,13 @@ window.ChronusSheetEngine = (function() {
             await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
             return;
           }
-          localStorage.setItem(CLOUD_SYNCED_KEY,row.updated_at||new Date().toISOString());
+          localStorage.setItem(getScopedKey('synced'),row.updated_at||new Date().toISOString());
           setSaveStatus('Salvo na nuvem ✓', 'cloud');
         }
       }
 
       // Retrato: se existe alteração local pendente, envia; caso contrário tenta recuperar da nuvem.
-      const portraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY) === '1';
+      const portraitDirty = localStorage.getItem(getScopedKey('portraitDirty')) === '1';
       if (portraitDirty) {
         const localPortrait = await loadPortrait().catch(()=>null);
         if(localPortrait) await pushPortraitToCloud(localPortrait);
@@ -1198,10 +1210,14 @@ window.ChronusSheetEngine = (function() {
     const scopedKey = cfg.getStorageKey(userId);
     const legacyData = localStorage.getItem(cfg.LEGACY_STORAGE_KEY);
     const scopedData = localStorage.getItem(scopedKey);
+    const localOwner = localStorage.getItem(CLOUD_USER_KEY);
 
-    if (legacyData && !scopedData) {
+    // Nunca copie o cache global de outra conta para o usuário que acabou
+    // de entrar neste navegador.
+    if (legacyData && !scopedData && (!localOwner || localOwner === userId)) {
       localStorage.setItem(scopedKey, legacyData);
-      localStorage.setItem(cfg.getDirtyKey(userId), '0');
+      const legacyDirty = localOwner === userId && localStorage.getItem(CLOUD_DIRTY_KEY) === '1';
+      localStorage.setItem(cfg.getDirtyKey(userId), legacyDirty ? '1' : '0');
       console.log('CHRONUS: Migrado cache legado para escopo do usuário:', userId);
     }
   }
