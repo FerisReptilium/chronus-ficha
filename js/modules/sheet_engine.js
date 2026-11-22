@@ -176,6 +176,10 @@ window.ChronusSheetEngine = (function() {
   let cloudReady = false;
   let cloudSaving = false;
   let cloudSaveAgain = false;
+  // Per-tab optimistic concurrency token. Never read this from shared localStorage
+  // when saving: another tab may have advanced it while this tab remains stale.
+  let cloudVersion = null;
+  let cloudConflict = false;
   let bootstrapInProgress = false;
   let currentProfile = null;
   let narratorReadOnly = false;
@@ -592,20 +596,36 @@ window.ChronusSheetEngine = (function() {
     if (!supabaseClient || !cloudUser || !cloudCharacterId || !cloudReady) return;
     if (!navigator.onLine) { setSaveStatus('Offline • salvo local', 'offline'); return; }
     if (cloudSaving) { cloudSaveAgain = true; return; }
+    if (cloudConflict) { setSaveStatus('Conflito de sincronização • alterações preservadas neste dispositivo', 'offline'); return; }
+    if (!cloudVersion) {
+      localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+      setSaveStatus('Sincronização pausada • versão remota não confirmada', 'offline');
+      return;
+    }
 
     cloudSaving = true;
     setSaveStatus('Sincronizando…', 'saving');
     try {
+      // Compare-and-swap: a write succeeds only if the row is still the exact
+      // version this tab loaded. A stale tab must never overwrite newer data.
       const { data, error } = await supabaseClient
         .from('characters')
         .update({ name: cloudCharacterName(), data: clone(state) })
         .eq('id', cloudCharacterId)
         .eq('user_id', cloudUser.id)
+        .eq('updated_at', cloudVersion)
         .select('updated_at')
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data?.updated_at) {
+        cloudConflict = true;
+        localStorage.setItem(CLOUD_DIRTY_KEY, '1');
+        setSaveStatus('Conflito de sincronização • alterações locais preservadas; recarregue a ficha para comparar', 'offline');
+        return;
+      }
+      cloudVersion = data.updated_at;
       localStorage.setItem(CLOUD_DIRTY_KEY, '0');
-      localStorage.setItem(CLOUD_SYNCED_KEY, data?.updated_at || new Date().toISOString());
+      localStorage.setItem(CLOUD_SYNCED_KEY, cloudVersion);
       setSaveStatus('Salvo na nuvem ✓', 'cloud');
     } catch (e) {
       console.error('CHRONUS: erro de sincronização', e);
@@ -613,7 +633,8 @@ window.ChronusSheetEngine = (function() {
       setSaveStatus('Nuvem indisponível • salvo local', 'offline');
     } finally {
       cloudSaving = false;
-      if (cloudSaveAgain) { cloudSaveAgain = false; scheduleCloudSave(250); }
+      if (cloudSaveAgain && !cloudConflict) { cloudSaveAgain = false; scheduleCloudSave(250); }
+      else cloudSaveAgain = false;
     }
   }
 
@@ -777,6 +798,8 @@ window.ChronusSheetEngine = (function() {
     localStorage.setItem(CLOUD_CHARACTER_KEY, characterId);
     localStorage.setItem(CLOUD_DIRTY_KEY, '0');
     localStorage.setItem(CLOUD_SYNCED_KEY, updatedAt || new Date().toISOString());
+    cloudVersion = updatedAt || null;
+    cloudConflict = false;
 
     // Uma mesma versão remota pode exigir reidratação uma vez. Se a normalização
     // produzir diferenças não relevantes após o reload, não entre em ciclo infinito.
@@ -827,6 +850,8 @@ window.ChronusSheetEngine = (function() {
           .single();
         if (insertError) throw insertError;
         cloudCharacterId = created.id;
+        cloudVersion = created.updated_at || null;
+        cloudConflict = false;
         localStorage.setItem(CLOUD_USER_KEY, user.id);
         localStorage.setItem(CLOUD_CHARACTER_KEY, created.id);
         localStorage.setItem(CLOUD_DIRTY_KEY, '0');
@@ -839,6 +864,8 @@ window.ChronusSheetEngine = (function() {
         setSaveStatus('Salvo na nuvem ✓', 'cloud');
       } else {
         cloudCharacterId = row.id;
+        cloudVersion = row.updated_at || null;
+        cloudConflict = false;
         localStorage.setItem(CLOUD_CHARACTER_KEY, row.id);
 
         if (localOwner && localOwner !== user.id) {
