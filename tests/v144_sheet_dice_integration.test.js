@@ -115,7 +115,7 @@ assert(sheetSource.includes('const anonymousPortrait = !localOwner ? await dbGet
 assert(sheetSource.includes('const fallback=localStorage.getItem(portraitFallbackKey(userId))'), 'portrait fallback must load even when IndexedDB is available but has no scoped record');
 assert(sheetSource.includes("dbGet('portrait')"), 'legacy portrait may only be read through the explicit migration path');
 assert(sheetSource.includes('async function migrateLegacyStorageForUser(userId)'), 'account migration must await legacy portrait isolation');
-assert(sheetSource.includes("if (localOwner && localOwner !== userId)"), 'every account switch must force a clean rehydration even without a scoped cache');
+assert(sheetSource.includes('localOwner !== userId || activeSessionUser !== userId || migratedLegacyCache || migratedLegacyPortrait'), 'every account switch must force a clean rehydration even without a scoped cache');
 assert(sheetSource.includes('if (await migrateLegacyStorageForUser(user.id))'), 'auth bootstrap must wait for account-scoped cache and portrait migration');
 assert(sheetSource.includes('saveTimer = 0;'), 'completed debounce must clear the pending-save marker');
 assert(sheetSource.includes('cloudSaveTimer = 0; pushStateToCloud();'), 'completed cloud debounce must clear the pending-sync marker');
