@@ -146,6 +146,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4173/ >/dev/null
           node tests/visual/v150_browser_auth_rls_e2e.js
+          node tests/visual/v151_browser_sheet_save_reload_cas_e2e.js
 
       - name: Verify live roll feed RLS and Realtime integration
         run: |
