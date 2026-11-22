@@ -125,7 +125,7 @@ jobs:
           set -a
           source supabase-local.env
           set +a
-          node tests/v146_auth_sync_integration.test.js
+          node tests/integration/v146_auth_sync_integration.js
 
       - name: Verify live roll feed RLS and Realtime integration
         run: |
