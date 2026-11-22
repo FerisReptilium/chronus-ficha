@@ -1109,7 +1109,7 @@ window.ChronusSheetEngine = (function() {
           if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
           const remoteNormalized = normalizeState(mergeDeep(clone(defaultState), row.data || {}));
           if (!statesEqual(remoteNormalized, state)) {
-            await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
+            await applyRemoteAndReload(row.data,user.id,row.id,row.revision);
             return;
           }
           localStorage.setItem(getScopedKey('synced'),cloudVersion || '');
