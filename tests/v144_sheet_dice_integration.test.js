@@ -107,6 +107,12 @@ assert(sheetSource.includes("event.key.startsWith(CLOUD_CONFLICT_KEY"), 'conflic
 assert(sheetSource.includes('sessionStorage.getItem(baseKey)'), 'dirty local drafts must retain their per-tab base version across reloads');
 assert(sheetSource.includes('localBaseVersion !== cloudVersion'), 'bootstrap must block drafts based on an older remote version');
 assert(sheetSource.includes('getStorageKey(ownerId)'), 'loadState must restore the active account cache');
+assert(sheetSource.includes('function portraitStorageKey(userId=portraitOwnerId())'), 'portrait IndexedDB keys must be scoped to the active account');
+assert(sheetSource.includes('function portraitFallbackKey(userId=portraitOwnerId())'), 'portrait localStorage fallback must be scoped to the active account');
+assert(sheetSource.includes("dbGet('portrait')"), 'legacy portrait may only be read through the explicit migration path');
+assert(sheetSource.includes('async function migrateLegacyStorageForUser(userId)'), 'account migration must await legacy portrait isolation');
+assert(sheetSource.includes("if (localOwner && localOwner !== userId)"), 'every account switch must force a clean rehydration even without a scoped cache');
+assert(sheetSource.includes('if (await migrateLegacyStorageForUser(user.id))'), 'auth bootstrap must wait for account-scoped cache and portrait migration');
 assert(sheetSource.includes('const legacyRaw = ownerId ? null'), 'loadState must not fall back to a global legacy cache when an account owner is already known');
 assert(sheetSource.includes('let migratedLegacyCache = false'), 'legacy cache migration must track whether a reload is required');
 assert(sheetSource.includes('migratedLegacyCache || (scopedData && localOwner !== userId)'), 'a newly migrated legacy cache must trigger controlled rehydration before rendering');
