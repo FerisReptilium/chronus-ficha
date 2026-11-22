@@ -96,13 +96,26 @@ window.ChronusSheetEngine = (function() {
     return target;
   }
   function normalizeState(s) {
-    if (!s.attributes || typeof s.attributes !== 'object') s.attributes = {};
+    if (!s || typeof s !== 'object' || Array.isArray(s)) s = clone(defaultState);
+    if (!s.identity || typeof s.identity !== 'object' || Array.isArray(s.identity)) s.identity = clone(defaultState.identity);
+    if (!Array.isArray(s.personalities)) s.personalities = clone(defaultState.personalities);
+    if (!s.xp || typeof s.xp !== 'object' || Array.isArray(s.xp)) s.xp = clone(defaultState.xp);
+    if (!s.lists || typeof s.lists !== 'object' || Array.isArray(s.lists)) s.lists = clone(defaultState.lists);
+    ['skills','advantages','equipment','formulas'].forEach(key => {
+      if (!Array.isArray(s.lists[key])) s.lists[key] = [];
+    });
+    if (!s.lists.arcana || typeof s.lists.arcana !== 'object' || Array.isArray(s.lists.arcana)) s.lists.arcana = {};
+    if (!s.page2 || typeof s.page2 !== 'object' || Array.isArray(s.page2)) s.page2 = clone(defaultState.page2);
+    if (!Array.isArray(s.page2.formulas)) s.page2.formulas = [];
+    if (!Array.isArray(s.page2.inventory)) s.page2.inventory = [];
+    if (!s.attributes || typeof s.attributes !== 'object' || Array.isArray(s.attributes)) s.attributes = {};
+
     Object.keys(ATTRIBUTE_POINTS).forEach(name => {
       const value = String(s.attributes[name] || '').toLowerCase();
       s.attributes[name] = ['d4','d6','d8','d10','d12'].includes(value) ? value : '';
     });
 
-    if (!s.markers || typeof s.markers !== 'object') s.markers = {};
+    if (!s.markers || typeof s.markers !== 'object' || Array.isArray(s.markers)) s.markers = {};
     const dieValue = value => Number(String(value || '').replace('d', '')) || 0;
     const illumination = String(s.illumination || 'd4').toLowerCase();
     s.illumination = ['d4','d6','d8','d10','d12'].includes(illumination) ? illumination : 'd4';
@@ -152,18 +165,28 @@ window.ChronusSheetEngine = (function() {
       text: item?.text || ''
     }));
     while (s.lists.equipment.length < 4) s.lists.equipment.push({name:'',damage:'',type:'',properties:''});
-    s.lists.equipment = s.lists.equipment.slice(0,4);
+    s.lists.equipment = s.lists.equipment.slice(0,4).map(item => ({
+      name: String(item?.name || ''), damage: String(item?.damage || ''),
+      type: String(item?.type || ''), properties: String(item?.properties || '')
+    }));
     while (s.lists.formulas.length < 3) s.lists.formulas.push({name:'',notes:''});
-    s.lists.formulas = s.lists.formulas.slice(0,3);
+    s.lists.formulas = s.lists.formulas.slice(0,3).map(item => ({
+      name: String(item?.name || ''), notes: String(item?.notes || '')
+    }));
     if (!s.lists.arcana) s.lists.arcana = {};
     ARCANA.forEach(a => {
       if (!Array.isArray(s.lists.arcana[a])) s.lists.arcana[a] = Array(5).fill('empty');
       while (s.lists.arcana[a].length < 5) s.lists.arcana[a].push('empty');
       s.lists.arcana[a] = s.lists.arcana[a].slice(0,5).map(v => v && v !== 'empty' ? 'filled' : 'empty');
     });
-    if (!s.page2) s.page2 = clone(defaultState.page2);
     while (s.page2.formulas.length < 12) s.page2.formulas.push('');
     while (s.page2.inventory.length < 16) s.page2.inventory.push('');
+    s.page2.formulas = s.page2.formulas.slice(0,12).map(value => String(value ?? ''));
+    s.page2.inventory = s.page2.inventory.slice(0,16).map(value => String(value ?? ''));
+    const paradox = Number(s.paradox);
+    s.paradox = Number.isFinite(paradox) ? Math.max(0, Math.min(21, Math.floor(paradox))) : 0;
+    s.pain = Boolean(s.pain);
+    if (!['page-1','page-2'].includes(s.activePage)) s.activePage = 'page-1';
     return s;
   }
   function loadState() {
