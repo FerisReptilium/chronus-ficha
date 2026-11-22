@@ -184,7 +184,7 @@ assert(routerSource.includes("cleanHash === '#/sheet' && window.__CHRONUS_ACCOUN
 assert(sheetSource.includes("const syncResult = await pushStateToCloudConfirmed()"), 'reset must verify cloud confirmation instead of trusting an automatic save');
 assert(sheetSource.includes("if(!localPortraitClearOk || !cloudSyncOk || !portraitSyncOk)"), 'reset must report partial local or cloud deletion without claiming full success');
 assert(sheetSource.includes("localStorage.setItem(getScopedKey('portraitDirty'),'1')"), 'failed portrait deletion must remain pending for retry');
-assert(sheetSource.includes('else await deletePortraitFromCloud();'), 'bootstrap must retry a pending portrait deletion when no local portrait remains');
+assert(sheetSource.includes('await syncPendingPortrait();'), 'bootstrap must retry pending portrait upload or deletion through the shared recovery path');
 assert(routerSource.includes("'#/sheet': { viewId: 'view-sheet', title: 'Ficha Digital · CHRONUS', authRequired: true }"), 'private character sheet route must require an authenticated user');
 
 assert(sheetSource.includes('legacy === 3 ? initialDetermination : legacy'), 'a fully filled legacy Determination pool must expand to the new derived maximum');
