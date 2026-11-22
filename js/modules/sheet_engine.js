@@ -1224,24 +1224,20 @@ window.ChronusSheetEngine = (function() {
       scopedData = legacyData;
     }
 
-    // Se esta conta já tem cache próprio, restaure-o antes do bootstrap remoto.
-    // A troca de usuário não pode reaproveitar o objeto de estado da conta anterior.
-    if (scopedData && localOwner !== userId) {
-      try {
-        const restored = normalizeState(mergeDeep(clone(defaultState), JSON.parse(scopedData)));
-        Object.keys(state).forEach(key => delete state[key]);
-        Object.assign(state, restored);
-      } catch (error) {
-        console.warn('CHRONUS: cache isolado inválido; mantendo estado seguro', error);
-      }
-    }
-
     const legacyPortraitDirty = localStorage.getItem(PORTRAIT_DIRTY_KEY)
       || localStorage.getItem(cfg.getPortraitDirtyKey(null));
     const scopedPortraitDirty = localStorage.getItem(cfg.getPortraitDirtyKey(userId));
     if (legacyPortraitDirty && !scopedPortraitDirty && (!localOwner || localOwner === userId)) {
       localStorage.setItem(cfg.getPortraitDirtyKey(userId), legacyPortraitDirty);
     }
+
+    // Trocar a conta ativa exige recarregar a ficha a partir do cache correto;
+    // apenas substituir o objeto JS deixaria os campos já renderizados antigos.
+    if (scopedData && localOwner !== userId) {
+      localStorage.setItem(CLOUD_USER_KEY, userId);
+      return true;
+    }
+    return false;
   }
 
   // pushStateToCloud com retorno explícito de resultado { ok: true/false }
@@ -1316,7 +1312,10 @@ window.ChronusSheetEngine = (function() {
         supabaseClient = window.ChronusSupabase.getClient();
       }
       if (user) {
-        migrateLegacyStorageForUser(user.id);
+        if (migrateLegacyStorageForUser(user.id)) {
+          location.reload();
+          return;
+        }
         if (profile?.role === 'narrator') {
           await bootstrapNarrator(user, profile);
         } else {
