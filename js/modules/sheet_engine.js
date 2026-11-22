@@ -913,11 +913,14 @@ window.ChronusSheetEngine = (function() {
         cloudReady = true;
         localStorage.setItem(CLOUD_USER_KEY, user.id);
         if (cloudConflict) {
+          const conflictKey = cloudConflictStorageKey(user.id, row.id);
+          if (conflictKey) localStorage.setItem(conflictKey, '1');
           localStorage.setItem(CLOUD_DIRTY_KEY, '1');
           setSaveStatus('Conflito pendente • alterações locais preservadas; sincronização automática pausada', 'offline');
         } else if (dirty) {
           await pushStateToCloud();
         } else {
+          if (baseKey && cloudVersion) sessionStorage.setItem(baseKey, cloudVersion);
           const remoteNormalized = normalizeState(mergeDeep(clone(defaultState), row.data || {}));
           if (!statesEqual(remoteNormalized, state)) {
             await applyRemoteAndReload(row.data,user.id,row.id,row.updated_at);
