@@ -57,8 +57,11 @@
     if (!results.every(value => Number.isInteger(value) && value >= 1 && value <= 12)) {
       throw new RangeError('Os resultados devem ser inteiros entre 1 e 12.');
     }
-    if (!Number.isFinite(difficulty)) {
-      throw new TypeError('A dificuldade precisa ser numérica.');
+    if (![4, 5, 6, 7].includes(difficulty)) {
+      throw new RangeError('A dificuldade deve ser 4, 5, 6 ou 7.');
+    }
+    if (results.length > 4) {
+      throw new RangeError('A jogada aceita no máximo três dados básicos e um d12 de Determinação.');
     }
 
     const best = Math.max(...results);
