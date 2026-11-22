@@ -103,3 +103,6 @@ assert(sheetSource.includes("localStorage.setItem(conflictKey, '1')"), 'conflict
 assert(sheetSource.includes('window.confirm('), 'overwriting a newer remote version must require explicit confirmation');
 
 assert(sheetSource.includes("event.key.startsWith(CLOUD_CONFLICT_KEY"), 'conflict state must propagate across open tabs');
+
+assert(sheetSource.includes('sessionStorage.getItem(baseKey)'), 'dirty local drafts must retain their per-tab base version across reloads');
+assert(sheetSource.includes('localBaseVersion !== cloudVersion'), 'bootstrap must block drafts based on an older remote version');
