@@ -185,8 +185,18 @@ async function runMode(browser, mode, viewport) {
   }));
 
   const errors = watchErrors(page);
-  const response = await page.goto(`${origin}/#/player`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForFunction(() => document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3');
+  // Inicializa Auth e Router na Home antes de solicitar a rota protegida.
+  // Isso evita que o teste dependa da ordem entre o primeiro hash e a sessão mockada.
+  const response = await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForFunction(() => Boolean(
+    window.ChronusAuth?.getUser?.()?.id &&
+    window.ChronusRouter?.getCurrentRoute
+  ), { timeout: 15000 });
+  await page.evaluate(() => window.ChronusRouter.navigateTo('#/player'));
+  await page.waitForFunction(() => (
+    window.location.hash === '#/player' &&
+    document.documentElement.dataset.chronusPlayerDashboard === 'v1.4.3'
+  ), { timeout: 15000 });
   try {
     await page.waitForSelector('.dashboard-related-group', { state: 'visible', timeout: 8000 });
   } catch (error) {
