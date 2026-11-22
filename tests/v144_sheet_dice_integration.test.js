@@ -172,3 +172,4 @@ assert(sheetSource.includes('setAccountHydrationPending(false)'), 'narrator and 
 assert(sheetSource.includes('function setAccountHydrationPending(pending)'), 'private sheet must be hidden during account hydration');
 assert(sheetSource.includes("sheet.style.visibility = pending ? 'hidden' : '';"), 'account hydration must prevent visual exposure of the previous account sheet');
 assert(sheetSource.includes('setAccountHydrationPending(true);\n        if (await migrateLegacyStorageForUser(user.id))'), 'authentication must block the sheet before awaiting account migration');
+assert(sheetSource.includes('setAccountHydrationPending(hadAuthenticatedCache)'), 'resolved signed-out sessions must release stale sheet visibility while revoking account cache');
