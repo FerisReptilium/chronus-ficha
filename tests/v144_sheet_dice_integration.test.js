@@ -155,3 +155,5 @@ assert(routerSource.includes("'#/sheet': { viewId: 'view-sheet', title: 'Ficha D
 assert(sheetSource.includes('legacy === 3 ? initialDetermination : legacy'), 'a fully filled legacy Determination pool must expand to the new derived maximum');
 assert(sheetSource.includes('legacy === manaKeys.length ? initialMana : legacy'), 'a fully filled legacy Mana pool must expand to the new Illumination maximum');
 assert(sheetSource.includes('if (authResolved) {\n          sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);'), 'narrator view snapshot must survive the pre-authentication listener callback');
+
+assert(authSource.includes('const { error: signOutError } = await client.auth.signOut();') && authSource.includes('if (signOutError) throw signOutError;'), 'logout must not claim success when Supabase returns a sign-out error');
