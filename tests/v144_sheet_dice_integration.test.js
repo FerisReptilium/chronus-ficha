@@ -194,3 +194,4 @@ assert(sheetSource.includes('if (!isNarratorView) {\n        const accountPortra
 assert(sheetSource.includes("if (!isNarratorView && legacyData && !scopedData"), 'narrator view must not migrate an anonymous player sheet into the narrator account');
 assert(sheetSource.includes("if (!isNarratorView && (!localOwner || localOwner === userId))"), 'narrator view must not migrate anonymous portrait data into the narrator account');
 assert(sheetSource.includes("if (isNarratorView && !activeSessionUser)"), 'first-time narrator view must reload after establishing the authenticated session so its snapshot is loaded');
+assert(sheetSource.includes("const illumination = String(s.illumination || 'd4').toLowerCase()"), 'legacy or malformed Illumination values must normalize before Mana maximum calculation');
