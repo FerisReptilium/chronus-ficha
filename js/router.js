@@ -49,6 +49,13 @@ window.ChronusRouter = (function() {
     const routeDef = routes[cleanHash];
     currentRoute = cleanHash;
 
+    // Não renderize uma ficha anterior enquanto a conta autenticada está
+    // sendo reidratada após troca de usuário ou migração de cache.
+    if (cleanHash === '#/sheet' && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === true) {
+      window.location.hash = '#/home';
+      return;
+    }
+
     // Checagem de Proteção de Rota
     const user = window.ChronusAuth?.getUser();
     const profile = window.ChronusAuth?.getProfile();
