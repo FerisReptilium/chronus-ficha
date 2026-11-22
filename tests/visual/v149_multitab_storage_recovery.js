@@ -123,10 +123,6 @@ async function openSheet(context) {
     await first.page.waitForFunction(() => window.__chronusSheetBackupWrite instanceof Promise);
     await first.page.evaluate(() => window.__chronusSheetBackupWrite);
 
-    // A second real tab in the same Chromium profile must see the shared account cache.
-    await second.page.reload({ waitUntil: 'domcontentloaded' });
-    await second.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — edição pendente', { timeout: 20000 });
-
     // The first cloud write fails while the transport is blocked; the online
     // event must retry it without requiring another edit.
     await nameField.fill('Personagem A — rede interrompida');
@@ -144,6 +140,10 @@ async function openSheet(context) {
     });
     assert.equal(recoveredCloudWrite, 'Personagem A — rede interrompida',
       'network recovery must retry the pending save and persist it to the cloud mock');
+
+    // A second real tab in the same Chromium profile must see the recovered account state.
+    await second.page.reload({ waitUntil: 'domcontentloaded' });
+    await second.page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Personagem A — rede interrompida', { timeout: 20000 });
 
     // Create one more pending edit and close the browser before it can sync.
     await first.page.evaluate(() => { window.__CHRONUS_E2E_BLOCK_SAVE = true; });
