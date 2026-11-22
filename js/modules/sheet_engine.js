@@ -633,8 +633,10 @@ window.ChronusSheetEngine = (function() {
   async function setupPortrait(){
     const button=document.getElementById('portraitButton'), input=document.getElementById('portraitInput'), preview=document.getElementById('portraitPreview'), action=document.getElementById('portraitAction');
     let objectUrl='';
-    const show=(data)=>{if(objectUrl)URL.revokeObjectURL(objectUrl); if(typeof data==='string')preview.src=data; else {objectUrl=URL.createObjectURL(data);preview.src=objectUrl;} preview.hidden=false;button.classList.add('has-portrait');};
+    const show=(data)=>{if(objectUrl)URL.revokeObjectURL(objectUrl); objectUrl=''; if(typeof data==='string')preview.src=data; else {objectUrl=URL.createObjectURL(data);preview.src=objectUrl;} preview.hidden=false;button.classList.add('has-portrait');};
+    const clear=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl='';preview.src='';preview.hidden=true;button.classList.remove('has-portrait');};
     window.__chronusShowPortrait = show;
+    window.__chronusClearPortrait = clear;
     const saved=await loadPortrait().catch(()=>null); if(saved)show(saved);
     const choose=()=>input.click(); button.addEventListener('click',choose); action.addEventListener('click',choose);
     input.addEventListener('change',async()=>{
