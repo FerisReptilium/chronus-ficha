@@ -38,7 +38,7 @@ const { chromium } = require('playwright');
         guideHeight: guide.getBoundingClientRect().height
       };
     });
-    assert.equal(desktop.guideColor, 'rgb(216, 203, 184)');
+    assert.equal(desktop.guideColor, 'rgb(241, 223, 185)');
     assert.equal(desktop.feedColor, 'rgb(232, 220, 200)');
     assert.ok(desktop.guideHeight < 500, 'Narrative guide must not expand into a giant blank panel');
     assert.ok(desktop.gridColumns.split(' ').length >= 2, 'Desktop player cards should use multiple columns');
