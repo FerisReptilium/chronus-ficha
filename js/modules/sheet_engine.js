@@ -518,9 +518,12 @@ window.ChronusSheetEngine = (function() {
     b.style.left=pctX(x); b.style.top=pctY(y); b.style.width=pctX(size); b.style.height=pctY(size);
     b.style.transform='translate(-50%,-50%)';
     b.setAttribute('aria-label', key);
+    b.setAttribute('aria-pressed', String(b.dataset.state === 'filled'));
     b.addEventListener('click', () => {
       const n = b.dataset.state === 'filled' ? 'empty' : 'filled';
-      b.dataset.state=n; state.markers[key]=n; onChange?.(n); scheduleSave();
+      b.dataset.state=n;
+      b.setAttribute('aria-pressed', String(n === 'filled'));
+      state.markers[key]=n; onChange?.(n); scheduleSave();
     });
     return b;
   }
@@ -536,10 +539,19 @@ window.ChronusSheetEngine = (function() {
     b.dataset.state = WOUND_STATES.includes(state.markers[key]) ? state.markers[key] : 'empty';
     b.style.left=pctX(x); b.style.top=pctY(y); b.style.width=pctX(size); b.style.height=pctY(size);
     b.style.transform='translate(-50%,-50%)';
-    b.setAttribute('aria-label', key);
+    const woundLabels = { empty: 'vazia', slash: 'corte', x: 'ferida', star: 'ferida crítica' };
+    const syncWoundAccessibility = () => {
+      const label = woundLabels[b.dataset.state] || woundLabels.empty;
+      b.setAttribute('aria-label', `${key}: ${label}`);
+      b.setAttribute('aria-description', 'Ative para avançar o estado da ferida');
+      b.setAttribute('aria-pressed', String(b.dataset.state !== 'empty'));
+    };
+    syncWoundAccessibility();
     b.addEventListener('click', () => {
       const n = nextWoundState(b.dataset.state);
-      b.dataset.state=n; state.markers[key]=n; scheduleSave();
+      b.dataset.state=n;
+      syncWoundAccessibility();
+      state.markers[key]=n; scheduleSave();
     });
     return b;
   }
