@@ -74,6 +74,7 @@ jobs:
             /js/modules/chronus_live_v140.js \
             /css/chronus-live-v140.css \
             /css/sheet-writing-alignment-v15.css \
+            /css/narrator-panel-polish-v16.css \
             /assets/art/hero-berlin-1992.webp \
             /assets/video/v135-hero-berlin-loop.webm; do
             curl --fail --silent --show-error "http://127.0.0.1:4173${path}" >/dev/null
@@ -122,6 +123,7 @@ jobs:
           node tests/visual/v154_mobile_navigation_accessibility.js
           node tests/visual/v155_auth_modal_accessibility.js
           node tests/visual/v156_sheet_page_tabs_accessibility.js
+          node tests/visual/v160_narrator_panel_presentation.js
           node tests/visual/v149_multitab_storage_recovery.js
 
       - name: Upload browser evidence

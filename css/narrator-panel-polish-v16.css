@@ -1,0 +1,264 @@
+/* ==========================================================================
+   CHRONUS v1.6 — PAINEL DO NARRADOR: CONTRASTE, HIERARQUIA E FLUXO
+   Camada isolada: não altera regras, dados, autenticação ou ficha digital.
+   ========================================================================== */
+
+#view-narrator .narrator-pane {
+  color: var(--ink-main);
+}
+
+#view-narrator .narrator-shell-header {
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+#view-narrator .narrator-shell-header > div {
+  flex: 1 1 560px;
+  min-width: 0;
+}
+
+#view-narrator .narrator-main-title {
+  color: #f8df93;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+#view-narrator .narrator-subtitle-desc {
+  color: #c8bba7;
+  max-width: 780px;
+}
+
+#view-narrator .narrator-narrative-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 22px;
+  padding: 20px;
+  color: #e8dcc8;
+  background: linear-gradient(145deg, rgba(31, 23, 16, .96), rgba(17, 13, 10, .98));
+  border: 1px solid rgba(201, 154, 69, .42);
+  border-left: 3px solid #c99a45;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+}
+
+#view-narrator .narrator-narrative-guide h3 {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+  padding: 0 0 12px;
+  color: #f8df93;
+  border-bottom: 1px solid rgba(201, 154, 69, .25);
+  font: 700 1rem/1.35 var(--font-title);
+  letter-spacing: .04em;
+}
+
+#view-narrator .narrator-narrative-guide p {
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px;
+  color: #d8cbb8;
+  background: rgba(8, 6, 5, .56);
+  border: 1px solid rgba(201, 154, 69, .16);
+  border-radius: 6px;
+  font: 500 .9rem/1.55 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+#view-narrator .narrator-narrative-guide p:first-of-type {
+  color: #f1dfb9;
+  border-left: 2px solid #c99a45;
+}
+
+#view-narrator .narrator-live-rolls {
+  min-width: 0;
+  margin: 0 0 26px;
+  padding: 18px 20px;
+  color: #e8dcc8;
+  background: linear-gradient(145deg, rgba(25, 19, 14, .97), rgba(13, 10, 8, .98));
+  border: 1px solid rgba(201, 154, 69, .32);
+  border-radius: 10px;
+}
+
+#view-narrator .narrator-roll-feed-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(201, 154, 69, .22);
+}
+
+#view-narrator .narrator-roll-feed-heading h3 {
+  margin: 0;
+  color: #f8df93;
+  font: 700 1.05rem/1.35 var(--font-title);
+}
+
+#view-narrator .narrator-roll-feed-status {
+  color: #c9b99f;
+  font: 600 .75rem/1.4 var(--font-sans);
+}
+
+#view-narrator .narrator-roll-feed-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+#view-narrator .narrator-roll-feed-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 16px;
+  color: #c8bba7;
+  background: rgba(8, 6, 5, .5);
+  border: 1px dashed rgba(201, 154, 69, .28);
+  border-radius: 6px;
+  text-align: center;
+}
+
+#view-narrator .narrator-roll-event {
+  min-width: 0;
+  padding: 14px;
+  color: #e8dcc8;
+  background: rgba(8, 6, 5, .62);
+  border: 1px solid rgba(201, 154, 69, .24);
+  border-radius: 8px;
+}
+
+#view-narrator .narrator-roll-event-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+#view-narrator .narrator-roll-event-heading strong,
+#view-narrator .narrator-roll-event-result strong {
+  color: #f8df93;
+}
+
+#view-narrator .narrator-roll-event-heading time,
+#view-narrator .narrator-roll-event-dice,
+#view-narrator .narrator-roll-event-authority,
+#view-narrator .narrator-roll-event small {
+  color: #c8bba7;
+}
+
+#view-narrator .narrator-roll-event-title {
+  margin: 0 0 6px;
+  color: #f1e5d1;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+#view-narrator .narrator-roll-event-dice {
+  margin: 0 0 10px;
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+
+#view-narrator .narrator-roll-event-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 9px 11px;
+  background: rgba(201, 154, 69, .10);
+  border-left: 2px solid #c99a45;
+  border-radius: 4px;
+  color: #e8dcc8;
+  font-size: .82rem;
+}
+
+#view-narrator .narrator-roll-event-result span {
+  color: #d8cbb8;
+}
+
+#view-narrator .narrator-roll-event-authority {
+  margin: 0;
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+#view-narrator .narrator-roll-event small {
+  display: block;
+  margin-top: 8px;
+}
+
+#view-narrator .narrator-players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: stretch;
+  gap: 18px;
+}
+
+#view-narrator .narrator-player-card {
+  min-width: 0;
+  color: #e8dcc8;
+  background: linear-gradient(145deg, rgba(28, 21, 15, .98), rgba(15, 11, 8, .98));
+  border: 1px solid rgba(201, 154, 69, .38);
+  border-radius: 10px;
+}
+
+#view-narrator .narrator-player-card .player-email-sub,
+#view-narrator .narrator-player-card .sync-label {
+  color: #b9aa94;
+}
+
+#view-narrator .narrator-player-card .sync-time {
+  color: #e2d4bd;
+}
+
+#view-narrator .editorial-box {
+  color: #e8dcc8;
+  background: linear-gradient(145deg, rgba(28, 21, 15, .98), rgba(15, 11, 8, .98));
+  border-color: rgba(201, 154, 69, .42);
+}
+
+#view-narrator .editorial-box h3 {
+  color: #f8df93;
+}
+
+#view-narrator .editorial-box p {
+  color: #c8bba7;
+}
+
+@media (max-width: 768px) {
+  #view-narrator .narrator-narrative-guide {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  #view-narrator .narrator-narrative-guide h3 {
+    grid-column: auto;
+  }
+
+  #view-narrator .narrator-live-rolls {
+    padding: 14px;
+  }
+
+  #view-narrator .narrator-roll-feed-list {
+    grid-template-columns: 1fr;
+  }
+
+  #view-narrator .narrator-shell-header > div {
+    flex-basis: 100%;
+  }
+
+  #view-narrator .narrator-shell-header > button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #view-narrator .narrator-player-card {
+    transition: none;
+  }
+}
