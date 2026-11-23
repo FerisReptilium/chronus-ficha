@@ -47,6 +47,7 @@ window.ChronusRouter = (function() {
     }
 
     const routeDef = routes[cleanHash];
+    const routeChanged = currentRoute !== cleanHash;
     currentRoute = cleanHash;
 
     // Não renderize uma ficha anterior enquanto a conta autenticada está
@@ -145,8 +146,12 @@ window.ChronusRouter = (function() {
     // Rolar ao topo
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    // Atualizar título da aba
+    // Atualizar título da aba e anunciar mudanças de rota para leitores de tela.
     if (routeDef.title) document.title = routeDef.title;
+    if (routeChanged) {
+      const announcer = document.getElementById('route-announcer');
+      if (announcer) announcer.textContent = routeDef.title || 'Página atualizada';
+    }
   }
 
   function setupMobileMenu() {
