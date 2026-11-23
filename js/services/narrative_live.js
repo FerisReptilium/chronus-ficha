@@ -16,6 +16,7 @@
 
   let channel = null;
   let mountedRoot = null;
+  let feedGeneration = 0;
   const records = new Map();
 
   function client() {
@@ -161,37 +162,44 @@
       return;
     }
 
+    const generation = ++feedGeneration;
+    async function loadRecentRolls() {
+      const { data, error } = await db
+        .from('chronus_roll_events')
+        .select('id, player_display_name, character_name, action_label, roll_mode, dice, difficulty, highest_result, margin, outcome, narrative_authority, determination_used, acts_awarded, condition_awarded, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
+      if (error) {
+        status.textContent = 'Histórico indisponível';
+        console.warn('CHRONUS: falha ao recuperar rolagens recentes.', error);
+        return;
+      }
+      (data || []).reverse().forEach(addRecord);
+    }
+
     channel = db
-      .channel('chronus-narrator-roll-feed')
+      .channel('chronus-shared-roll-feed')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'chronus_roll_events'
       }, payload => addRecord(payload.new))
       .subscribe(subscriptionStatus => {
-        if (!mountedRoot?.isConnected) return;
+        if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
         status.textContent = subscriptionStatus === 'SUBSCRIBED'
-          ? '● Ao vivo'
+          ? '● Sincronizada'
           : subscriptionStatus === 'CHANNEL_ERROR' || subscriptionStatus === 'TIMED_OUT'
-            ? 'Sem conexão ao vivo'
+            ? 'Reconectando…'
             : 'Conectando…';
+        if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();
       });
 
-    const { data, error } = await db
-      .from('chronus_roll_events')
-      .select('id, player_display_name, character_name, action_label, roll_mode, dice, difficulty, highest_result, margin, outcome, narrative_authority, determination_used, acts_awarded, condition_awarded, created_at')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) {
-      status.textContent = 'Não foi possível carregar o histórico';
-      console.warn('CHRONUS: falha ao carregar rolagens recentes.', error);
-      return;
-    }
-    (data || []).reverse().forEach(addRecord);
+    await loadRecentRolls();
   }
 
   async function unmountNarratorFeed() {
+    feedGeneration += 1;
     const db = client();
     if (channel && db) await db.removeChannel(channel);
     channel = null;
