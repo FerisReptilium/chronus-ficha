@@ -1,0 +1,120 @@
+/* CHRONUS v1.5.3 — escrita alinhada às linhas da ficha
+   Escopo exclusivo da ficha digital: não altera campos do portal nem recursos. */
+#view-sheet .fidelity-sheet {
+  --sheet-writing-leading: 2.7cqw;
+  --sheet-writing-ink: #2b1a0e;
+}
+
+/* Campos de uma linha: métrica tipográfica única e linha de base consistente. */
+#view-sheet .sheet-input:not(textarea):not(.centered-number),
+#view-sheet .list-marker-input,
+#view-sheet .table-input:not(textarea) {
+  box-sizing: border-box;
+  line-height: 1;
+  padding-top: 0;
+  padding-bottom: .14em;
+  font-kerning: normal;
+  font-variant-ligatures: none;
+  text-rendering: geometricPrecision;
+}
+
+/* Mantém os recuos horizontais originais de cada família de campo. */
+#view-sheet .sheet-input:not(textarea):not(.centered-number) {
+  padding-left: .35em;
+  padding-right: .35em;
+}
+#view-sheet .list-marker-input {
+  padding-left: .22em;
+  padding-right: .22em;
+}
+#view-sheet .table-input:not(textarea) {
+  padding-left: .25em;
+  padding-right: .25em;
+}
+
+/* Campos multilinha seguem o mesmo passo das linhas impressas no papel. */
+#view-sheet .sheet-input.textarea {
+  box-sizing: border-box;
+  display: block;
+  line-height: var(--sheet-writing-leading);
+  padding: .8cqw .28em 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+#view-sheet [data-bind="personalities.0"],
+#view-sheet [data-bind="personalities.1"] {
+  line-height: 2.7cqw;
+  padding-top: .9cqw;
+}
+
+#view-sheet [data-bind="magic.instruments"] {
+  line-height: 2.5cqw;
+  padding-top: .65cqw;
+}
+
+#view-sheet [data-bind="conditions"] {
+  line-height: 2.75cqw;
+  padding-top: 1.35cqw;
+}
+
+#view-sheet [data-bind="equipmentImportant"] {
+  line-height: 2.7cqw;
+  padding-top: 1.35cqw;
+}
+
+/* Notas das magias: cada quebra de linha ocupa uma linha física do formulário. */
+#view-sheet .table-input.formula-notes {
+  box-sizing: border-box;
+  line-height: 2.35cqw;
+  padding: .25cqw .2em 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Página II: o texto acompanha o passo das pautas e começa na primeira linha útil. */
+#view-sheet .history-expanded textarea {
+  box-sizing: border-box;
+  line-height: 2.38cqw;
+  padding: .75cqw 1% 0;
+  background-position: 0 0;
+  background-size: auto auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#view-sheet .expanded-lines input {
+  box-sizing: border-box;
+  line-height: 1;
+  padding: .42cqw 0 0;
+  font-kerning: normal;
+  font-variant-ligatures: none;
+}
+
+/* O foco destaca a área sem esconder a pauta impressa. */
+#view-sheet .sheet-input:focus,
+#view-sheet .list-marker-input:focus,
+#view-sheet .table-input:focus,
+#view-sheet .history-expanded textarea:focus,
+#view-sheet .expanded-lines input:focus {
+  text-decoration: none;
+  text-decoration-thickness: auto;
+}
+
+@media (max-width: 760px) {
+  #view-sheet .sheet-input.textarea {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media print {
+  #view-sheet .sheet-input,
+  #view-sheet .list-marker-input,
+  #view-sheet .table-input,
+  #view-sheet .history-expanded textarea,
+  #view-sheet .expanded-lines input {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+}
