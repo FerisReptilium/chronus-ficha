@@ -15,8 +15,12 @@ async function inspectViewport(browser, name, viewport) {
     await page.goto(`${BASE_URL}/#/`, { waitUntil: 'domcontentloaded' });
     await page.locator('#view-sheet').waitFor({ state: 'attached' });
     await page.evaluate(() => {
-      document.querySelector('#view-sheet').classList.add('is-active');
-      document.querySelector('#page-1').classList.add('is-active');
+      const sheetView = document.querySelector('#view-sheet');
+      sheetView.style.display = 'block';
+      sheetView.classList.add('is-active');
+      const pageOne = document.querySelector('#page-1');
+      pageOne.style.display = 'block';
+      pageOne.classList.add('is-active');
       const overlay = document.querySelector('#overlay');
       const list = document.createElement('input');
       list.className = 'list-marker-input';
