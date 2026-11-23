@@ -27,7 +27,8 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
     const focusDiagnostic = {
       keydown: await drawer.getAttribute('data-focus-trap-diagnostic'),
       result: await drawer.getAttribute('data-focus-trap-result'),
-      keyup: await drawer.getAttribute('data-focus-trap-keyup')
+      keyup: await drawer.getAttribute('data-focus-trap-keyup'),
+      focusin: await drawer.getAttribute('data-focus-trap-focusin')
     };
     assert.strictEqual(await page.evaluate(() => document.activeElement?.textContent.trim()), '📚 Biblioteca', `Shift+Tab must wrap to the last navigation link; diagnostic=${JSON.stringify(focusDiagnostic)}`);
     await page.keyboard.press('Tab');
