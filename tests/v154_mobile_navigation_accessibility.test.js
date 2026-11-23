@@ -18,6 +18,7 @@ assert(router.includes("window.addEventListener('keydown'"), 'The focus trap mus
 assert(router.includes("event.target === first"), 'Shift+Tab from the first drawer control must wrap to the final navigation link');
 assert(router.includes("event.target === last"), 'Tab from the final navigation link must wrap to the first drawer control');
 assert(router.includes("last?.focus()"), 'Shift+Tab must focus the final navigation link');
+assert(router.includes("window.addEventListener('keyup'"), 'A keyup fallback must complete mobile focus wrapping when keydown is not sufficient');
 assert(router.includes("event.stopImmediatePropagation()"), 'The focus trap must prevent competing keyboard handlers from overriding focus');
 assert(router.includes('closeBtn?.focus()'), 'Opening the drawer must move focus inside it');
 assert(router.includes('toggleBtn.focus()'), 'Closing the drawer must restore focus to the toggle');
