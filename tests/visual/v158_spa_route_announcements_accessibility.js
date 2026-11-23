@@ -13,6 +13,14 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
     await page.goto(`${BASE_URL}/#/home`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.ChronusRouter));
     const announcer = page.locator('#route-announcer');
+    const deepLinkContext = await browser.newContext({ viewport: { width: 1365, height: 900 } });
+    const deepLinkPage = await deepLinkContext.newPage();
+    await deepLinkPage.goto(`${BASE_URL}/#/sessions`, { waitUntil: 'domcontentloaded' });
+    await deepLinkPage.waitForFunction(() => Boolean(window.ChronusRouter));
+    await assertEventually(async () => {
+      assert.strictEqual(await deepLinkPage.locator('#route-announcer').textContent(), '', 'A direct deep-link load must not be announced as an in-app route transition');
+    }, 'silent initial deep-link render');
+    await deepLinkContext.close();
     await assertEventually(async () => {
       assert.strictEqual(await announcer.getAttribute('role'), 'status');
       assert.strictEqual(await announcer.getAttribute('aria-live'), 'polite');
