@@ -119,6 +119,7 @@ jobs:
           node tests/visual/v143_player_dashboard_preview.js
           node tests/visual/v144_sheet_dice_preview.js
           node tests/visual/v153_sheet_writing_alignment.js
+          node tests/visual/v154_mobile_navigation_accessibility.js
           node tests/visual/v149_multitab_storage_recovery.js
 
       - name: Upload browser evidence
