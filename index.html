@@ -303,9 +303,9 @@
       <div><strong>CHRONUS</strong><span>Ficha digital — Desperto</span></div>
     </div>
 
-    <nav class="tabs" aria-label="Páginas da ficha">
-      <button type="button" class="tab is-active" data-page-target="page-1">Página I</button>
-      <button type="button" class="tab" data-page-target="page-2">Página II</button>
+    <nav class="tabs" role="tablist" aria-label="Páginas da ficha">
+      <button type="button" class="tab is-active" id="sheet-tab-page-1" role="tab" aria-controls="page-1" aria-selected="true" tabindex="0" data-page-target="page-1">Página I</button>
+      <button type="button" class="tab" id="sheet-tab-page-2" role="tab" aria-controls="page-2" aria-selected="false" tabindex="-1" data-page-target="page-2">Página II</button>
     </nav>
 
     <div class="actions">
@@ -321,7 +321,7 @@
     </div>
   </header>
       <main class="workspace">
-    <section id="page-1" class="sheet-page fidelity-sheet is-active" aria-label="Ficha CHRONUS página 1">
+    <section id="page-1" class="sheet-page fidelity-sheet is-active" role="tabpanel" aria-labelledby="sheet-tab-page-1" aria-hidden="false" tabindex="0">
       <div class="sheet-base" role="img" aria-label="Ficha de personagem CHRONUS – Ecologia Sobrenatural"></div>
       <div id="overlay" class="sheet-overlay" aria-label="Campos editáveis da ficha">
         <!-- Campos principais -->
@@ -369,7 +369,7 @@
       </div>
     </section>
 
-    <section id="page-2" class="sheet-page page-two" aria-label="Ficha CHRONUS página 2">
+    <section id="page-2" class="sheet-page page-two" role="tabpanel" aria-labelledby="sheet-tab-page-2" aria-hidden="true" inert tabindex="0">
       <div class="page-two-frame">
         <header class="page-two-title">
           <div class="brand-lockup">CHRONUS <small>ECOLOGIA SOBRENATURAL</small></div>
@@ -387,7 +387,7 @@
           </section>
           <section class="paper-panel history-expanded">
             <h2>Histórico</h2>
-            <textarea data-bind="page2.history" placeholder="Origem, Despertar, relações, eventos marcantes..."></textarea>
+            <textarea data-bind="page2.history" aria-label="Histórico do personagem" placeholder="Origem, Despertar, relações, eventos marcantes..."></textarea>
           </section>
         </div>
       </div>
