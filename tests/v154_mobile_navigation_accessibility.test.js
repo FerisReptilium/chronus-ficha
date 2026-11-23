@@ -14,7 +14,8 @@ assert(html.includes('aria-hidden="true" inert'), 'Mobile drawer must be unavail
 assert(router.includes("drawer.setAttribute('aria-hidden', 'false')"), 'Opening the drawer must expose it to assistive technology');
 assert(router.includes("toggleBtn?.setAttribute('aria-expanded', 'true')"), 'Opening the drawer must update the toggle state');
 assert(router.includes("if (event.key === 'Escape')"), 'Escape must close the mobile drawer');
-assert(router.includes("event.shiftKey && (document.activeElement === first || document.activeElement === drawer)"), 'Shift+Tab must remain inside the drawer');
+assert(router.includes('const activeIsInsideDrawer = drawer.contains(document.activeElement);'), 'The focus trap must detect focus escaping the drawer');
+assert(router.includes('document.activeElement === closeBtn || !activeIsInsideDrawer'), 'Shift+Tab from the close control or escaped focus must wrap to the last drawer control');
 assert(router.includes("document.activeElement === last"), 'Tab must wrap at the end of the drawer');
 assert(router.includes('closeBtn?.focus()'), 'Opening the drawer must move focus inside it');
 assert(router.includes('toggleBtn.focus()'), 'Closing the drawer must restore focus to the toggle');
