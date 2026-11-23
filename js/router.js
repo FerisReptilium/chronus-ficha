@@ -205,10 +205,22 @@ window.ChronusRouter = (function() {
         event.preventDefault();
         event.stopImmediatePropagation();
         last?.focus();
+        if (drawer) drawer.dataset.focusTrapResult = JSON.stringify({
+          branch: 'shift-tab',
+          first: first?.id || first?.tagName,
+          lastHref: last?.getAttribute('href'),
+          lastText: last?.textContent?.trim(),
+          lastTabIndex: last?.tabIndex,
+          lastRects: last?.getClientRects().length,
+          activeAfterFocus: document.activeElement?.getAttribute('href') || document.activeElement?.id || document.activeElement?.tagName
+        });
       } else if (!event.shiftKey && (event.target === last || active === last)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         first?.focus();
+        if (drawer) drawer.dataset.focusTrapResult = JSON.stringify({ branch: 'tab', activeAfterFocus: document.activeElement?.id || document.activeElement?.tagName });
+      } else if (drawer) {
+        drawer.dataset.focusTrapResult = JSON.stringify({ branch: 'no-match', first: first?.id, lastHref: last?.getAttribute('href'), active: active?.id, target: event.target?.id });
       }
     }, true);
 
@@ -219,6 +231,12 @@ window.ChronusRouter = (function() {
       if (document.activeElement !== closeBtn) return;
       const links = drawer.querySelectorAll('.mobile-nav-links a[href]');
       links[links.length - 1]?.focus();
+      drawer.dataset.focusTrapKeyup = JSON.stringify({
+        key: event.key,
+        shift: event.shiftKey,
+        lastHref: links[links.length - 1]?.getAttribute('href'),
+        activeAfterFocus: document.activeElement?.getAttribute('href') || document.activeElement?.id || document.activeElement?.tagName
+      });
     }, true);
   }
 
