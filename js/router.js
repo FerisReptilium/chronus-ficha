@@ -162,6 +162,10 @@ window.ChronusRouter = (function() {
       overlay.classList.add('is-open');
       drawer.inert = false;
       drawer.setAttribute('aria-hidden', 'false');
+      // Neutraliza regras legadas que ocultam links individualmente e impedem foco programático.
+      drawer.querySelectorAll('.mobile-nav-links a[href]').forEach(link => {
+        link.style.setProperty('visibility', 'visible', 'important');
+      });
       toggleBtn?.setAttribute('aria-expanded', 'true');
       document.body.style.overflow = 'hidden';
       closeBtn?.focus();
@@ -173,6 +177,9 @@ window.ChronusRouter = (function() {
       overlay.classList.remove('is-open');
       drawer.inert = true;
       drawer.setAttribute('aria-hidden', 'true');
+      drawer.querySelectorAll('.mobile-nav-links a[href]').forEach(link => {
+        link.style.removeProperty('visibility');
+      });
       toggleBtn?.setAttribute('aria-expanded', 'false');
       document.body.style.overflow = '';
       if (restoreFocus && toggleBtn?.getClientRects().length) toggleBtn.focus();
