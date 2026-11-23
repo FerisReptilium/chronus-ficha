@@ -613,7 +613,11 @@ window.ChronusNarratorPanel = (function() {
             character_name: charName,
             updated_at: character.updated_at || ''
           }));
-          window.location.hash = '#/sheet?narratorView=1';
+          const targetUrl = new URL(window.location.href);
+          targetUrl.search = '';
+          targetUrl.searchParams.set('narratorView', '1');
+          targetUrl.hash = '#/sheet';
+          window.location.assign(targetUrl.toString());
         }
       });
     });
