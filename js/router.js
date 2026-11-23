@@ -199,7 +199,11 @@ window.ChronusRouter = (function() {
       }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
+      if (event.shiftKey && document.activeElement === closeBtn) {
+        event.preventDefault();
+        const lastNavigationLink = drawer.querySelector('.mobile-nav-links a[href]:last-of-type') || last;
+        lastNavigationLink.focus();
+      } else if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
