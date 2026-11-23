@@ -562,7 +562,7 @@ window.ChronusNarratorPanel = (function() {
 
       const footer = createEl('div', 'card-footer');
       const openButton = character
-        ? createEl('button', 'portal-btn portal-btn-gold btn-open-readonly-sheet', 'Abrir Ficha (Somente Leitura)')
+        ? createEl('button', 'portal-btn portal-btn-gold btn-open-readonly-sheet', 'Editar Ficha do Jogador')
         : createEl('button', 'portal-btn', 'Aguardando Criação');
       openButton.type = 'button';
       if (character) {
