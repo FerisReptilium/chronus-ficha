@@ -67,7 +67,14 @@
       const result = document.createElement('strong');
       result.className = 'chronus-live-roll-result';
       result.textContent = (OUTCOME_LABELS[record.outcome] || record.outcome) +
-        ' · Maior ' + record.highest_result + ' · Dif. ' + record.difficulty;
+        ' · Maior ' + record.highest_result + ' · Dif. ' + record.difficulty +
+        ' · Margem ' + (record.margin > 0 ? '+' : '') + record.margin;
+      if (record.acts_awarded || record.condition_awarded) {
+        const consequences = [];
+        if (record.acts_awarded) consequences.push('+1 Ato');
+        if (record.condition_awarded) consequences.push('1 Condição');
+        result.textContent += ' · ' + consequences.join(' · ');
+      }
       copy.append(player, title, dice, result);
       const time = document.createElement('time');
       time.dateTime = record.created_at;
@@ -127,7 +134,7 @@
 
     const { error } = await db.from('chronus_roll_events').insert(payload);
     if (error) {
-      console.warn('CHRONUS: não foi possível compartilhar a rolagem com o Narrador.', error);
+      console.warn('CHRONUS: não foi possível compartilhar a rolagem com a mesa.', error);
       return { ok: false, reason: 'insert_failed' };
     }
     return { ok: true };
@@ -151,10 +158,13 @@
     title.textContent = 'Rolagens da mesa';
     const status = document.createElement('span');
     status.className = 'chronus-live-roll-status';
+    status.setAttribute('role', 'status');
     status.textContent = 'Conectando…';
     heading.append(title, status);
     const list = document.createElement('ol');
     list.dataset.rollFeedList = 'true';
+    list.setAttribute('aria-live', 'polite');
+    list.setAttribute('aria-relevant', 'additions text');
     container.append(heading, list);
 
     const db = client();
