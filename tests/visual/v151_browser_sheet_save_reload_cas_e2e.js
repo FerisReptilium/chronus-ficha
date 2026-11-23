@@ -130,11 +130,18 @@ async function waitForAccountHydration(page) {
 
 async function navigateToSheet(page) {
   await waitForAccountHydration(page);
-  // Navigate through the browser URL rather than assigning location.hash inside
-  // evaluate: the router can replace the document while Playwright is awaiting
-  // the evaluation result, destroying that execution context.
-  const target = new URL('#/sheet', portalUrl).toString();
-  await page.goto(target, { waitUntil: 'domcontentloaded' });
+  // Keep navigation inside the authenticated SPA session. A full document
+  // reload here re-runs auth/account bootstrap while the protected router is
+  // resolving, creating a race between route authorization and sheet hydration.
+  await page.evaluate(() => {
+    if (window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING !== false) {
+      throw new Error('Account hydration must finish before opening the sheet');
+    }
+    if (typeof window.ChronusRouter?.navigateTo !== 'function') {
+      throw new Error('ChronusRouter.navigateTo is unavailable');
+    }
+    window.ChronusRouter.navigateTo('#/sheet');
+  });
   await page.waitForFunction(() =>
     window.ChronusAuth?.isInitialized?.() === true
     && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === false
