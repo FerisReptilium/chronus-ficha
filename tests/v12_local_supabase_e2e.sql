@@ -281,10 +281,11 @@ ROLLBACK;
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000102"}',true);
-DO $$
+DO $
 DECLARE
   v_count integer;
   v_rows integer;
+  v_blocked boolean := false;
 BEGIN
   IF NOT chronus_private.is_chronus_narrator() THEN
     RAISE EXCEPTION 'FAIL narrator helper false';
