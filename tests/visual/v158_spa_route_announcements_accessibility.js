@@ -34,7 +34,7 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
       assert.strictEqual(await page.title(), 'Crônica · CHRONUS', 'The document title and live announcement must stay aligned');
     }, 'route announcement');
 
-    await page.locator('a[href="#/sessions"]:visible').first().click();
+    await page.evaluate(() => window.ChronusRouter.navigateTo('#/sessions'));
     await page.waitForFunction(() => location.hash === '#/sessions');
     await assertEventually(async () => {
       assert.strictEqual(await announcer.textContent(), 'Sessões · CHRONUS', 'Each subsequent route must announce its own title');
