@@ -80,7 +80,7 @@ async function inspectViewport(browser, name, viewport) {
       assert(metrics[key].paddingTop >= 0, `${name}: ${key} has invalid top padding`);
     }
 
-    await page.locator('[data-bind="identity.name"]').fill('Personagem — escrita alinhada');
+    await page.evaluate(() => {\n      document.querySelector('#page-2').classList.remove('is-active');\n      document.querySelector('#page-2').style.display = 'none';\n      document.querySelector('#page-1').classList.add('is-active');\n    });\n    await page.locator('[data-bind="identity.name"]').fill('Personagem — escrita alinhada');
     await page.locator('[data-bind="personalities.0"]').fill('Texto de teste sobre a pauta\nSegunda linha alinhada');
     await page.locator('[data-bind="conditions"]').fill('Condição de teste\nOutra condição');
     await page.locator('[data-bind="equipmentImportant"]').fill('Equipamento de teste\nSegunda anotação');
