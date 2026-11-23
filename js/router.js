@@ -182,6 +182,16 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
+    // Instrumentação temporária para identificar bloqueios externos de foco.
+    window.addEventListener('focusin', event => {
+      if (drawer?.classList.contains('is-open')) {
+        drawer.dataset.focusTrapFocusin = JSON.stringify({
+          target: event.target?.getAttribute?.('href') || event.target?.id || event.target?.tagName,
+          active: document.activeElement?.getAttribute?.('href') || document.activeElement?.id || document.activeElement?.tagName
+        });
+      }
+    }, true);
+
     // Um único listener em captura controla o ciclo completo do foco.
     // Compara o alvo real do evento e não depende de cálculos de visibilidade
     // durante a animação de abertura do drawer.
@@ -212,6 +222,13 @@ window.ChronusRouter = (function() {
           lastText: last?.textContent?.trim(),
           lastTabIndex: last?.tabIndex,
           lastRects: last?.getClientRects().length,
+          lastConnected: !!last?.isConnected,
+          lastVisibility: last ? getComputedStyle(last).visibility : null,
+          lastDisplay: last ? getComputedStyle(last).display : null,
+          lastOpacity: last ? getComputedStyle(last).opacity : null,
+          lastRect: last ? (() => { const r = last.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })() : null,
+          ancestorStates: last ? (() => { const states = []; for (let node = last; node && node !== document.documentElement; node = node.parentElement) states.push({ tag: node.tagName, id: node.id, inert: !!node.inert, hidden: !!node.hidden, ariaHidden: node.getAttribute('aria-hidden'), display: getComputedStyle(node).display, visibility: getComputedStyle(node).visibility }); return states; })() : [],
+          focusin: drawer?.dataset.focusTrapFocusin || null,
           activeAfterFocus: document.activeElement?.getAttribute('href') || document.activeElement?.id || document.activeElement?.tagName
         });
       } else if (!event.shiftKey && (event.target === last || active === last)) {
