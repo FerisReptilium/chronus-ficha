@@ -52,9 +52,15 @@ jobs:
           # share hosted runner infrastructure and must not bind the same host port.
           db_port=$((55000 + GITHUB_RUN_ID % 10000))
           shadow_port=$((db_port + 1))
+          inbucket_port=$((56000 + GITHUB_RUN_ID % 10000))
+          smtp_port=$((inbucket_port + 1))
+          pop3_port=$((inbucket_port + 2))
           sed -i "/^\\[db\\]/,/^\\[/ s/^port = 54322$/port = ${db_port}/" supabase/config.toml
           sed -i "/^\\[db\\]/,/^\\[/ s/^shadow_port = 54320$/shadow_port = ${shadow_port}/" supabase/config.toml
-          echo "Isolated Supabase database ports: ${db_port}/${shadow_port}"
+          sed -i "/^\\[inbucket\\]/,/^\\[/ s/^port = 54324$/port = ${inbucket_port}/" supabase/config.toml
+          sed -i "/^\\[inbucket\\]/,/^\\[/ s/^smtp_port = 54325$/smtp_port = ${smtp_port}/" supabase/config.toml
+          sed -i "/^\\[inbucket\\]/,/^\\[/ s/^pop3_port = 54326$/pop3_port = ${pop3_port}/" supabase/config.toml
+          echo "Isolated Supabase ports: db=${db_port}, shadow=${shadow_port}, inbucket=${inbucket_port}-${pop3_port}"
 
       - name: Start a clean local Supabase stack and apply all migrations
         working-directory: .chronus-db-ci
