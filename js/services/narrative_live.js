@@ -147,6 +147,7 @@
     const heading = document.createElement('div');
     heading.className = 'chronus-live-section-title';
     const title = document.createElement('h2');
+    title.id = 'chronus-live-feed-title';
     title.textContent = 'Rolagens da mesa';
     const status = document.createElement('span');
     status.className = 'chronus-live-roll-status';
