@@ -8,6 +8,8 @@ window.ChronusAuth = (function() {
   let passwordRecoveryAuthorized = false;
   let authInitialized = false;
   let isLoggingOut = false;
+  let authModalReturnFocus = null;
+  let passwordModalReturnFocus = null;
   const authListeners = [];
   let lastNotifiedAuthState = null;
 
@@ -339,12 +341,69 @@ window.ChronusAuth = (function() {
     }
   }
 
+  function getModalFocusableElements(modal) {
+    return Array.from(modal.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(element => !element.hidden && !element.closest('[hidden], [inert]') && element.getClientRects().length > 0);
+  }
+
+  function handleModalKeyboard(event) {
+    const modal = event.currentTarget;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (modal.id === 'authGate') hideAuthModal();
+      else if (modal.id === 'passwordGate') hidePasswordModal();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = getModalFocusableElements(modal);
+    if (!focusable.length) {
+      event.preventDefault();
+      modal.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === modal)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function activateModal(modal, initialFocusSelector) {
+    if (!modal) return;
+    modal.hidden = false;
+    modal.inert = false;
+    modal.setAttribute('aria-hidden', 'false');
+    modal.style.display = 'flex';
+    if (modal.dataset.keyboardReady !== 'true') {
+      modal.addEventListener('keydown', handleModalKeyboard);
+      modal.dataset.keyboardReady = 'true';
+    }
+    const initialFocus = modal.querySelector(initialFocusSelector);
+    (initialFocus || getModalFocusableElements(modal)[0] || modal).focus();
+  }
+
+  function deactivateModal(modal, returnFocus) {
+    if (!modal) return;
+    modal.hidden = true;
+    modal.inert = true;
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+    if (returnFocus?.isConnected && !returnFocus.closest('[hidden], [inert]') && returnFocus.getClientRects().length) {
+      returnFocus.focus();
+    }
+  }
+
   function showAuthModal(message = '', isError = false) {
     const modal = document.getElementById('authGate');
     const msgEl = document.getElementById('authMessage');
     if (!modal) return;
-    modal.hidden = false;
-    modal.style.display = 'flex';
+    if (modal.hidden) authModalReturnFocus = document.activeElement;
+    activateModal(modal, '#authEmail');
     if (msgEl) {
       msgEl.textContent = message;
       msgEl.classList.toggle('is-error', isError);
@@ -353,10 +412,8 @@ window.ChronusAuth = (function() {
 
   function hideAuthModal() {
     const modal = document.getElementById('authGate');
-    if (modal) {
-      modal.hidden = true;
-      modal.style.display = 'none';
-    }
+    deactivateModal(modal, authModalReturnFocus);
+    authModalReturnFocus = null;
   }
 
   function showPasswordModal(mode = 'change') {
@@ -365,21 +422,19 @@ window.ChronusAuth = (function() {
     const subtitle = document.getElementById('passwordSubtitle');
     const msg = document.getElementById('passwordMessage');
     if (!modal) return;
-    modal.hidden = false;
-    modal.style.display = 'flex';
+    if (modal.hidden) passwordModalReturnFocus = document.activeElement;
     if (msg) { msg.textContent = ''; msg.classList.remove('is-error'); }
     if (title) title.textContent = mode === 'recovery' ? 'Criar nova senha' : 'Alterar senha';
     if (subtitle) subtitle.textContent = mode === 'recovery'
       ? 'Você acessou pelo link de recuperação. Defina sua nova senha.'
       : 'Defina uma nova senha para sua conta CHRONUS.';
+    activateModal(modal, '#newPassword');
   }
 
   function hidePasswordModal() {
     const modal = document.getElementById('passwordGate');
-    if (modal) {
-      modal.hidden = true;
-      modal.style.display = 'none';
-    }
+    deactivateModal(modal, passwordModalReturnFocus);
+    passwordModalReturnFocus = null;
   }
 
   return {
