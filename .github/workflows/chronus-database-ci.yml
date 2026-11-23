@@ -46,6 +46,7 @@ jobs:
           cp supabase/migrations/007_chronus_roll_events_privileges.sql .chronus-db-ci/supabase/migrations/20261121000800_chronus_roll_events_privileges.sql
           cp supabase/migrations/008_chronus_roll_events_immutable_grants.sql .chronus-db-ci/supabase/migrations/20261121000900_chronus_roll_events_immutable_grants.sql
           cp supabase/migrations/20261122165137_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122165137_character_revision_cas.sql
+          cp supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql .chronus-db-ci/supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql
           cd .chronus-db-ci
           supabase init
           # Allocate per-run PostgreSQL ports: concurrent pull-request workflows
@@ -90,7 +91,7 @@ jobs:
           node tests/v144_sheet_dice_integration.test.js
           node tests/rules/narrative_resolution.test.js
 
-      - name: Verify all eleven migrations were recorded
+      - name: Verify all twelve migrations were recorded
         run: |
           set -euo pipefail
           set -a
@@ -108,8 +109,8 @@ jobs:
               '20261121000600','20261121000700','20261121000800','20261121000900',
               '20261122165137'
             );
-            IF v_count <> 11 THEN
-              RAISE EXCEPTION 'Expected 11 recorded migrations, found %', v_count;
+            IF v_count <> 12 THEN
+              RAISE EXCEPTION 'Expected 12 recorded migrations, found %', v_count;
             END IF;
           END $$;
           SELECT version, name FROM supabase_migrations.schema_migrations
