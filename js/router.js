@@ -21,6 +21,7 @@ window.ChronusRouter = (function() {
   };
 
   let currentRoute = '#/home';
+  let hasRenderedInitialRoute = false;
 
   function init() {
     window.addEventListener('hashchange', handleRouteChange);
@@ -47,8 +48,9 @@ window.ChronusRouter = (function() {
     }
 
     const routeDef = routes[cleanHash];
-    const routeChanged = currentRoute !== cleanHash;
+    const routeChanged = hasRenderedInitialRoute && currentRoute !== cleanHash;
     currentRoute = cleanHash;
+    hasRenderedInitialRoute = true;
 
     // Não renderize uma ficha anterior enquanto a conta autenticada está
     // sendo reidratada após troca de usuário ou migração de cache.
