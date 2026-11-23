@@ -108,10 +108,18 @@ const viewports = {
       await page.keyboard.press('Home');
       assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'sheet-tab-page-1', `${mode}: Home must focus first tab`);
       assert.strictEqual(await page.locator('#page-2 textarea').getAttribute('aria-label'), 'Histórico do personagem', `${mode}: history field must be named`);
+
+      const binary = page.locator('#skillsLayer .binary-marker').first();
+      await binary.waitFor({ state: 'attached' });
+      const initialBinaryState = await binary.getAttribute('data-state');
+      assert.strictEqual(await binary.getAttribute('aria-pressed'), String(initialBinaryState === 'filled'), `${mode}: binary marker must expose initial pressed state`);
+      await binary.click({ force: true });
+      assert.strictEqual(await binary.getAttribute('aria-pressed'), String((await binary.getAttribute('data-state')) === 'filled'), `${mode}: binary marker must update pressed state`);
+
       assert.deepStrictEqual(errors, [], `${mode}: browser runtime errors`);
       await context.close();
     }
-    console.log('PASS v1.5.6 sheet page tabs accessibility: desktop/mobile ARIA, inert panels, arrow keys, Home/End');
+    console.log('PASS v1.5.7 sheet marker accessibility: desktop/mobile binary marker state synchronization');
   } finally {
     await browser.close();
   }

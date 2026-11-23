@@ -518,9 +518,12 @@ window.ChronusSheetEngine = (function() {
     b.style.left=pctX(x); b.style.top=pctY(y); b.style.width=pctX(size); b.style.height=pctY(size);
     b.style.transform='translate(-50%,-50%)';
     b.setAttribute('aria-label', key);
+    b.setAttribute('aria-pressed', String(b.dataset.state === 'filled'));
     b.addEventListener('click', () => {
       const n = b.dataset.state === 'filled' ? 'empty' : 'filled';
-      b.dataset.state=n; state.markers[key]=n; onChange?.(n); scheduleSave();
+      b.dataset.state=n;
+      b.setAttribute('aria-pressed', String(n === 'filled'));
+      state.markers[key]=n; onChange?.(n); scheduleSave();
     });
     return b;
   }
@@ -536,10 +539,19 @@ window.ChronusSheetEngine = (function() {
     b.dataset.state = WOUND_STATES.includes(state.markers[key]) ? state.markers[key] : 'empty';
     b.style.left=pctX(x); b.style.top=pctY(y); b.style.width=pctX(size); b.style.height=pctY(size);
     b.style.transform='translate(-50%,-50%)';
-    b.setAttribute('aria-label', key);
+    const woundLabels = { empty: 'vazia', slash: 'corte', x: 'ferida', star: 'ferida crítica' };
+    const syncWoundAccessibility = () => {
+      const label = woundLabels[b.dataset.state] || woundLabels.empty;
+      b.setAttribute('aria-label', `${key}: ${label}`);
+      b.setAttribute('aria-description', 'Ative para avançar o estado da ferida');
+      b.setAttribute('aria-pressed', String(b.dataset.state !== 'empty'));
+    };
+    syncWoundAccessibility();
     b.addEventListener('click', () => {
       const n = nextWoundState(b.dataset.state);
-      b.dataset.state=n; state.markers[key]=n; scheduleSave();
+      b.dataset.state=n;
+      syncWoundAccessibility();
+      state.markers[key]=n; scheduleSave();
     });
     return b;
   }
@@ -617,7 +629,9 @@ window.ChronusSheetEngine = (function() {
     const host=document.getElementById(hostId); const items=state.lists[type];
     rows.forEach((y,i)=>{
       const m = binaryMarker({x:679.5,y,size:29,key:`${type}.${i}`,onChange:n=>{items[i].marker=n;}});
-      m.dataset.state=items[i].marker==='filled'?'filled':'empty'; host.append(m);
+      m.dataset.state=items[i].marker==='filled'?'filled':'empty';
+      m.setAttribute('aria-pressed', String(m.dataset.state === 'filled'));
+      host.append(m);
       const input=document.createElement('input'); input.className='list-marker-input'; input.value=items[i].text||''; placeBox(input,704,y-12,223,24);
       input.setAttribute('aria-label',`${type} ${i+1}`); input.addEventListener('input',()=>{items[i].text=input.value;scheduleSave();}); host.append(input);
     });
