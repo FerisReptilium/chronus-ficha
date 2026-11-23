@@ -7,7 +7,8 @@ const html = fs.readFileSync('index.html', 'utf8');
 const auth = fs.readFileSync('js/services/auth.js', 'utf8');
 
 for (const [id, title] of [['authGate', 'authTitle'], ['passwordGate', 'passwordTitle']]) {
-  assert(html.includes(`id="${id}" role="dialog" aria-modal="true"`), `${id} must be an accessible modal dialog`);
+  const dialogMarkup = new RegExp(`id="${id}"[^>]*role="dialog"[^>]*aria-modal="true"`);
+  assert(dialogMarkup.test(html), `${id} must be an accessible modal dialog`);
   assert(html.includes(`aria-labelledby="${title}" aria-hidden="true" inert`), `${id} must have an accessible name and start inert`);
 }
 assert(html.includes('<h2 id="authTitle">CHRONUS</h2>'), 'Authentication dialog must have a stable accessible title');
