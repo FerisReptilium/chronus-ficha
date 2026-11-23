@@ -186,6 +186,7 @@ window.ChronusRouter = (function() {
     // Compara o alvo real do evento e não depende de cálculos de visibilidade
     // durante a animação de abertura do drawer.
     window.addEventListener('keydown', event => {
+      if (drawer) drawer.dataset.focusTrapDiagnostic = JSON.stringify({ key: event.key, shift: event.shiftKey, target: event.target?.id || event.target?.tagName, active: document.activeElement?.id || document.activeElement?.tagName, open: drawer.classList.contains('is-open'), inert: drawer.inert, links: drawer.querySelectorAll('.mobile-nav-links a[href]').length });
       if (!drawer?.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
