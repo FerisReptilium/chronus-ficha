@@ -1458,16 +1458,61 @@ window.ChronusSheetEngine = (function() {
     } catch(e) { console.warn('CHRONUS: retrato do jogador indisponível',e); }
   }
 
-  function applyNarratorReadOnly(meta) {
-    narratorReadOnly=true; narratorViewMeta=meta;
-    document.body.classList.remove('narrator-dashboard');
-    document.body.classList.add('narrator-readonly');
+  function applyNarratorEditMode(meta) {
+    narratorReadOnly=false;
+    narratorViewMeta=meta;
+    document.body.classList.remove('narrator-dashboard','narrator-readonly');
+    document.body.classList.add('narrator-admin-editing');
     const panel=document.getElementById('narratorPanel'); if(panel) panel.hidden=true;
     const panelButton=document.getElementById('narratorPanelButton'); if(panelButton) panelButton.hidden=false;
-    document.querySelectorAll('.workspace input,.workspace textarea,.workspace select,.workspace button').forEach(el=>{ el.disabled=true; el.setAttribute('aria-readonly','true'); });
+    document.querySelectorAll('.workspace input,.workspace textarea,.workspace select,.workspace button').forEach(el=>{
+      el.disabled=false;
+      el.removeAttribute('aria-readonly');
+    });
     const banner=document.getElementById('narratorViewBanner');
-    if(banner) banner.textContent=`Modo Narrador · ${meta?.player_name||'Jogador'} · somente leitura`;
-    setSaveStatus('Somente leitura','cloud');
+    if(banner){
+      const back=document.createElement('button');
+      back.type='button';
+      back.className='narrator-admin-back';
+      back.textContent='Voltar ao Painel do Narrador';
+      back.addEventListener('click',()=>{
+        const url=new URL(location.href);
+        url.search='';
+        url.hash='#/narrator';
+        location.assign(url.toString());
+      });
+      banner.replaceChildren(
+        document.createTextNode(`ADMINISTRADOR DA CAMPANHA · Editando ficha de ${meta?.player_name||'Jogador'} · Alterações são salvas na ficha original. `),
+        back
+      );
+      banner.setAttribute('role','status');
+      banner.setAttribute('aria-live','polite');
+    }
+    setSaveStatus('Administrador da campanha · ficha editável','cloud');
+  }
+
+  async function bootstrapNarratorCharacter(meta) {
+    if(!meta?.user_id || !meta?.character_id) throw new Error('Ficha do jogador não identificada. Volte ao Painel do Narrador e abra a ficha novamente.');
+    const { data: character, error } = await supabaseClient
+      .from('characters')
+      .select('id,user_id,name,data,revision,updated_at')
+      .eq('id',meta.character_id)
+      .eq('user_id',meta.user_id)
+      .maybeSingle();
+    if(error) throw error;
+    if(!character) throw new Error('A ficha não está disponível para edição ou foi removida.');
+    const reloaded=await applyRemoteAndReload(character.data,meta.user_id,character.id,character.revision);
+    if(reloaded) return;
+    cloudUser={id:meta.user_id};
+    cloudCharacterId=character.id;
+    cloudVersion=character.revision!=null?String(character.revision):null;
+    cloudReady=true;
+    cloudConflict=false;
+    localStorage.setItem(CLOUD_USER_KEY,meta.user_id);
+    localStorage.setItem(getScopedKey('characterId'),character.id);
+    localStorage.setItem(CLOUD_CHARACTER_KEY,character.id);
+    applyNarratorEditMode(meta);
+    await pullPortraitFromCloudForUser(meta.user_id);
   }
 
   async function bootstrapNarrator(user, profile) {
@@ -1479,12 +1524,14 @@ window.ChronusSheetEngine = (function() {
       const params=new URLSearchParams(location.search);
       if(params.get('narratorView')==='1'){
         try { narratorViewMeta=JSON.parse(sessionStorage.getItem(NARRATOR_VIEW_META_KEY)||'null'); } catch { narratorViewMeta=null; }
-        if(!narratorViewMeta?.user_id){
-          location.href=location.pathname;
+        if(!narratorViewMeta?.user_id || !narratorViewMeta?.character_id){
+          const url=new URL(location.href);
+          url.search='';
+          url.hash='#/narrator';
+          location.replace(url.toString());
           return;
         }
-        applyNarratorReadOnly(narratorViewMeta);
-        await pullPortraitFromCloudForUser(narratorViewMeta.user_id);
+        await bootstrapNarratorCharacter(narratorViewMeta);
         return;
       }
       await loadNarratorDashboard();
