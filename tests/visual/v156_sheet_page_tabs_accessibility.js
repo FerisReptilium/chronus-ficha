@@ -80,7 +80,7 @@ const viewports = {
       await page.waitForFunction(() => document.documentElement.dataset.chronusDice === 'v1.3.5-preview');
       await page.waitForFunction(() => window.ChronusSheetEngine?.getRollProfile?.().characterName === 'Mara');
       const tabs = page.getByRole('tablist', { name: 'Páginas da ficha' });
-      const first = tabs.getByRole('tab', { name: 'Página I' });
+      const first = tabs.getByRole('tab', { name: 'Página I', exact: true });
       const second = tabs.getByRole('tab', { name: 'Página II' });
       const pageOne = page.locator('#page-1');
       const pageTwo = page.locator('#page-2');
