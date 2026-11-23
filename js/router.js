@@ -182,8 +182,8 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    document.addEventListener('keydown', event => {
-      if (!drawer?.classList.contains('is-open')) return;
+    drawer?.addEventListener('keydown', event => {
+      if (!drawer.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         close(true);
@@ -197,26 +197,16 @@ window.ChronusRouter = (function() {
         drawer.focus();
         return;
       }
-      const first = closeBtn || focusable[0];
-      const navigationLinks = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
-        .filter(element => element.getClientRects().length && !element.closest('[inert]'));
-      const lastNavigationLink = navigationLinks[navigationLinks.length - 1] || focusable[focusable.length - 1];
-
-      // O botão de fechar recebe o foco ao abrir o drawer. Trate esse ponto
-      // explicitamente para que Shift+Tab sempre alcance o último link.
-      if (event.shiftKey && document.activeElement === closeBtn && lastNavigationLink) {
-        event.preventDefault();
-        lastNavigationLink.focus();
-        return;
-      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
       if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
         event.preventDefault();
-        lastNavigationLink.focus();
-      } else if (!event.shiftKey && document.activeElement === lastNavigationLink) {
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault();
         first.focus();
       }
-    }, true);
+    });
   }
 
   function closeMobileMenu() {
