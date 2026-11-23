@@ -1131,3 +1131,46 @@ body.in-live-mode .chronus-audio-dock {
     display: none !important;
   }
 }
+
+
+/* Shared dice results in the live session feed */
+.chronus-live-roll-status {
+  color: var(--live-green);
+  font-family: var(--font-sans);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chronus-live-roll-event {
+  min-width: 0;
+}
+
+.chronus-live-roll-event > div {
+  min-width: 0;
+}
+
+.chronus-live-roll-event p {
+  overflow-wrap: anywhere;
+}
+
+.chronus-live-roll-dice {
+  color: var(--live-gold) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.62rem !important;
+}
+
+.chronus-live-roll-result {
+  display: block;
+  margin-top: 4px;
+  color: var(--live-ink) !important;
+  font-size: 0.55rem !important;
+}
+
+.chronus-live-roll-empty {
+  grid-column: 1 / -1;
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+}
