@@ -159,7 +159,7 @@
     return { ok: true };
   }
 
-  async function mountNarratorFeed(container) {
+  async function mountSharedRollFeed(container) {
     if (!container) return;
     if (channel) {
       const oldClient = client();
@@ -173,7 +173,7 @@
     const heading = document.createElement('div');
     heading.className = 'narrator-roll-feed-heading';
     const title = document.createElement('h3');
-    title.textContent = 'Rolagens ao vivo';
+    title.textContent = 'Rolagens da mesa';
     const status = document.createElement('span');
     status.className = 'narrator-roll-feed-status';
     status.textContent = 'Conectando…';
@@ -229,7 +229,7 @@
 
   root.ChronusNarrativeLive = Object.freeze({
     publish,
-    mountNarratorFeed,
-    unmountNarratorFeed
+    mountSharedRollFeed,
+    unmountSharedRollFeed: unmountNarratorFeed
   });
 })(window);
