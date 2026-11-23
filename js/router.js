@@ -182,8 +182,10 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    drawer?.addEventListener('keydown', event => {
-      if (!drawer.classList.contains('is-open')) return;
+    // Capturar no document garante o trap mesmo quando o foco inicial está no botão
+    // de fechar; a delegação também sobrevive a mudanças internas no conteúdo do drawer.
+    document.addEventListener('keydown', event => {
+      if (!drawer?.classList.contains('is-open') || !drawer.contains(document.activeElement)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         close(true);
@@ -199,18 +201,15 @@ window.ChronusRouter = (function() {
       }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === closeBtn) {
-        event.preventDefault();
-        const lastNavigationLink = drawer.querySelector('.mobile-nav-links a[href]:last-of-type') || last;
-        lastNavigationLink.focus();
-      } else if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || active === closeBtn || active === drawer)) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && active === last) {
         event.preventDefault();
         first.focus();
       }
-    });
+    }, true);
   }
 
   function closeMobileMenu() {
