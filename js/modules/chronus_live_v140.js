@@ -208,7 +208,7 @@ window.ChronusLiveV140 = (function() {
             <div><span>Risco elevado</span><span>Berlim · 1990</span></div>
           </section>
 
-          <section class="chronus-live-feed" aria-labelledby="chronus-live-feed-title">
+          <section id="chronus-live-feed" class="chronus-live-feed" aria-labelledby="chronus-live-feed-title">
             <div class="chronus-live-section-title"><h2 id="chronus-live-feed-title">Pulso da sessão</h2><span>Agora</span></div>
             <ol id="chronus-live-feed-list" aria-live="polite"></ol>
           </section>
@@ -231,7 +231,6 @@ window.ChronusLiveV140 = (function() {
     rendered = true;
     bindControls();
     renderAll();
-    window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'));
     return true;
   }
 
@@ -587,6 +586,7 @@ window.ChronusLiveV140 = (function() {
     ensureStylesheet();
     if (!rendered || !getRoot()?.querySelector('.chronus-live-room')) buildShell();
     hydrateCurrentParticipant();
+    window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'));
     document.documentElement.dataset.chronusLive = PREVIEW_MARKER;
     if (isLocalPreview()) document.documentElement.dataset.chronusLiveLocalPreview = 'true';
   }
