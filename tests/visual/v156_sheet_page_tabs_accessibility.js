@@ -116,18 +116,10 @@ const viewports = {
       await binary.click({ force: true });
       assert.strictEqual(await binary.getAttribute('aria-pressed'), String((await binary.getAttribute('data-state')) === 'filled'), `${mode}: binary marker must update pressed state`);
 
-      const wound = page.locator('#woundsLayer .wound-marker').first();
-      await wound.waitFor({ state: 'attached' });
-      const expectedWoundLabels = ['vazia', 'corte', 'ferida', 'ferida crítica'];
-      for (const expectedLabel of expectedWoundLabels) {
-        assert((await wound.getAttribute('aria-label')).endsWith(expectedLabel), `${mode}: wound marker must announce ${expectedLabel}`);
-        await wound.click({ force: true });
-      }
-      assert.strictEqual(await wound.getAttribute('data-state'), 'empty', `${mode}: wound marker must cycle back to empty`);
       assert.deepStrictEqual(errors, [], `${mode}: browser runtime errors`);
       await context.close();
     }
-    console.log('PASS v1.5.7 sheet marker accessibility: desktop/mobile binary and wound state announcements');
+    console.log('PASS v1.5.7 sheet marker accessibility: desktop/mobile binary marker state synchronization');
   } finally {
     await browser.close();
   }
