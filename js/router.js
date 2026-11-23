@@ -199,9 +199,12 @@ window.ChronusRouter = (function() {
       }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const navigationLinks = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
+        .filter(element => element.getClientRects().length && !element.closest('[inert]'));
+      const lastNavigationLink = navigationLinks[navigationLinks.length - 1] || last;
       if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
         event.preventDefault();
-        last.focus();
+        lastNavigationLink.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault();
         first.focus();
