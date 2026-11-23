@@ -40,66 +40,39 @@
     list.replaceChildren();
 
     if (!records.size) {
-      const empty = document.createElement('p');
-      empty.className = 'narrator-roll-feed-empty';
-      empty.textContent = 'Nenhuma rolagem compartilhada nesta mesa ainda.';
-      list.appendChild(empty);
+      const item = document.createElement('li');
+      item.className = 'chronus-live-roll-empty';
+      item.textContent = 'Nenhuma rolagem compartilhada nesta sessão ainda.';
+      list.appendChild(item);
       return;
     }
 
     [...records.values()].forEach(record => {
-      const article = document.createElement('article');
-      article.className = 'narrator-roll-event';
-      const heading = document.createElement('div');
-      heading.className = 'narrator-roll-event-heading';
+      const item = document.createElement('li');
+      item.className = 'chronus-live-roll-event';
+      const marker = document.createElement('span');
+      marker.className = 'chronus-live-feed-marker';
+      marker.setAttribute('aria-hidden', 'true');
+      const copy = document.createElement('div');
       const player = document.createElement('strong');
       player.textContent = record.player_display_name || 'Jogador';
+      const title = document.createElement('p');
+      title.textContent = [record.character_name, record.action_label].filter(Boolean).join(' — ');
+      const dice = document.createElement('p');
+      dice.className = 'chronus-live-roll-dice';
+      dice.textContent = (record.dice || []).map(die =>
+        'd' + die.sides + ': ' + die.value + (die.determination ? ' (Determinação)' : '')
+      ).join(' · ');
+      const result = document.createElement('strong');
+      result.className = 'chronus-live-roll-result';
+      result.textContent = (OUTCOME_LABELS[record.outcome] || record.outcome) +
+        ' · Maior ' + record.highest_result + ' · Dif. ' + record.difficulty;
+      copy.append(player, title, dice, result);
       const time = document.createElement('time');
       time.dateTime = record.created_at;
       time.textContent = new Date(record.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      heading.append(player, time);
-
-      const title = document.createElement('p');
-      title.className = 'narrator-roll-event-title';
-      title.textContent = [record.character_name, record.action_label].filter(Boolean).join(' — ');
-
-      const values = document.createElement('p');
-      values.className = 'narrator-roll-event-dice';
-      values.textContent = (record.dice || []).map(die =>
-        'd' + die.sides + ': ' + die.value + (die.determination ? ' (Determinação)' : '')
-      ).join(' · ');
-
-      const result = document.createElement('div');
-      result.className = 'narrator-roll-event-result outcome-' + record.outcome;
-      const resultText = document.createElement('strong');
-      resultText.textContent = OUTCOME_LABELS[record.outcome] || record.outcome;
-      const margin = document.createElement('span');
-      margin.textContent = 'Maior ' + record.highest_result + ' · Dif. ' + record.difficulty +
-        ' · Margem ' + (record.margin > 0 ? '+' : '') + record.margin;
-      result.append(resultText, margin);
-
-      const authority = document.createElement('p');
-      authority.className = 'narrator-roll-event-authority';
-      authority.textContent = record.outcome === 'exceptional_success'
-        ? 'O jogador descreve a cena de forma épica.'
-        : record.outcome === 'success'
-          ? 'O jogador descreve como alcança o objetivo.'
-          : record.outcome === 'partial_success'
-            ? 'Descrição compartilhada: o Narrador acrescenta um preço ao sucesso.'
-            : record.outcome === 'failure'
-              ? 'O Narrador descreve o insucesso.'
-              : 'O Narrador descreve a falha de forma desastrosa e horrível.';
-
-      const consequences = document.createElement('small');
-      const consequenceParts = [];
-      if (record.acts_awarded) consequenceParts.push('+1 Ato');
-      if (record.condition_awarded) consequenceParts.push('1 Condição');
-      if (record.determination_used) consequenceParts.push('Determinação utilizada');
-      consequences.textContent = consequenceParts.join(' · ');
-
-      article.append(heading, title, values, result, authority);
-      if (consequences.textContent) article.appendChild(consequences);
-      list.appendChild(article);
+      item.append(marker, copy, time);
+      list.appendChild(item);
     });
   }
 
@@ -171,15 +144,14 @@
     container.replaceChildren();
 
     const heading = document.createElement('div');
-    heading.className = 'narrator-roll-feed-heading';
-    const title = document.createElement('h3');
+    heading.className = 'chronus-live-section-title';
+    const title = document.createElement('h2');
     title.textContent = 'Rolagens da mesa';
     const status = document.createElement('span');
-    status.className = 'narrator-roll-feed-status';
+    status.className = 'chronus-live-roll-status';
     status.textContent = 'Conectando…';
     heading.append(title, status);
-    const list = document.createElement('div');
-    list.className = 'narrator-roll-feed-list';
+    const list = document.createElement('ol');
     list.dataset.rollFeedList = 'true';
     container.append(heading, list);
 
