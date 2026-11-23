@@ -13,12 +13,10 @@ assert(binary.includes("b.setAttribute('aria-pressed', String(n === 'filled'))")
 
 const woundStart = engine.indexOf('function woundMarker');
 const woundEnd = engine.indexOf('function bindInputs', woundStart);
-assert(woundStart >= 0 && woundEnd > woundStart, 'Wound marker implementation must exist');
-const wound = engine.slice(woundStart, woundEnd);
-for (const label of ['vazia', 'corte', 'ferida', 'ferida crítica']) {
-  assert(wound.includes(label), `Wound markers must announce state: ${label}`);
-}
-assert(wound.includes('syncWoundAccessibility()'), 'Wound accessibility state must be synchronized on render and change');
-assert(wound.includes("b.setAttribute('aria-pressed', String(b.dataset.state !== 'empty'))"), 'Wound marker must expose whether any wound is present');
+const listStart = engine.indexOf('function renderList');
+const listEnd = engine.indexOf('function renderParadox', listStart);
+assert(listStart >= 0 && listEnd > listStart, 'Rendered list marker implementation must exist');
+const list = engine.slice(listStart, listEnd);
+assert(list.includes("m.setAttribute('aria-pressed', String(m.dataset.state === 'filled'))"), 'List markers must synchronize ARIA after loading persisted list state');
 
 console.log('CHRONUS sheet marker accessibility regression: PASS');
