@@ -9,6 +9,7 @@ const dice = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const router = fs.readFileSync('js/router.js', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20261123010000_shared_roll_visibility.sql', 'utf8');
 const sqlBaseline = fs.readFileSync('tests/chronus_roll_events.sql', 'utf8');
+const initialMigration = fs.readFileSync('supabase/migrations/006_chronus_roll_events.sql', 'utf8');
 
 assert(service.includes("function mountSharedRollFeed(container)"), 'shared feed mount API missing');
 assert(service.includes(".on('postgres_changes'"), 'shared roll feed must subscribe to Postgres INSERT events');
@@ -27,6 +28,7 @@ assert(migration.includes('chronus_roll_events_select_table_players'), 'player S
 assert(migration.includes("p.role = 'player'"), 'policy must require a trusted player profile');
 assert(migration.includes('chronus_private.is_chronus_narrator()'), 'Narrator visibility must be preserved');
 assert(migration.includes('single shared CHRONUS chronicle'), 'global visibility limitation must be documented');
-assert(sqlBaseline.includes('chronus_roll_events_select_owner_or_narrator'), 'baseline policy expectation must remain covered by its original migration tests');
+assert(initialMigration.includes('chronus_roll_events_select_owner_or_narrator'), 'original migration policy must remain auditable');
+assert(sqlBaseline.includes('Player A sees the shared table events'), 'database integration test must cover cross-player visibility');
 
 console.log('CHRONUS shared live roll feed regression: PASS');
