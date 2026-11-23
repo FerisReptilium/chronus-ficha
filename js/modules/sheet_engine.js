@@ -629,7 +629,9 @@ window.ChronusSheetEngine = (function() {
     const host=document.getElementById(hostId); const items=state.lists[type];
     rows.forEach((y,i)=>{
       const m = binaryMarker({x:679.5,y,size:29,key:`${type}.${i}`,onChange:n=>{items[i].marker=n;}});
-      m.dataset.state=items[i].marker==='filled'?'filled':'empty'; host.append(m);
+      m.dataset.state=items[i].marker==='filled'?'filled':'empty';
+      m.setAttribute('aria-pressed', String(m.dataset.state === 'filled'));
+      host.append(m);
       const input=document.createElement('input'); input.className='list-marker-input'; input.value=items[i].text||''; placeBox(input,704,y-12,223,24);
       input.setAttribute('aria-label',`${type} ${i+1}`); input.addEventListener('input',()=>{items[i].text=input.value;scheduleSave();}); host.append(input);
     });
