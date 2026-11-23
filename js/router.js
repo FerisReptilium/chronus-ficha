@@ -210,6 +210,15 @@ window.ChronusRouter = (function() {
         first?.focus();
       }
     }, true);
+
+    // Fallback no keyup: alguns ambientes móveis/Chromium podem não concluir
+    // o ciclo de foco no keydown quando o botão de fechar recebeu o foco inicial.
+    window.addEventListener('keyup', event => {
+      if (event.key !== 'Tab' || !event.shiftKey || !drawer?.classList.contains('is-open')) return;
+      if (document.activeElement !== closeBtn) return;
+      const links = drawer.querySelectorAll('.mobile-nav-links a[href]');
+      links[links.length - 1]?.focus();
+    }, true);
   }
 
   function closeMobileMenu() {
