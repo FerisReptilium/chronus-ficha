@@ -130,8 +130,16 @@ async function waitForAccountHydration(page) {
 
 async function navigateToSheet(page) {
   await waitForAccountHydration(page);
-  await page.evaluate(() => { window.location.hash = '#/sheet'; });
-  await page.waitForFunction(() => window.location.hash.split('?')[0] === '#/sheet');
+  // Navigate through the browser URL rather than assigning location.hash inside
+  // evaluate: the router can replace the document while Playwright is awaiting
+  // the evaluation result, destroying that execution context.
+  const target = new URL('#/sheet', portalUrl).toString();
+  await page.goto(target, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() =>
+    window.ChronusAuth?.isInitialized?.() === true
+    && window.__CHRONUS_ACCOUNT_REHYDRATION_PENDING === false
+    && window.location.hash.split('?')[0] === '#/sheet'
+  , null, { timeout: 20000 });
   await page.locator('#view-sheet').waitFor({ state: 'visible' });
   await page.locator('[data-bind="identity.name"]').waitFor({ state: 'visible' });
 }
