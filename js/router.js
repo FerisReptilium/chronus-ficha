@@ -154,7 +154,6 @@ window.ChronusRouter = (function() {
     const closeBtn = document.getElementById('btn-mobile-menu-close');
     const drawer = document.getElementById('mobile-nav-drawer');
     const overlay = document.getElementById('mobile-nav-overlay');
-    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
     function open() {
       if (!drawer || !overlay) return;
@@ -162,10 +161,6 @@ window.ChronusRouter = (function() {
       overlay.classList.add('is-open');
       drawer.inert = false;
       drawer.setAttribute('aria-hidden', 'false');
-      // Neutraliza regras legadas que ocultam links individualmente e impedem foco programático.
-      drawer.querySelectorAll('.mobile-nav-links a[href]').forEach(link => {
-        link.style.setProperty('visibility', 'visible', 'important');
-      });
       toggleBtn?.setAttribute('aria-expanded', 'true');
       document.body.style.overflow = 'hidden';
       closeBtn?.focus();
@@ -177,9 +172,6 @@ window.ChronusRouter = (function() {
       overlay.classList.remove('is-open');
       drawer.inert = true;
       drawer.setAttribute('aria-hidden', 'true');
-      drawer.querySelectorAll('.mobile-nav-links a[href]').forEach(link => {
-        link.style.removeProperty('visibility');
-      });
       toggleBtn?.setAttribute('aria-expanded', 'false');
       document.body.style.overflow = '';
       if (restoreFocus && toggleBtn?.getClientRects().length) toggleBtn.focus();
@@ -189,21 +181,8 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    // Instrumentação temporária para identificar bloqueios externos de foco.
-    window.addEventListener('focusin', event => {
-      if (drawer?.classList.contains('is-open')) {
-        drawer.dataset.focusTrapFocusin = JSON.stringify({
-          target: event.target?.getAttribute?.('href') || event.target?.id || event.target?.tagName,
-          active: document.activeElement?.getAttribute?.('href') || document.activeElement?.id || document.activeElement?.tagName
-        });
-      }
-    }, true);
-
     // Um único listener em captura controla o ciclo completo do foco.
-    // Compara o alvo real do evento e não depende de cálculos de visibilidade
-    // durante a animação de abertura do drawer.
     window.addEventListener('keydown', event => {
-      if (drawer) drawer.dataset.focusTrapDiagnostic = JSON.stringify({ key: event.key, shift: event.shiftKey, target: event.target?.id || event.target?.tagName, active: document.activeElement?.id || document.activeElement?.tagName, open: drawer.classList.contains('is-open'), inert: drawer.inert, links: drawer.querySelectorAll('.mobile-nav-links a[href]').length });
       if (!drawer?.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -221,53 +200,20 @@ window.ChronusRouter = (function() {
       if (event.shiftKey && (event.target === first || active === first)) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        // Algumas regras legadas reaplicam visibility:hidden após a abertura.
-        // Reafirma a visibilidade imediatamente antes de transferir o foco.
-        last?.style.setProperty('visibility', 'visible', 'important');
         last?.focus();
-        if (drawer) drawer.dataset.focusTrapResult = JSON.stringify({
-          branch: 'shift-tab',
-          first: first?.id || first?.tagName,
-          lastHref: last?.getAttribute('href'),
-          lastText: last?.textContent?.trim(),
-          lastTabIndex: last?.tabIndex,
-          lastRects: last?.getClientRects().length,
-          lastConnected: !!last?.isConnected,
-          lastVisibility: last ? getComputedStyle(last).visibility : null,
-          lastInlineVisibility: last?.style.getPropertyValue('visibility') || null,
-          lastInlinePriority: last?.style.getPropertyPriority('visibility') || null,
-          lastDisplay: last ? getComputedStyle(last).display : null,
-          lastOpacity: last ? getComputedStyle(last).opacity : null,
-          lastRect: last ? (() => { const r = last.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })() : null,
-          ancestorStates: last ? (() => { const states = []; for (let node = last; node && node !== document.documentElement; node = node.parentElement) states.push({ tag: node.tagName, id: node.id, inert: !!node.inert, hidden: !!node.hidden, ariaHidden: node.getAttribute('aria-hidden'), display: getComputedStyle(node).display, visibility: getComputedStyle(node).visibility }); return states; })() : [],
-          focusin: drawer?.dataset.focusTrapFocusin || null,
-          activeAfterFocus: document.activeElement?.getAttribute('href') || document.activeElement?.id || document.activeElement?.tagName
-        });
       } else if (!event.shiftKey && (event.target === last || active === last)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         first?.focus();
-        if (drawer) drawer.dataset.focusTrapResult = JSON.stringify({ branch: 'tab', activeAfterFocus: document.activeElement?.id || document.activeElement?.tagName });
-      } else if (drawer) {
-        drawer.dataset.focusTrapResult = JSON.stringify({ branch: 'no-match', first: first?.id, lastHref: last?.getAttribute('href'), active: active?.id, target: event.target?.id });
       }
     }, true);
 
-    // Fallback no keyup: alguns ambientes móveis/Chromium podem não concluir
-    // o ciclo de foco no keydown quando o botão de fechar recebeu o foco inicial.
+    // Fallback para concluir o Shift+Tab em ambientes que não finalizam o foco no keydown.
     window.addEventListener('keyup', event => {
       if (event.key !== 'Tab' || !event.shiftKey || !drawer?.classList.contains('is-open')) return;
       if (document.activeElement !== closeBtn) return;
       const links = drawer.querySelectorAll('.mobile-nav-links a[href]');
-      const lastLink = links[links.length - 1];
-      lastLink?.style.setProperty('visibility', 'visible', 'important');
-      lastLink?.focus();
-      drawer.dataset.focusTrapKeyup = JSON.stringify({
-        key: event.key,
-        shift: event.shiftKey,
-        lastHref: links[links.length - 1]?.getAttribute('href'),
-        activeAfterFocus: document.activeElement?.getAttribute('href') || document.activeElement?.id || document.activeElement?.tagName
-      });
+      links[links.length - 1]?.focus();
     }, true);
   }
 
