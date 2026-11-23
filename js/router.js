@@ -185,28 +185,37 @@ window.ChronusRouter = (function() {
     // Capturar no document garante o trap mesmo quando o foco inicial está no botão
     // de fechar; a delegação também sobrevive a mudanças internas no conteúdo do drawer.
     document.addEventListener('keydown', event => {
-      if (!drawer?.classList.contains('is-open') || !drawer.contains(document.activeElement)) return;
+      if (!drawer?.classList.contains('is-open')) return;
+      const active = document.activeElement;
+      const eventOrigin = event.target instanceof Element ? event.target : active;
+      // O evento pode chegar ao document antes de o navegador consolidar activeElement.
+      // Consideramos também o alvo real do teclado para não perder o primeiro Shift+Tab.
+      if (!drawer.contains(active) && !drawer.contains(eventOrigin)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopImmediatePropagation();
         close(true);
         return;
       }
       if (event.key !== 'Tab') return;
       const focusable = [...drawer.querySelectorAll(focusableSelector)]
-        .filter(element => element.getClientRects().length && !element.inert);
+        .filter(element => element.getClientRects().length && !element.inert && !element.closest('[inert]'));
       if (!focusable.length) {
         event.preventDefault();
+        event.stopImmediatePropagation();
         drawer.focus();
         return;
       }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || active === closeBtn || active === drawer)) {
+      const current = drawer.contains(active) ? active : eventOrigin;
+      if (event.shiftKey && (current === first || current === closeBtn || current === drawer)) {
         event.preventDefault();
+        event.stopImmediatePropagation();
         last.focus();
-      } else if (!event.shiftKey && active === last) {
+      } else if (!event.shiftKey && current === last) {
         event.preventDefault();
+        event.stopImmediatePropagation();
         first.focus();
       }
     }, true);
