@@ -98,7 +98,7 @@ DO $$
 DECLARE v_count integer; v_blocked boolean := false;
 BEGIN
   SELECT count(*) INTO v_count FROM public.chronus_roll_events;
-  IF v_count <> 1 THEN RAISE EXCEPTION 'Player A should see only own event; got %',v_count; END IF;
+  IF v_count <> 2 THEN RAISE EXCEPTION 'Player A should see the shared table events; got %',v_count; END IF;
   BEGIN
     INSERT INTO public.chronus_roll_events (
       player_user_id, action_label, dice, difficulty, highest_result, margin,
