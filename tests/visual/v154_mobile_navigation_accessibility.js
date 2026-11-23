@@ -35,7 +35,7 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
 
     await toggle.click();
     await drawer.getByRole('link', { name: 'Crônica' }).click();
-    await page.waitForFunction(() => location.hash === '#/chronicle');
+    await page.waitForFunction(() => location.hash === '#/chronicle' && document.querySelector('#btn-mobile-menu-toggle')?.getAttribute('aria-expanded') === 'false' && document.querySelector('#mobile-nav-drawer')?.getAttribute('aria-hidden') === 'true');
     assert.strictEqual(await toggle.getAttribute('aria-expanded'), 'false', 'Route navigation must close the drawer');
     assert.strictEqual(await drawer.getAttribute('aria-hidden'), 'true', 'Closed drawer must be hidden from assistive technology');
     assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'btn-mobile-menu-toggle', 'Route navigation must restore focus to the toggle');
