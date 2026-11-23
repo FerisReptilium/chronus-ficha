@@ -100,7 +100,8 @@
   padding: 6px clamp(5px, 0.45vw, 9px);
   border-radius: 4px;
   border: 1px solid transparent;
-  transition: all 0.2s ease;
+  /* Não transicionar visibility: o foco do drawer precisa funcionar imediatamente. */
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
 
@@ -264,6 +265,11 @@
   font-size: 0.88rem;
   padding: 10px 14px;
   display: block;
+}
+
+/* Links do drawer precisam permanecer focáveis enquanto o diálogo está aberto. */
+.mobile-nav-drawer.is-open .mobile-nav-links .nav-link {
+  visibility: visible !important;
 }
 
 .mobile-nav-overlay {

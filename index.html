@@ -30,7 +30,15 @@
   <link rel="stylesheet" href="css/resource-counters.css">
   <link rel="stylesheet" href="css/editorial-media-v14.css">
 </head>
-<body>
+<body class="chronus-booting">
+  <div id="chronus-boot-screen" class="chronus-boot-screen" role="status" aria-live="polite" aria-label="Inicializando CHRONUS">
+    <div class="chronus-boot-card">
+      <span class="chronus-boot-sigil" aria-hidden="true">✦</span>
+      <h1>CHRONUS</h1>
+      <p>Preparando o portal...</p>
+      <span class="chronus-boot-spinner" aria-hidden="true"></span>
+    </div>
+  </div>
 
   <!-- =========================================================================
        1. BARRA DE NAVEGAÇÃO GLOBAL (HEADER)

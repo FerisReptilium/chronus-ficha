@@ -154,7 +154,6 @@ window.ChronusRouter = (function() {
     const closeBtn = document.getElementById('btn-mobile-menu-close');
     const drawer = document.getElementById('mobile-nav-drawer');
     const overlay = document.getElementById('mobile-nav-overlay');
-    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
     function open() {
       if (!drawer || !overlay) return;
@@ -182,32 +181,39 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    document.addEventListener('keydown', event => {
+    // Um único listener em captura controla o ciclo completo do foco.
+    window.addEventListener('keydown', event => {
       if (!drawer?.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopImmediatePropagation();
         close(true);
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusable = [...drawer.querySelectorAll(focusableSelector)]
-        .filter(element => element.getClientRects().length && !element.inert);
-      if (!focusable.length) {
+
+      const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')];
+      const first = closeBtn || links[0];
+      const last = links[links.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (event.target === first || active === first)) {
         event.preventDefault();
-        drawer.focus();
-        return;
+        event.stopImmediatePropagation();
+        last?.focus();
+      } else if (!event.shiftKey && (event.target === last || active === last)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        first?.focus();
       }
-      const first = closeBtn || focusable[0];
-      const navigationLinks = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
-        .filter(element => element.getClientRects().length && !element.closest('[inert]'));
-      const lastNavigationLink = navigationLinks[navigationLinks.length - 1] || focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === closeBtn || document.activeElement === first || document.activeElement === drawer)) {
-        event.preventDefault();
-        lastNavigationLink.focus();
-      } else if (!event.shiftKey && document.activeElement === lastNavigationLink) {
-        event.preventDefault();
-        first.focus();
-      }
+    }, true);
+
+    // Fallback para concluir o Shift+Tab em ambientes que não finalizam o foco no keydown.
+    window.addEventListener('keyup', event => {
+      if (event.key !== 'Tab' || !event.shiftKey || !drawer?.classList.contains('is-open')) return;
+      if (document.activeElement !== closeBtn) return;
+      const links = drawer.querySelectorAll('.mobile-nav-links a[href]');
+      links[links.length - 1]?.focus();
     }, true);
   }
 

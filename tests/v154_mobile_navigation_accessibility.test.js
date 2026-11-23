@@ -14,8 +14,12 @@ assert(html.includes('aria-hidden="true" inert'), 'Mobile drawer must be unavail
 assert(router.includes("drawer.setAttribute('aria-hidden', 'false')"), 'Opening the drawer must expose it to assistive technology');
 assert(router.includes("toggleBtn?.setAttribute('aria-expanded', 'true')"), 'Opening the drawer must update the toggle state');
 assert(router.includes("if (event.key === 'Escape')"), 'Escape must close the mobile drawer');
-assert(router.includes("event.shiftKey && (document.activeElement === closeBtn || document.activeElement === first || document.activeElement === drawer)"), 'Shift+Tab from the close button must wrap to the last navigation link');
-assert(router.includes("document.activeElement === last"), 'Tab must wrap at the end of the drawer');
+assert(router.includes("window.addEventListener('keydown'"), 'The focus trap must use a capture-phase keyboard handler');
+assert(router.includes("event.target === first"), 'Shift+Tab from the first drawer control must wrap to the final navigation link');
+assert(router.includes("event.target === last"), 'Tab from the final navigation link must wrap to the first drawer control');
+assert(router.includes("last?.focus()"), 'Shift+Tab must focus the final navigation link');
+assert(router.includes("window.addEventListener('keyup'"), 'A keyup fallback must complete mobile focus wrapping when keydown is not sufficient');
+assert(router.includes("event.stopImmediatePropagation()"), 'The focus trap must prevent competing keyboard handlers from overriding focus');
 assert(router.includes('closeBtn?.focus()'), 'Opening the drawer must move focus inside it');
 assert(router.includes('toggleBtn.focus()'), 'Closing the drawer must restore focus to the toggle');
 

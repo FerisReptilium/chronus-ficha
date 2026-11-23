@@ -4,6 +4,7 @@
  */
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('CHRONUS: Inicializando portal...');
+  try {
 
   // 0. Extensões incrementais da v1.1.
   // Falha de carregamento não derruba a v1.0: o portal continua em modo estável.
@@ -99,7 +100,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupAuthForms();
 
   console.log('CHRONUS: Portal pronto.');
+  } catch (error) {
+    console.error('CHRONUS: Falha crítica durante a inicialização.', error);
+    showBootFailure();
+  } finally {
+    document.documentElement.classList.remove('chronus-booting');
+    const bootScreen = document.getElementById('chronus-boot-screen');
+    if (!document.getElementById('chronus-boot-error')) bootScreen?.remove();
+  }
 });
+
+function showBootFailure() {
+  const screen = document.getElementById('chronus-boot-screen');
+  if (!screen) return;
+  screen.innerHTML = `
+    <section id="chronus-boot-error" class="chronus-boot-card" role="alert" aria-live="assertive">
+      <span class="chronus-boot-sigil" aria-hidden="true">✦</span>
+      <h1>CHRONUS</h1>
+      <p>Não foi possível preparar o portal.</p>
+      <p class="chronus-boot-detail">Verifique sua conexão e tente novamente.</p>
+      <button type="button" id="chronus-boot-retry">Tentar novamente</button>
+    </section>`;
+  document.getElementById('chronus-boot-retry')?.addEventListener('click', () => window.location.reload());
+}
 
 async function loadV11Extensions() {
   const scripts = [
