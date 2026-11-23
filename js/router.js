@@ -21,6 +21,7 @@ window.ChronusRouter = (function() {
   };
 
   let currentRoute = '#/home';
+  let hasRenderedInitialRoute = false;
 
   function init() {
     window.addEventListener('hashchange', handleRouteChange);
@@ -47,7 +48,6 @@ window.ChronusRouter = (function() {
     }
 
     const routeDef = routes[cleanHash];
-    currentRoute = cleanHash;
 
     // Não renderize uma ficha anterior enquanto a conta autenticada está
     // sendo reidratada após troca de usuário ou migração de cache.
@@ -82,6 +82,10 @@ window.ChronusRouter = (function() {
       return;
     }
 
+    // A primeira renderização (inclusive deep link) é silenciosa para leitores de tela.
+    const routeChanged = hasRenderedInitialRoute && currentRoute !== cleanHash;
+    currentRoute = cleanHash;
+
     // Alternar visualizações ativas
     document.querySelectorAll('.portal-view').forEach(view => {
       view.hidden = true;
@@ -92,6 +96,7 @@ window.ChronusRouter = (function() {
     if (targetView) {
       targetView.hidden = false;
       targetView.classList.add('is-active');
+      hasRenderedInitialRoute = true;
     }
 
     // Se estiver na rota da ficha, ajusta o body/layout
@@ -145,8 +150,12 @@ window.ChronusRouter = (function() {
     // Rolar ao topo
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    // Atualizar título da aba
+    // Atualizar título da aba e anunciar somente transições SPA reais.
     if (routeDef.title) document.title = routeDef.title;
+    if (routeChanged) {
+      const announcer = document.getElementById('route-announcer');
+      if (announcer) announcer.textContent = routeDef.title || 'Página atualizada';
+    }
   }
 
   function setupMobileMenu() {
