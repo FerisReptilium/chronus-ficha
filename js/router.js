@@ -197,8 +197,12 @@ window.ChronusRouter = (function() {
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusable = [...drawer.querySelectorAll(focusableSelector)]
-        .filter(element => element.getClientRects().length && !element.inert);
+      const navigationItems = [...drawer.querySelectorAll(focusableSelector)]
+        .filter(element => element !== closeBtn && element.getClientRects().length && !element.inert);
+      const focusable = [
+        ...(closeBtn?.getClientRects().length && !closeBtn.inert ? [closeBtn] : []),
+        ...navigationItems
+      ];
       if (!focusable.length) {
         event.preventDefault();
         drawer.focus();
@@ -207,7 +211,7 @@ window.ChronusRouter = (function() {
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const activeIsInsideDrawer = drawer.contains(document.activeElement);
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer || document.activeElement === closeBtn || !activeIsInsideDrawer)) {
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer || !activeIsInsideDrawer)) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && (document.activeElement === last || !activeIsInsideDrawer)) {
