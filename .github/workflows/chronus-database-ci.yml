@@ -48,6 +48,10 @@ jobs:
           cp supabase/migrations/20261122165137_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122165137_character_revision_cas.sql
           cd .chronus-db-ci
           supabase init
+          # Avoid the hosted runner's default PostgreSQL port, which may be
+          # occupied by another service on shared runner infrastructure.
+          sed -i '/^\[db\]/,/^\[/ s/^port = 54322$/port = 54332/' supabase/config.toml
+          sed -i '/^\[db\]/,/^\[/ s/^shadow_port = 54320$/shadow_port = 54330/' supabase/config.toml
 
       - name: Start a clean local Supabase stack and apply all migrations
         working-directory: .chronus-db-ci
@@ -146,6 +150,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4173/ >/dev/null
           node tests/visual/v150_browser_auth_rls_e2e.js
+          node tests/visual/v151_browser_sheet_save_reload_cas_e2e.js
 
       - name: Verify live roll feed RLS and Realtime integration
         run: |

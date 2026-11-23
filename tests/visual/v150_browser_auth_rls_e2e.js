@@ -84,6 +84,22 @@ async function interceptLocalConfig(page) {
   });
 }
 
+async function waitForAuthFormReady(page) {
+  const title = page.locator('#authForm h2');
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    await page.locator('#authModeToggle').click();
+    if ((await title.textContent())?.trim() === 'Criar conta') {
+      await page.locator('#authModeToggle').click();
+      await page.waitForFunction(() =>
+        document.querySelector('#authForm h2')?.textContent?.trim() === 'CHRONUS'
+      );
+      return;
+    }
+    await page.waitForTimeout(100);
+  }
+  throw new Error('Auth form handlers did not initialize before the browser login test');
+}
+
 async function openAuthModalThroughUi(page) {
   await page.locator('#btn-nav-login').click();
   // The static header can render before auth.init() replaces it with the
@@ -96,6 +112,7 @@ async function openAuthModalThroughUi(page) {
     window.ChronusAuth.showAuthModal();
   });
   await page.locator('#authGate').waitFor({ state: 'visible' });
+  await waitForAuthFormReady(page);
 }
 
 async function loginThroughUi(page, user) {
@@ -111,13 +128,32 @@ async function loginThroughUi(page, user) {
   assert.equal(displayedName, user.name, 'header must display the authenticated profile identity');
 }
 
-async function visibleCharacterIds(page) {
-  return page.evaluate(async () => {
-    const client = window.ChronusSupabase.getClient();
-    const { data, error } = await client.from('characters').select('id,user_id,name,revision');
-    if (error) throw new Error(error.message);
-    return data.map(row => ({ id: row.id, owner: row.user_id, name: row.name }));
-  });
+async function visibleCharacterIds(page, expectedUserId) {
+  let lastError;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await page.waitForFunction(expected =>
+        window.ChronusAuth?.getUser()?.id === expected
+        && typeof window.ChronusSupabase?.getClient === 'function'
+      , expectedUserId, { timeout: 10000 });
+      return await page.evaluate(async expected => {
+        if (window.ChronusAuth?.getUser()?.id !== expected) {
+          throw new Error('Browser identity changed before the RLS query');
+        }
+        const client = window.ChronusSupabase.getClient();
+        const { data, error } = await client.from('characters').select('id,user_id,name,revision');
+        if (error) throw new Error(error.message);
+        return data.map(row => ({ id: row.id, owner: row.user_id, name: row.name }));
+      }, expectedUserId);
+    } catch (error) {
+      lastError = error;
+      if (!/Execution context was destroyed|Most likely the page has been closed|Target page, context or browser has been closed/i.test(String(error))) {
+        throw error;
+      }
+      await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+    }
+  }
+  throw lastError || new Error('Could not query visible character rows after navigation');
 }
 
 (async () => {
@@ -137,7 +173,7 @@ async function visibleCharacterIds(page) {
     await Promise.all([loginThroughUi(pageA, userA), loginThroughUi(pageB, userB)]);
 
     const [rowsA, rowsB] = await Promise.all([
-      visibleCharacterIds(pageA), visibleCharacterIds(pageB)
+      visibleCharacterIds(pageA, userA.id), visibleCharacterIds(pageB, userB.id)
     ]);
     assert.deepEqual(rowsA.map(row => row.id), [userA.characterId],
       'authenticated browser A must see only its own character');
@@ -156,7 +192,7 @@ async function visibleCharacterIds(page) {
     await pageA.locator('#authPassword').fill(password);
     await pageA.locator('#authLoginButton').click();
     await pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id);
-    const switchedRows = await visibleCharacterIds(pageA);
+    const switchedRows = await visibleCharacterIds(pageA, userB.id);
     assert.deepEqual(switchedRows.map(row => row.id), [userB.characterId],
       'after switching accounts, prior account data must not remain visible');
     assert.ok(switchedRows.every(row => row.owner === userB.id));
