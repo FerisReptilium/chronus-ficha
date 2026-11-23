@@ -11,13 +11,13 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
   const page = await context.newPage();
   try {
     await page.goto(`${BASE_URL}/#/home`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => Boolean(window.ChronusRouter));
+    await page.waitForFunction(() => Boolean(window.ChronusRouter) && !document.getElementById('chronus-boot-screen'));
     const announcer = page.locator('#route-announcer');
 
     const deepLinkContext = await browser.newContext({ viewport: { width: 1365, height: 900 } });
     const deepLinkPage = await deepLinkContext.newPage();
     await deepLinkPage.goto(`${BASE_URL}/#/sessions`, { waitUntil: 'domcontentloaded' });
-    await deepLinkPage.waitForFunction(() => Boolean(window.ChronusRouter));
+    await deepLinkPage.waitForFunction(() => Boolean(window.ChronusRouter) && !document.getElementById('chronus-boot-screen'));
     assert.strictEqual(await deepLinkPage.locator('#route-announcer').textContent(), '', 'A direct deep-link load must not be announced as an in-app transition');
     await deepLinkContext.close();
 
