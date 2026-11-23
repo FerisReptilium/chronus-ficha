@@ -221,6 +221,9 @@ window.ChronusRouter = (function() {
       if (event.shiftKey && (event.target === first || active === first)) {
         event.preventDefault();
         event.stopImmediatePropagation();
+        // Algumas regras legadas reaplicam visibility:hidden após a abertura.
+        // Reafirma a visibilidade imediatamente antes de transferir o foco.
+        last?.style.setProperty('visibility', 'visible', 'important');
         last?.focus();
         if (drawer) drawer.dataset.focusTrapResult = JSON.stringify({
           branch: 'shift-tab',
@@ -231,6 +234,8 @@ window.ChronusRouter = (function() {
           lastRects: last?.getClientRects().length,
           lastConnected: !!last?.isConnected,
           lastVisibility: last ? getComputedStyle(last).visibility : null,
+          lastInlineVisibility: last?.style.getPropertyValue('visibility') || null,
+          lastInlinePriority: last?.style.getPropertyPriority('visibility') || null,
           lastDisplay: last ? getComputedStyle(last).display : null,
           lastOpacity: last ? getComputedStyle(last).opacity : null,
           lastRect: last ? (() => { const r = last.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })() : null,
@@ -254,7 +259,9 @@ window.ChronusRouter = (function() {
       if (event.key !== 'Tab' || !event.shiftKey || !drawer?.classList.contains('is-open')) return;
       if (document.activeElement !== closeBtn) return;
       const links = drawer.querySelectorAll('.mobile-nav-links a[href]');
-      links[links.length - 1]?.focus();
+      const lastLink = links[links.length - 1];
+      lastLink?.style.setProperty('visibility', 'visible', 'important');
+      lastLink?.focus();
       drawer.dataset.focusTrapKeyup = JSON.stringify({
         key: event.key,
         shift: event.shiftKey,
