@@ -198,12 +198,13 @@ window.ChronusRouter = (function() {
       const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')];
       const first = closeBtn || links[0];
       const last = links[links.length - 1];
+      const active = document.activeElement;
 
-      if (event.shiftKey && event.target === first) {
+      if (event.shiftKey && (event.target === first || active === first)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         last?.focus();
-      } else if (!event.shiftKey && event.target === last) {
+      } else if (!event.shiftKey && (event.target === last || active === last)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         first?.focus();
