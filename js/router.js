@@ -182,43 +182,36 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    // Capturar no document garante o trap mesmo quando o foco inicial está no botão
-    // de fechar; a delegação também sobrevive a mudanças internas no conteúdo do drawer.
-    document.addEventListener('keydown', event => {
-      if (!drawer?.classList.contains('is-open')) return;
-      const active = document.activeElement;
-      const eventOrigin = event.target instanceof Element ? event.target : active;
-      // O evento pode chegar ao document antes de o navegador consolidar activeElement.
-      // Consideramos também o alvo real do teclado para não perder o primeiro Shift+Tab.
-      if (!drawer.contains(active) && !drawer.contains(eventOrigin)) return;
+    // O handler local ao botão garante o wrap do primeiro Shift+Tab sem depender
+    // da ordem de propagação de listeners globais do portal.
+    closeBtn?.addEventListener('keydown', event => {
+      if (event.key !== 'Tab' || !event.shiftKey || !drawer?.classList.contains('is-open')) return;
+      const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
+        .filter(link => link.getClientRects().length && !link.closest('[inert]'));
+      if (!links.length) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      links[links.length - 1].focus();
+    });
+
+    drawer?.addEventListener('keydown', event => {
+      if (!drawer.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopImmediatePropagation();
         close(true);
         return;
       }
-      if (event.key !== 'Tab') return;
-      const focusable = [...drawer.querySelectorAll(focusableSelector)]
-        .filter(element => element.getClientRects().length && !element.inert && !element.closest('[inert]'));
-      if (!focusable.length) {
+      if (event.key !== 'Tab' || event.shiftKey) return;
+      const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
+        .filter(link => link.getClientRects().length && !link.closest('[inert]'));
+      const last = links[links.length - 1];
+      if (last && event.target === last) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        drawer.focus();
-        return;
+        closeBtn?.focus();
       }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const current = drawer.contains(active) ? active : eventOrigin;
-      if (event.shiftKey && (current === first || current === closeBtn || current === drawer)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        last.focus();
-      } else if (!event.shiftKey && current === last) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        first.focus();
-      }
-    }, true);
+    });
   }
 
   function closeMobileMenu() {
