@@ -14,6 +14,8 @@ async function inspectViewport(browser, name, viewport) {
   try {
     await page.goto(`${BASE_URL}/#/`, { waitUntil: 'domcontentloaded' });
     await page.locator('#view-sheet').waitFor({ state: 'attached' });
+    await page.locator('#attributeLayer select').first().waitFor({ state: 'attached', timeout: 15000 });
+    await page.locator('#page2Formulas input').first().waitFor({ state: 'attached', timeout: 15000 });
     await page.evaluate(() => {
       const sheetView = document.querySelector('#view-sheet');
       sheetView.style.display = 'block';
