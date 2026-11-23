@@ -182,36 +182,33 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    // O handler local ao botão garante o wrap do primeiro Shift+Tab sem depender
-    // da ordem de propagação de listeners globais do portal.
-    closeBtn?.addEventListener('keydown', event => {
-      if (event.key !== 'Tab' || !event.shiftKey || !drawer?.classList.contains('is-open')) return;
-      const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
-        .filter(link => link.getClientRects().length && !link.closest('[inert]'));
-      if (!links.length) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      links[links.length - 1].focus();
-    });
-
-    drawer?.addEventListener('keydown', event => {
-      if (!drawer.classList.contains('is-open')) return;
+    // Um único listener em captura controla o ciclo completo do foco.
+    // Compara o alvo real do evento e não depende de cálculos de visibilidade
+    // durante a animação de abertura do drawer.
+    window.addEventListener('keydown', event => {
+      if (!drawer?.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopImmediatePropagation();
         close(true);
         return;
       }
-      if (event.key !== 'Tab' || event.shiftKey) return;
-      const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
-        .filter(link => link.getClientRects().length && !link.closest('[inert]'));
+      if (event.key !== 'Tab') return;
+
+      const links = [...drawer.querySelectorAll('.mobile-nav-links a[href]')];
+      const first = closeBtn || links[0];
       const last = links[links.length - 1];
-      if (last && event.target === last) {
+
+      if (event.shiftKey && event.target === first) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        closeBtn?.focus();
+        last?.focus();
+      } else if (!event.shiftKey && event.target === last) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        first?.focus();
       }
-    });
+    }, true);
   }
 
   function closeMobileMenu() {
