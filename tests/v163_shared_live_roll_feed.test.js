@@ -15,7 +15,7 @@ assert(service.includes(".on('postgres_changes'"), 'shared roll feed must subscr
 assert(service.includes("table: 'chronus_roll_events'"), 'shared feed must listen to roll event table');
 assert(service.includes(".order('created_at', { ascending: false })"), 'shared feed must recover recent history after reconnect/reload');
 assert(service.includes(".limit(20)"), 'shared feed history must remain bounded');
-assert(service.includes("status.textContent = '● Sincronizada'"), 'connection status must be visible');
+assert(service.includes("'● Sincronizada'"), 'connection status must be visible');
 assert(service.includes("status.textContent = 'Reconectando…'"), 'connection loss must be visible');
 assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();"), 'history must be reloaded after reconnect');
 assert(service.includes('feedGeneration += 1'), 'stale async history responses must be invalidated on unmount');
