@@ -73,7 +73,7 @@ jobs:
             /js/modules/narrator_panel.js \
             /js/modules/chronus_live_v140.js \
             /css/chronus-live-v140.css \
-            /css/sheet-writing-alignment-v15.css \\
+            /css/sheet-writing-alignment-v15.css \
             /css/narrator-panel-polish-v16.css \
             /assets/art/hero-berlin-1992.webp \
             /assets/video/v135-hero-berlin-loop.webm; do
