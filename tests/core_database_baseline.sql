@@ -292,7 +292,7 @@ SELECT set_config(
   true
 );
 
-DO $
+DO $$
 DECLARE
   v_count integer;
   v_rows integer;
@@ -327,7 +327,7 @@ BEGIN
   IF NOT v_blocked THEN
     RAISE EXCEPTION 'Narrator must not be able to transfer character ownership';
   END IF;
-END $;
+END $$;
 ROLLBACK;
 
 SELECT 'PASS: CHRONUS Auth profile automation, email sync, player ownership and narrator campaign-admin sheet editing' AS result;
