@@ -545,10 +545,10 @@
   <!-- =========================================================================
        3. MODAIS DE AUTENTICAÇÃO E SENHA
        ========================================================================= -->
-  <div id="authGate" class="auth-gate portal-shell no-print" hidden style="display: none;">
+  <div id="authGate" class="auth-gate portal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="authTitle" aria-hidden="true" inert tabindex="-1" hidden style="display: none;">
     <form id="authForm" class="auth-card" autocomplete="on">
       <button type="button" class="modal-close-corner" id="btn-close-auth-modal" title="Fechar">✕</button>
-      <h2>CHRONUS</h2>
+      <h2 id="authTitle">CHRONUS</h2>
       <p class="auth-subtitle">Acesso exclusivo aos jogadores cadastrados e ao Narrador.</p>
 
       <label for="authDisplayName" id="authDisplayNameLabel" hidden>Nome de jogador</label>
@@ -572,7 +572,7 @@
     </form>
   </div>
 
-  <div id="passwordGate" class="auth-gate portal-shell no-print" hidden style="display: none;">
+  <div id="passwordGate" class="auth-gate portal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="passwordTitle" aria-hidden="true" inert tabindex="-1" hidden style="display: none;">
     <form id="passwordForm" class="auth-card" autocomplete="off">
       <button type="button" class="modal-close-corner" id="passwordCancelButton" title="Fechar">✕</button>
       <h2 id="passwordTitle">Alterar senha</h2>
