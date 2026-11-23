@@ -42,7 +42,7 @@
 
     if (!records.size) {
       const item = document.createElement('li');
-      item.className = 'chronus-live-roll-empty';
+      item.className = 'chronus-live-roll-empty narrator-roll-feed-empty';
       item.textContent = 'Nenhuma rolagem compartilhada nesta sessão ainda.';
       list.appendChild(item);
       return;
