@@ -211,7 +211,7 @@ assert(sheetSource.includes("if (!isNarratorView && (!localOwner || localOwner =
 assert(sheetSource.includes("if (isNarratorView && !activeSessionUser)"), 'first-time narrator view must reload after establishing the authenticated session so its snapshot is loaded');
 assert(sheetSource.includes("const illumination = String(s.illumination || 'd4').toLowerCase()"), 'legacy or malformed Illumination values must normalize before Mana maximum calculation');
 assert(sheetSource.includes("const hasValidResourceValue = value => ("), 'malformed null or blank resource values must use derived defaults instead of silently becoming zero');
-assert(sheetSource.includes('Math.floor(Number(s.resources.determination))') && sheetSource.includes('Math.floor(Number(s.resources.mana))') && sheetSource.includes('Math.floor(Number(s.resources.wounds))'), 'resource counters must normalize persisted values to whole numbers');
+assert(sheetSource.includes('Math.floor(Number.isFinite(rawCurrent) ? rawCurrent : 0)'), 'resource counters must normalize persisted values to finite whole numbers');
 assert(sheetSource.includes("if (!s || typeof s !== 'object' || Array.isArray(s)) s = clone(defaultState);"), 'invalid root sheet payloads must normalize to a safe default shape');
 assert(sheetSource.includes("if (!s.lists || typeof s.lists !== 'object' || Array.isArray(s.lists)) s.lists = clone(defaultState.lists);"), 'malformed list containers must not crash the sheet renderer');
 assert(sheetSource.includes("s.lists.equipment.slice(0,4).map(item => ({"), 'malformed equipment rows must normalize before rendering');

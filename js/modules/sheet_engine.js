@@ -140,9 +140,25 @@ window.ChronusSheetEngine = (function() {
     if (!hasValidResourceValue(s.resources.wounds)) {
       s.resources.wounds = Object.keys(s.markers).filter(key => key.startsWith('wounds.') && s.markers[key] !== 'empty').length;
     }
-    s.resources.determination = Math.max(0, Math.min(initialDetermination, Math.floor(Number(s.resources.determination))));
-    s.resources.mana = Math.max(0, Math.min(initialMana, Math.floor(Number(s.resources.mana))));
-    s.resources.wounds = Math.max(0, Math.min(initialWounds, Math.floor(Number(s.resources.wounds))));
+    // Preserve a resource that was full when its previous maximum was saved.
+    // This keeps attribute/Illumination increases consistent after reload or
+    // account hydration, while spent resources remain spent.
+    const previousMaxima = s.resources.max && typeof s.resources.max === 'object'
+      && !Array.isArray(s.resources.max) ? s.resources.max : null;
+    const reconcileLoadedResource = (key, nextMax) => {
+      const rawCurrent = Number(s.resources[key]);
+      const current = Math.max(0, Math.floor(Number.isFinite(rawCurrent) ? rawCurrent : 0));
+      const rawPreviousMax = previousMaxima?.[key];
+      const hasPreviousMax = (
+        (typeof rawPreviousMax === 'number' && Number.isFinite(rawPreviousMax)) ||
+        (typeof rawPreviousMax === 'string' && rawPreviousMax.trim() !== '' && Number.isFinite(Number(rawPreviousMax)))
+      );
+      const previousMax = hasPreviousMax ? Math.max(0, Number(rawPreviousMax)) : nextMax;
+      return current >= previousMax ? nextMax : Math.min(current, nextMax);
+    };
+    s.resources.determination = reconcileLoadedResource('determination', initialDetermination);
+    s.resources.mana = reconcileLoadedResource('mana', initialMana);
+    s.resources.wounds = reconcileLoadedResource('wounds', initialWounds);
     s.resources.max = { determination: initialDetermination, mana: initialMana, wounds: initialWounds };
     Object.entries(s.markers).forEach(([key,value]) => {
       if (key.startsWith('wounds.')) {
