@@ -90,7 +90,7 @@ VALUES (
 );
 COMMIT;
 
--- Player A sees only their own event and cannot create a narrator-owned event.
+-- Player A sees the shared table events and cannot create a narrator-owned event.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000301"}',true);
