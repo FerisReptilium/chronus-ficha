@@ -719,12 +719,8 @@ window.ChronusSheetEngine = (function() {
     renderEquipment();
     renderFormulas();
     renderPage2();
-    document.querySelectorAll('.sheet-page').forEach(page => {
-      page.classList.toggle('is-active', page.id === (state.activePage || 'page-1'));
-    });
-    document.querySelectorAll('[data-page-target]').forEach(tab => {
-      tab.classList.toggle('is-active', tab.dataset.pageTarget === (state.activePage || 'page-1'));
-    });
+    syncPageAccessibility(state.activePage || 'page-1');
+
     updateResourceCounters();
   }
 
@@ -1502,14 +1498,45 @@ window.ChronusSheetEngine = (function() {
     }
   }
 
+  function syncPageAccessibility(activeId) {
+    document.querySelectorAll('.sheet-page').forEach(page => {
+      const active = page.id === activeId;
+      page.classList.toggle('is-active', active);
+      page.setAttribute('aria-hidden', String(!active));
+      page.inert = !active;
+    });
+    document.querySelectorAll('[data-page-target]').forEach(tab => {
+      const active = tab.dataset.pageTarget === activeId;
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+  }
+
   function setupTabs() {
-    const activate=(id, save=true)=>{
-      document.querySelectorAll('.sheet-page').forEach(p=>p.classList.toggle('is-active',p.id===id));
-      document.querySelectorAll('[data-page-target]').forEach(t=>t.classList.toggle('is-active',t.dataset.pageTarget===id));
-      state.activePage=id; if(save) scheduleSave(); window.scrollTo({top:0,behavior:'smooth'});
+    const tabs = Array.from(document.querySelectorAll('[data-page-target]'));
+    const activate = (id, save=true) => {
+      if (!['page-1','page-2'].includes(id)) return;
+      syncPageAccessibility(id);
+      state.activePage = id;
+      if (save) scheduleSave();
+      window.scrollTo({top:0,behavior:'smooth'});
     };
-    document.querySelectorAll('[data-page-target]').forEach(t=>t.addEventListener('click',()=>activate(t.dataset.pageTarget,true)));
-    activate(state.activePage||'page-1', false);
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activate(tab.dataset.pageTarget, true));
+      tab.addEventListener('keydown', event => {
+        let nextIndex = null;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = tabs.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        tabs[nextIndex].focus();
+        activate(tabs[nextIndex].dataset.pageTarget, true);
+      });
+    });
+    activate(state.activePage || 'page-1', false);
   }
 
   function setupActions() {

@@ -48,10 +48,13 @@ jobs:
           cp supabase/migrations/20261122165137_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122165137_character_revision_cas.sql
           cd .chronus-db-ci
           supabase init
-          # Avoid the hosted runner's default PostgreSQL port, which may be
-          # occupied by another service on shared runner infrastructure.
-          sed -i '/^\[db\]/,/^\[/ s/^port = 54322$/port = 54332/' supabase/config.toml
-          sed -i '/^\[db\]/,/^\[/ s/^shadow_port = 54320$/shadow_port = 54330/' supabase/config.toml
+          # Allocate per-run PostgreSQL ports: concurrent pull-request workflows
+          # share hosted runner infrastructure and must not bind the same host port.
+          db_port=$((55000 + GITHUB_RUN_ID % 10000))
+          shadow_port=$((db_port + 1))
+          sed -i "/^\\[db\\]/,/^\\[/ s/^port = 54322$/port = ${db_port}/" supabase/config.toml
+          sed -i "/^\\[db\\]/,/^\\[/ s/^shadow_port = 54320$/shadow_port = ${shadow_port}/" supabase/config.toml
+          echo "Isolated Supabase database ports: ${db_port}/${shadow_port}"
 
       - name: Start a clean local Supabase stack and apply all migrations
         working-directory: .chronus-db-ci
