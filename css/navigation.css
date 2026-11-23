@@ -266,6 +266,11 @@
   display: block;
 }
 
+/* Links do drawer precisam permanecer focáveis enquanto o diálogo está aberto. */
+.mobile-nav-drawer.is-open .mobile-nav-links .nav-link {
+  visibility: visible !important;
+}
+
 .mobile-nav-overlay {
   position: fixed;
   inset: 0;
