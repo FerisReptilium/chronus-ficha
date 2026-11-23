@@ -27,14 +27,14 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
       assert.strictEqual(await announcer.textContent(), '', 'Initial render must not generate a false route-change announcement');
     }, 'initial live region');
 
-    await page.getByRole('link', { name: 'Crônica' }).first().click();
+    await page.locator('a[href="#/chronicle"]:visible').first().click();
     await page.waitForFunction(() => location.hash === '#/chronicle');
     await assertEventually(async () => {
       assert.strictEqual(await announcer.textContent(), 'Crônica · CHRONUS', 'Client-side navigation must announce the destination title');
       assert.strictEqual(await page.title(), 'Crônica · CHRONUS', 'The document title and live announcement must stay aligned');
     }, 'route announcement');
 
-    await page.getByRole('link', { name: 'Sessões' }).first().click();
+    await page.locator('a[href="#/sessions"]:visible').first().click();
     await page.waitForFunction(() => location.hash === '#/sessions');
     await assertEventually(async () => {
       assert.strictEqual(await announcer.textContent(), 'Sessões · CHRONUS', 'Each subsequent route must announce its own title');
