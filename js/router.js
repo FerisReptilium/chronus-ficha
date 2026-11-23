@@ -182,7 +182,8 @@ window.ChronusRouter = (function() {
     closeBtn?.addEventListener('click', () => close(true));
     overlay?.addEventListener('click', () => close(true));
 
-    drawer?.addEventListener('keydown', event => {
+    document.addEventListener('keydown', event => {
+      if (!drawer?.classList.contains('is-open')) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         close(true);
@@ -205,7 +206,7 @@ window.ChronusRouter = (function() {
         event.preventDefault();
         first.focus();
       }
-    });
+    }, true);
   }
 
   function closeMobileMenu() {
