@@ -114,7 +114,7 @@ function showBootFailure() {
   const screen = document.getElementById('chronus-boot-screen');
   if (!screen) return;
   screen.innerHTML = `
-    <section class="chronus-boot-card" role="alert" aria-live="assertive">
+    <section id="chronus-boot-error" class="chronus-boot-card" role="alert" aria-live="assertive">
       <span class="chronus-boot-sigil" aria-hidden="true">✦</span>
       <h1>CHRONUS</h1>
       <p>Não foi possível preparar o portal.</p>
