@@ -21,10 +21,11 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
     assert.strictEqual(await authGate.getAttribute('aria-hidden'), 'false');
     assert.strictEqual(await authGate.getAttribute('aria-modal'), 'true');
 
+    await page.locator('#btn-close-auth-modal').focus();
     await page.keyboard.press('Shift+Tab');
-    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'btn-close-auth-modal', 'Shift+Tab from the first field must move to the last focusable control');
+    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'authForgotButton', 'Shift+Tab from the first control must wrap to the last control');
     await page.keyboard.press('Tab');
-    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'authEmail', 'Tab from the last control must wrap to the first control');
+    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'btn-close-auth-modal', 'Tab from the last control must wrap to the first control');
 
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.querySelector('#authGate')?.hidden === true);
@@ -35,10 +36,11 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
     await page.waitForFunction(() => document.activeElement?.id === 'newPassword');
     const passwordGate = page.locator('#passwordGate');
     assert.strictEqual(await passwordGate.getAttribute('aria-hidden'), 'false');
+    await page.locator('#passwordCancelButton').focus();
     await page.keyboard.press('Shift+Tab');
-    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'passwordCancelButton', 'Password dialog focus must wrap in reverse');
+    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'passwordSaveButton', 'Password dialog focus must wrap in reverse');
     await page.keyboard.press('Tab');
-    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'newPassword', 'Password dialog focus must wrap forward');
+    assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'passwordCancelButton', 'Password dialog focus must wrap forward');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.querySelector('#passwordGate')?.hidden === true);
     console.log('PASS v1.5.5 auth/password dialogs: initial focus, focus trap, Escape, ARIA and focus restoration');
