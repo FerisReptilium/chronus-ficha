@@ -201,7 +201,15 @@ window.ChronusRouter = (function() {
       const navigationLinks = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
         .filter(element => element.getClientRects().length && !element.closest('[inert]'));
       const lastNavigationLink = navigationLinks[navigationLinks.length - 1] || focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === closeBtn || document.activeElement === first || document.activeElement === drawer)) {
+
+      // O botão de fechar recebe o foco ao abrir o drawer. Trate esse ponto
+      // explicitamente para que Shift+Tab sempre alcance o último link.
+      if (event.shiftKey && document.activeElement === closeBtn && lastNavigationLink) {
+        event.preventDefault();
+        lastNavigationLink.focus();
+        return;
+      }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
         event.preventDefault();
         lastNavigationLink.focus();
       } else if (!event.shiftKey && document.activeElement === lastNavigationLink) {
