@@ -50,7 +50,7 @@
 
     [...records.values()].forEach(record => {
       const item = document.createElement('li');
-      item.className = 'chronus-live-roll-event';
+      item.className = 'chronus-live-roll-event narrator-roll-event';
       const marker = document.createElement('span');
       marker.className = 'chronus-live-feed-marker';
       marker.setAttribute('aria-hidden', 'true');
