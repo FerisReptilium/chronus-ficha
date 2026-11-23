@@ -24,13 +24,7 @@ const BASE_URL = process.env.CHRONUS_PREVIEW_URL || 'http://127.0.0.1:4173';
     }, 'opening state and initial focus');
 
     await page.keyboard.press('Shift+Tab');
-    const focusDiagnostic = {
-      keydown: await drawer.getAttribute('data-focus-trap-diagnostic'),
-      result: await drawer.getAttribute('data-focus-trap-result'),
-      keyup: await drawer.getAttribute('data-focus-trap-keyup'),
-      focusin: await drawer.getAttribute('data-focus-trap-focusin')
-    };
-    assert.strictEqual(await page.evaluate(() => document.activeElement?.textContent.trim()), '📚 Biblioteca', `Shift+Tab must wrap to the last navigation link; diagnostic=${JSON.stringify(focusDiagnostic)}`);
+    assert.strictEqual(await page.evaluate(() => document.activeElement?.textContent.trim()), '📚 Biblioteca', 'Shift+Tab must wrap to the last navigation link');
     await page.keyboard.press('Tab');
     assert.strictEqual(await page.evaluate(() => document.activeElement?.id), 'btn-mobile-menu-close', 'Tab must wrap to the first focusable control');
 
