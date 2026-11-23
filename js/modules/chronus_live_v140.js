@@ -231,7 +231,7 @@ window.ChronusLiveV140 = (function() {
     rendered = true;
     bindControls();
     renderAll();
-    seedFeed();
+    window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'));
     return true;
   }
 
