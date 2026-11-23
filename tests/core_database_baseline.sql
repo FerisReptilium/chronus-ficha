@@ -282,7 +282,8 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- NARRATOR: can see the roster and every sheet, but still cannot change players' sheets.
+-- NARRATOR: can inspect and edit player sheet content, but cannot transfer
+-- ownership. This is campaign administration, not Supabase/Auth administration.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config(
@@ -295,6 +296,7 @@ DO $$
 DECLARE
   v_count integer;
   v_rows integer;
+  v_blocked boolean := false;
 BEGIN
   SELECT count(*) INTO v_count FROM public.profiles;
   IF v_count <> 3 THEN
@@ -307,13 +309,25 @@ BEGIN
   END IF;
 
   UPDATE public.characters
-  SET name='Narrator must not edit player sheet'
+  SET name='Ficha editada pelo Narrador administrador',
+      data=jsonb_set(data, '{admin_edit_test}', 'true'::jsonb)
   WHERE user_id='00000000-0000-0000-0000-000000000201';
   GET DIAGNOSTICS v_rows = ROW_COUNT;
-  IF v_rows <> 0 THEN
-    RAISE EXCEPTION 'Narrator unexpectedly received write access to player characters';
+  IF v_rows <> 1 THEN
+    RAISE EXCEPTION 'Narrator should update player sheet content; rows=%',v_rows;
+  END IF;
+
+  BEGIN
+    UPDATE public.characters
+    SET user_id='00000000-0000-0000-0000-000000000203'
+    WHERE user_id='00000000-0000-0000-0000-000000000201';
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_blocked := true;
+  END;
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'Narrator must not be able to transfer character ownership';
   END IF;
 END $$;
 ROLLBACK;
 
-SELECT 'PASS: CHRONUS Auth profile automation, email sync, character RLS and narrator read-only behavior' AS result;
+SELECT 'PASS: CHRONUS Auth profile automation, email sync, player ownership and narrator campaign-admin sheet editing' AS result;

@@ -101,12 +101,17 @@ jobs:
 
       - name: Start preview server
         run: |
+          set -euo pipefail
           python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chronus-browser-http.log 2>&1 &
           echo $! > /tmp/chronus-browser-http.pid
 
-          for attempt in 1 2 3 4 5; do
+          for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              echo "CHRONUS browser preview server ready"
               exit 0
+            fi
+            if ! kill -0 "$(cat /tmp/chronus-browser-http.pid)" 2>/dev/null; then
+              break
             fi
             sleep 1
           done

@@ -1023,3 +1023,56 @@ textarea.form-control {
     justify-content: center;
   }
 }
+
+
+/* CHRONUS — Narrator campaign administrator sheet-editing state */
+.narrator-admin-editing #narratorViewBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 0 0 18px;
+  color: #f8df93;
+  background: linear-gradient(120deg, rgba(89, 61, 21, .94), rgba(35, 25, 16, .98));
+  border: 1px solid rgba(201, 154, 69, .55);
+  border-left: 4px solid #e0b85c;
+  border-radius: 8px;
+  font: 700 .82rem/1.5 var(--font-sans);
+  letter-spacing: .025em;
+}
+
+.narrator-admin-editing .narrator-admin-back {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  color: #21180d;
+  background: #e0b85c;
+  border: 1px solid #f4d58b;
+  border-radius: 5px;
+  font: 700 .75rem/1.2 var(--font-sans);
+  cursor: pointer;
+}
+
+.narrator-admin-editing .narrator-admin-back:hover,
+.narrator-admin-editing .narrator-admin-back:focus-visible {
+  background: #f4d58b;
+  outline: 2px solid #fff0c2;
+  outline-offset: 2px;
+}
+
+.narrator-admin-editing #narratorViewBanner::before {
+  content: "✦";
+  margin-right: 2px;
+  color: #f4d58b;
+}
+
+@media (max-width: 640px) {
+  .narrator-admin-editing #narratorViewBanner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .narrator-admin-editing .narrator-admin-back {
+    width: 100%;
+  }
+}

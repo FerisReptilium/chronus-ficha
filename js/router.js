@@ -197,12 +197,14 @@ window.ChronusRouter = (function() {
         drawer.focus();
         return;
       }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) {
+      const first = closeBtn || focusable[0];
+      const navigationLinks = [...drawer.querySelectorAll('.mobile-nav-links a[href]')]
+        .filter(element => element.getClientRects().length && !element.closest('[inert]'));
+      const lastNavigationLink = navigationLinks[navigationLinks.length - 1] || focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === closeBtn || document.activeElement === first || document.activeElement === drawer)) {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+        lastNavigationLink.focus();
+      } else if (!event.shiftKey && document.activeElement === lastNavigationLink) {
         event.preventDefault();
         first.focus();
       }

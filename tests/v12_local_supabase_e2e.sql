@@ -1,5 +1,5 @@
 -- CHRONUS v1.2 — local Supabase integration checks
--- Runs after migrations 001/002/003/004/005 inside the disposable CI database.
+-- Runs after the complete migration chain inside the disposable CI database.
 \set ON_ERROR_STOP on
 
 -- Structural hardening: helpers must leave public and exist only in chronus_private.
@@ -276,8 +276,8 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- NARRATOR: all editorial rows/assets/profiles/characters remain readable and
--- editorial INSERT/UPDATE/DELETE remains authorized after replacing FOR ALL.
+-- NARRATOR: editorial rows/assets/profiles/characters remain readable; editorial
+-- CRUD and campaign-wide character UPDATE are authorized, while ownership stays immutable.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000102"}',true);
@@ -285,6 +285,7 @@ DO $$
 DECLARE
   v_count integer;
   v_rows integer;
+  v_blocked boolean := false;
 BEGIN
   IF NOT chronus_private.is_chronus_narrator() THEN
     RAISE EXCEPTION 'FAIL narrator helper false';
@@ -327,11 +328,22 @@ BEGIN
   SELECT count(*) INTO v_count FROM public.characters WHERE name LIKE 'V12 % Character';
   IF v_count <> 2 THEN RAISE EXCEPTION 'FAIL narrator character SELECT visibility: %', v_count; END IF;
 
+  -- Campaign Narrator may edit any player's sheet, but cannot transfer ownership.
   UPDATE public.characters
-     SET name = 'V12 Narrator Illicit Update'
+     SET name = 'V12 Narrator Authorized Update'
    WHERE id = '30000000-0000-0000-0000-000000000001';
   GET DIAGNOSTICS v_rows = ROW_COUNT;
-  IF v_rows <> 0 THEN RAISE EXCEPTION 'FAIL narrator character write access broadened'; END IF;
+  IF v_rows <> 1 THEN RAISE EXCEPTION 'FAIL narrator cannot update player character: %', v_rows; END IF;
+
+  v_blocked := false;
+  BEGIN
+    UPDATE public.characters
+       SET user_id = '00000000-0000-0000-0000-000000000103'
+     WHERE id = '30000000-0000-0000-0000-000000000001';
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+    v_blocked := true;
+  END;
+  IF NOT v_blocked THEN RAISE EXCEPTION 'FAIL narrator transferred character ownership'; END IF;
 
   INSERT INTO public.chronicle_chapters (id, chapter_number, title, slug, content, visibility, published)
   VALUES ('10000000-0000-0000-0000-000000000020',20,'Narrator CRUD Chapter','v12-narrator-crud','crud','narrator',false);
