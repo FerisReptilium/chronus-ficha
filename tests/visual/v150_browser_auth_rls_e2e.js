@@ -208,12 +208,12 @@ async function visibleCharacterIds(page, expectedUserId) {
       pageB.evaluate(() => { window.location.hash = '#/live'; })
     ]);
     await Promise.all([
-      pageA.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', { timeout: 20000 }),
-      pageB.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', { timeout: 20000 })
+      pageA.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 }),
+      pageB.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 })
     ]);
     await Promise.all([
-      pageA.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, { timeout: 20000 }),
-      pageB.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, { timeout: 20000 })
+      pageA.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, undefined, { timeout: 20000 }),
+      pageB.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, undefined, { timeout: 20000 })
     ]);
     const [rosterA, rosterB] = await Promise.all([
       pageA.locator('#chronus-live-roster').innerText(),
