@@ -117,6 +117,7 @@ window.ChronusRouter = (function() {
 
     if (cleanHash !== '#/live') {
       void window.ChronusNarrativeLive?.unmountSharedRollFeed?.();
+      void window.ChronusLiveV140?.unmount?.();
     }
 
     // Se for rota de dashboard ou conteúdo, recarrega dados atualizados
