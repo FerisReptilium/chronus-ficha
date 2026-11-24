@@ -512,6 +512,8 @@ window.ChronusLiveV140 = (function() {
 
     if (!user) {
       state.participants = state.participants.filter(item => !item.isLocal);
+      const status = document.getElementById('chronus-live-connection-status');
+      if (status?.querySelector('strong')) status.querySelector('strong').textContent = 'Entre para acessar a mesa';
       renderAll();
       return;
     }
@@ -524,6 +526,7 @@ window.ChronusLiveV140 = (function() {
       local.role = 'Narrador';
       local.detail = 'Controle da sessão';
       if (rendered && window.location.hash.startsWith('#/live')) renderAll();
+      if (window.location.hash.startsWith('#/live')) connectPresence();
       return;
     }
 
@@ -672,7 +675,6 @@ window.ChronusLiveV140 = (function() {
     ensureStylesheet();
     if (!rendered || !getRoot()?.querySelector('.chronus-live-room')) buildShell();
     hydrateCurrentParticipant();
-    connectPresence();
     window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'));
     document.documentElement.dataset.chronusLive = PREVIEW_MARKER;
     if (isLocalPreview()) document.documentElement.dataset.chronusLiveLocalPreview = 'true';
