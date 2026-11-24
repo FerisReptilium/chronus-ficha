@@ -79,6 +79,7 @@ window.ChronusLiveV140 = (function() {
   let portraitObjectUrl = '';
   let portraitHydrationId = 0;
   let presenceChannel = null;
+  let presenceKey = '';
   let presenceGeneration = 0;
   let presenceStatus = 'Desconectado';
   let currentIdentity = null;
@@ -597,7 +598,9 @@ window.ChronusLiveV140 = (function() {
         const userId = typeof entry.user_id === 'string' ? entry.user_id : '';
         if (!userId || seenUsers.has(userId)) return;
         seenUsers.add(userId);
-        const isLocal = userId === currentIdentity?.userId;
+        // Presence payload fields are client-supplied; use our random channel key
+        // (not user_id or role from the payload) to identify this browser tab.
+        const isLocal = key === presenceKey;
         const existing = state.participants.find(item => item.id === `${userId}:${key}`);
         next.push({
           id: `${userId}:${key}`,
@@ -624,6 +627,7 @@ window.ChronusLiveV140 = (function() {
     presenceGeneration += 1;
     const old = presenceChannel;
     presenceChannel = null;
+    presenceKey = '';
     if (old) {
       try { await window.ChronusSupabase?.getClient?.()?.removeChannel(old); }
       catch (error) { console.warn('CHRONUS LIVE: falha ao sair da presença.', error); }
@@ -669,7 +673,8 @@ window.ChronusLiveV140 = (function() {
       localParticipant.detail = profile.role === 'narrator' ? 'Controle da sessão' : 'Você';
     }
     const character = state.participants.find(item => item.isLocal)?.characterName || 'Personagem';
-    const key = `${user.id}:${(window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)}`;
+    const key = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    presenceKey = key;
     const channel = db.channel('chronus-live:main-table', { config: { private: true, presence: { key } } });
     presenceChannel = channel;
     channel.on('presence', { event: 'sync' }, applyPresenceState);
