@@ -633,6 +633,13 @@ window.ChronusLiveV140 = (function() {
   async function connectPresence() {
     const generation = ++presenceGeneration;
     const db = window.ChronusSupabase?.getClient?.();
+    const previous = presenceChannel;
+    presenceChannel = null;
+    if (previous && typeof db?.removeChannel === 'function') {
+      try { await db.removeChannel(previous); }
+      catch (error) { console.warn('CHRONUS LIVE: falha ao substituir presença anterior.', error); }
+    }
+    if (generation !== presenceGeneration) return;
     const statusEl = document.getElementById('chronus-live-connection-status');
     if (!db || typeof db.channel !== 'function') {
       if (statusEl) statusEl.querySelector('strong').textContent = 'Serviço indisponível';
@@ -649,6 +656,8 @@ window.ChronusLiveV140 = (function() {
     const { data: profile, error: profileError } = await db.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
     if (profileError || !profile || !['player', 'narrator'].includes(profile.role)) {
+      state.participants = state.participants.filter(item => !item.isLocal);
+      renderAll();
       if (statusEl) statusEl.querySelector('strong').textContent = 'Perfil sem acesso à mesa';
       return;
     }
