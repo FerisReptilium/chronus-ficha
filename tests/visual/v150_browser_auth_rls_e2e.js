@@ -201,9 +201,32 @@ async function visibleCharacterIds(page, expectedUserId) {
     const identityB = await pageB.evaluate(() => window.ChronusAuth?.getUser()?.id);
     assert.equal(identityB, userB.id, 'switching context A must not alter independent context B');
 
+    // Verify real Supabase Realtime Presence with two independently authenticated
+    // browser contexts. Both pages must see both accounts in the same private room.
+    await Promise.all([
+      pageA.evaluate(() => { window.location.hash = '#/live'; }),
+      pageB.evaluate(() => { window.location.hash = '#/live'; })
+    ]);
+    await Promise.all([
+      pageA.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', { timeout: 20000 }),
+      pageB.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', { timeout: 20000 })
+    ]);
+    await Promise.all([
+      pageA.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, { timeout: 20000 }),
+      pageB.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, { timeout: 20000 })
+    ]);
+    const [rosterA, rosterB] = await Promise.all([
+      pageA.locator('#chronus-live-roster').innerText(),
+      pageB.locator('#chronus-live-roster').innerText()
+    ]);
+    assert.ok(rosterA.includes(userA.name) && rosterA.includes(userB.name),
+      'browser A must see both authenticated participants in the shared LIVE room');
+    assert.ok(rosterB.includes(userA.name) && rosterB.includes(userB.name),
+      'browser B must see both authenticated participants in the shared LIVE room');
+
     await contextA.close();
     await contextB.close();
-    console.log('PASS: real browser UI login, two isolated sessions, RLS data isolation, logout and account switch');
+    console.log('PASS: real browser Auth/RLS, account switch, and two-account private Realtime Presence');
   } finally {
     if (browser) await browser.close();
     await cleanup();
