@@ -182,25 +182,6 @@ async function visibleCharacterIds(page, expectedUserId) {
     assert.ok(rowsA.every(row => row.owner === userA.id));
     assert.ok(rowsB.every(row => row.owner === userB.id));
 
-    // Switch identity inside the same browser context through the real logout/login UI.
-    pageA.once('dialog', dialog => dialog.accept());
-    await pageA.locator('#btn-nav-logout').click();
-    await pageA.waitForFunction(() => !window.ChronusAuth?.getUser());
-    await pageA.waitForSelector('#btn-nav-login', { state: 'visible' });
-    await openAuthModalThroughUi(pageA);
-    await pageA.locator('#authEmail').fill(userB.email);
-    await pageA.locator('#authPassword').fill(password);
-    await pageA.locator('#authLoginButton').click();
-    await pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id);
-    const switchedRows = await visibleCharacterIds(pageA, userB.id);
-    assert.deepEqual(switchedRows.map(row => row.id), [userB.characterId],
-      'after switching accounts, prior account data must not remain visible');
-    assert.ok(switchedRows.every(row => row.owner === userB.id));
-
-    // The independent B session must remain authenticated and unaffected by A's switch.
-    const identityB = await pageB.evaluate(() => window.ChronusAuth?.getUser()?.id);
-    assert.equal(identityB, userB.id, 'switching context A must not alter independent context B');
-
     // Verify real Supabase Realtime Presence with two independently authenticated
     // browser contexts. Both pages must see both accounts in the same private room.
     await Promise.all([
@@ -223,6 +204,25 @@ async function visibleCharacterIds(page, expectedUserId) {
       'browser A must see both authenticated participants in the shared LIVE room');
     assert.ok(rosterB.includes(userA.name) && rosterB.includes(userB.name),
       'browser B must see both authenticated participants in the shared LIVE room');
+
+    // Switch identity inside the same browser context through the real logout/login UI.
+    pageA.once('dialog', dialog => dialog.accept());
+    await pageA.locator('#btn-nav-logout').click();
+    await pageA.waitForFunction(() => !window.ChronusAuth?.getUser());
+    await pageA.waitForSelector('#btn-nav-login', { state: 'visible' });
+    await openAuthModalThroughUi(pageA);
+    await pageA.locator('#authEmail').fill(userB.email);
+    await pageA.locator('#authPassword').fill(password);
+    await pageA.locator('#authLoginButton').click();
+    await pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id);
+    const switchedRows = await visibleCharacterIds(pageA, userB.id);
+    assert.deepEqual(switchedRows.map(row => row.id), [userB.characterId],
+      'after switching accounts, prior account data must not remain visible');
+    assert.ok(switchedRows.every(row => row.owner === userB.id));
+
+    // The independent B session must remain authenticated and unaffected by A's switch.
+    const identityB = await pageB.evaluate(() => window.ChronusAuth?.getUser()?.id);
+    assert.equal(identityB, userB.id, 'switching context A must not alter independent context B');
 
     await contextA.close();
     await contextB.close();
