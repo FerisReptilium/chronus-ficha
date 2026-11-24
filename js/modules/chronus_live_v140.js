@@ -103,8 +103,11 @@ window.ChronusLiveV140 = (function() {
   }
 
   function isLocalPreview() {
-    const localHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-    const query = window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '';
+    const location = window.location;
+    if (!location) return false;
+    const localHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+    const hash = location.hash || '';
+    const query = hash.includes('?') ? hash.split('?')[1] : '';
     return localHost && new URLSearchParams(query).get('preview') === '1';
   }
 
