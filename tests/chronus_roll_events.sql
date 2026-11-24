@@ -54,10 +54,10 @@ BEGIN
      OR v_policy.qual NOT LIKE '%narrator%' THEN
     RAISE EXCEPTION 'LIVE presence policy is not scoped to authenticated CHRONUS players/narrators: %', v_policy;
   END IF;
-END$;
+END $$;
 
 
-DO $
+DO $$
 DECLARE v_insert_policy record;
 BEGIN
   SELECT cmd, roles, with_check INTO v_insert_policy
@@ -75,7 +75,7 @@ BEGIN
      OR v_insert_policy.with_check NOT LIKE '%narrator%' THEN
     RAISE EXCEPTION 'LIVE presence INSERT policy is not scoped to authenticated CHRONUS players/narrators: %', v_insert_policy;
   END IF;
-END$;
+END $$;
 
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password,
