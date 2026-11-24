@@ -29,11 +29,16 @@ assert(router.includes("document.body.classList.toggle('in-live-mode', cleanHash
 
 assert(app.includes("loadScriptOnce('js/modules/chronus_live_v140.js')"), 'CHRONUS LIVE module must load progressively');
 assert(source.includes("const PREVIEW_MARKER = 'v1.4.0-prototype'"), 'prototype readiness marker missing');
-assert(source.includes("mode: 'prototype'"), 'prototype mode contract missing');
+assert(source.includes("mode: 'presence-enabled'"), 'authenticated presence mode contract missing');
 assert(source.includes("data.mediaState") || source.includes('dataset.mediaState'), 'media state marker missing');
-assert(source.includes("local.camera = !local.camera"), 'camera/portrait toggle missing');
-assert(source.includes("local.microphone = !local.microphone"), 'microphone state toggle missing');
-assert(source.includes("state.screenShare = !state.screenShare"), 'screen-share prototype state missing');
+assert(source.includes('microphone.disabled = true') && source.includes('camera.disabled = true') && source.includes('share.disabled = true'), 'unimplemented media controls must remain disabled');
+assert(source.includes("channel('chronus-live:main-table', { config: { private: true, presence: { key } } })"), 'private room presence subscription missing');
+assert(source.includes("channel.on('presence', { event: 'sync' }, applyPresenceState)"), 'presence sync handler missing');
+assert(source.includes("channel.on('presence', { event: 'join' }, applyPresenceState)"), 'presence join handler missing');
+assert(source.includes("channel.on('presence', { event: 'leave' }, applyPresenceState)"), 'presence leave handler missing');
+assert(source.includes('await channel.track({ user_id: user.id, display_name: currentIdentity.displayName, character_name: character })'), 'authenticated participant tracking missing');
+assert(source.includes('presenceChannel.presenceState?.()'), 'participant list must use actual Realtime presence');
+assert(source.includes('isLocalPreview() ? DEFAULT_PARTICIPANTS.map'), 'fake participants must be restricted to local preview');
 assert(source.includes("launcher.click()"), 'existing dice roller integration missing');
 assert(source.includes(".from('characters')"), 'existing character data integration missing');
 assert(source.includes(".from('portraits')"), 'existing portrait storage integration missing');
@@ -42,8 +47,7 @@ assert(source.includes("state: participant.camera ? 'camera' : (hasSource ? 'por
 assert(source.includes("local.portrait = null"), 'portrait hydration must clear stale or demonstration portraits');
 assert(source.includes("local.cameraArt = null"), 'camera simulation must not retain stale or demonstration art');
 assert(source.includes('portraitHydrationId'), 'portrait hydration must reject stale async responses');
-assert(source.includes('personagem sem foto cadastrada na ficha'), 'camera-off messaging must cover the empty-photo state');
-assert(source.includes("local.portrait ? 'Retrato' : 'Sem foto'"), 'camera control must identify the empty-photo state');
+assert(source.includes('personagem ainda não possui foto cadastrada na ficha'), 'missing portrait must be explained without claiming a live camera');
 assert(source.includes('textContent'), 'dynamic participant content must use textContent');
 assert(source.includes('aria-live="polite"'), 'live announcements missing');
 
@@ -68,8 +72,7 @@ for (const forbiddenParticipantArt of [
   assert(!source.includes(forbiddenParticipantArt), `LIVE must not use demonstration participant art: ${forbiddenParticipantArt}`);
 }
 
-assert(source.includes('assets/art/v132-documents.webp'), 'screen-share demonstration asset missing');
-assert(fs.existsSync('assets/art/v132-documents.webp'), 'screen-share demonstration asset does not exist');
+
 
 assert(css.includes('#view-live'), 'CHRONUS LIVE stylesheet must be scoped');
 assert(!css.includes('#view-sheet'), 'CHRONUS LIVE styles must not touch the digital sheet');
@@ -91,7 +94,7 @@ assert(preview.includes("waitUntil: 'domcontentloaded'"), 'visual QA must not wa
 const context = { window: {} };
 vm.createContext(context);
 vm.runInContext(source, context);
-assert.strictEqual(context.window.ChronusLiveV140.mode, 'prototype');
+assert.strictEqual(context.window.ChronusLiveV140.mode, 'presence-enabled');
 assert.strictEqual(context.window.ChronusLiveV140.marker, 'v1.4.0-prototype');
 assert.strictEqual(context.window.ChronusLiveV140.mediaStateFor({ camera: false, portrait: null, cameraArt: null }), 'empty');
 assert.strictEqual(context.window.ChronusLiveV140.mediaStateFor({ camera: false, portrait: 'blob:sheet-photo', cameraArt: null }), 'portrait');
