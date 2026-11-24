@@ -180,6 +180,10 @@ window.ChronusLiveV140 = (function() {
               <strong>O Sinal de Teufelsberg</strong>
             </div>
             <div class="chronus-live-room-state" id="chronus-live-participant-count"><span aria-hidden="true"></span> Aguardando participantes</div>
+            <div class="chronus-live-connection-status" id="chronus-live-connection-status" role="status" aria-live="polite">
+              <strong>Conectando à mesa</strong>
+              <small>Validando sua sessão</small>
+            </div>
           </div>
 
           <section id="chronus-live-stage" class="chronus-live-stage" aria-label="Participante em destaque"></section>
