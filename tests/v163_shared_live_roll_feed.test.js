@@ -10,6 +10,7 @@ const router = fs.readFileSync('js/router.js', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20261123010000_shared_roll_visibility.sql', 'utf8');
 const sqlBaseline = fs.readFileSync('tests/chronus_roll_events.sql', 'utf8');
 const initialMigration = fs.readFileSync('supabase/migrations/006_chronus_roll_events.sql', 'utf8');
+const presenceMigration = fs.readFileSync('supabase/migrations/20261123020000_chronus_live_presence_access.sql', 'utf8');
 
 assert(service.includes("function mountSharedRollFeed(container)"), 'shared feed mount API missing');
 assert(service.includes(".on('postgres_changes'"), 'shared roll feed must subscribe to Postgres INSERT events');
@@ -30,5 +31,9 @@ assert(migration.includes('chronus_private.is_chronus_narrator()'), 'Narrator vi
 assert(migration.includes('single shared CHRONUS chronicle'), 'global visibility limitation must be documented');
 assert(initialMigration.includes('chronus_roll_events_select_owner_or_narrator'), 'original migration policy must remain auditable');
 assert(sqlBaseline.includes('Player A sees the shared table events'), 'database integration test must cover cross-player visibility');
+assert(presenceMigration.includes('ON realtime.messages'), 'private LIVE presence policy must target Realtime messages');
+assert(presenceMigration.includes("realtime.topic() = 'chronus-live:main-table'"), 'presence policy must be scoped to the single LIVE room topic');
+assert(presenceMigration.includes("p.role IN ('player', 'narrator')"), 'presence access must require a trusted player or narrator profile');
+assert(presenceMigration.includes('TO authenticated'), 'anonymous users must not join the private presence channel');
 
 console.log('CHRONUS shared live roll feed regression: PASS');
