@@ -54,7 +54,28 @@ BEGIN
      OR v_policy.qual NOT LIKE '%narrator%' THEN
     RAISE EXCEPTION 'LIVE presence policy is not scoped to authenticated CHRONUS players/narrators: %', v_policy;
   END IF;
-END$$;
+END$;
+
+
+DO $
+DECLARE v_insert_policy record;
+BEGIN
+  SELECT cmd, roles, with_check INTO v_insert_policy
+  FROM pg_policies
+  WHERE schemaname='realtime'
+    AND tablename='messages'
+    AND policyname='chronus_live_presence_authenticated_insert';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Missing authenticated private LIVE presence insert policy';
+  END IF;
+  IF v_insert_policy.cmd <> 'INSERT'
+     OR NOT ('authenticated' = ANY(v_insert_policy.roles))
+     OR v_insert_policy.with_check NOT LIKE '%chronus-live:main-table%'
+     OR v_insert_policy.with_check NOT LIKE '%player%'
+     OR v_insert_policy.with_check NOT LIKE '%narrator%' THEN
+    RAISE EXCEPTION 'LIVE presence INSERT policy is not scoped to authenticated CHRONUS players/narrators: %', v_insert_policy;
+  END IF;
+END$;
 
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password,
