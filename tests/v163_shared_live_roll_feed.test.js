@@ -35,5 +35,15 @@ assert(presenceMigration.includes('ON realtime.messages'), 'private LIVE presenc
 assert(presenceMigration.includes("realtime.topic() = 'chronus-live:main-table'"), 'presence policy must be scoped to the single LIVE room topic');
 assert(presenceMigration.includes("p.role IN ('player', 'narrator')"), 'presence access must require a trusted player or narrator profile');
 assert(presenceMigration.includes('TO authenticated'), 'anonymous users must not join the private presence channel');
+assert(live.includes("channel('chronus-live:main-table', { config: { private: true, presence: { key } } })"), 'LIVE must join the fixed private presence channel with a per-tab key');
+assert(live.includes("channel.on('presence', { event: 'sync' }, applyPresenceState)"), 'LIVE must rebuild the roster after presence sync');
+assert(live.includes("channel.on('presence', { event: 'join' }, applyPresenceState)"), 'LIVE must update the roster when a participant joins');
+assert(live.includes("channel.on('presence', { event: 'leave' }, applyPresenceState)"), 'LIVE must update the roster when a participant leaves');
+assert(live.includes('await channel.track({ user_id: user.id, display_name: currentIdentity.displayName, character_name: character })'), 'LIVE presence must be tied to the authenticated user');
+assert(live.includes("presenceChannel.presenceState?.()"), 'LIVE roster must come from actual Realtime presence state');
+assert(live.includes("isLocalPreview() ? DEFAULT_PARTICIPANTS.map"), 'fictional participants must be limited to localhost visual preview');
+assert(live.includes("microphone.disabled = true") && live.includes("camera.disabled = true") && live.includes("share.disabled = true"), 'unimplemented media controls must be disabled, not simulated');
+assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose presence-enabled mode');
+
 
 console.log('CHRONUS shared live roll feed regression: PASS');
