@@ -185,8 +185,12 @@ async function visibleCharacterIds(page, expectedUserId) {
     // Verify real Supabase Realtime Presence with two independently authenticated
     // browser contexts. Both pages must see both accounts in the same private room.
     await Promise.all([
-      pageA.evaluate(() => { window.location.hash = '#/live'; }),
-      pageB.evaluate(() => { window.location.hash = '#/live'; })
+      pageA.goto(portalUrl.replace(/\\/?$/, '/') + '#/live', { waitUntil: 'domcontentloaded' }),
+      pageB.goto(portalUrl.replace(/\\/?$/, '/') + '#/live', { waitUntil: 'domcontentloaded' })
+    ]);
+    await Promise.all([
+      pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userA.id, { timeout: 10000 }),
+      pageB.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id, { timeout: 10000 })
     ]);
     await Promise.all([
       pageA.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 }),
