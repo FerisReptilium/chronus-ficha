@@ -91,7 +91,7 @@
     }
 
     const db = client();
-    if (!db) return { ok: false, reason: 'client_unavailable' };
+    if (!db || typeof db.from !== 'function') return { ok: false, reason: 'client_unavailable' };
 
     const { data: sessionData, error: sessionError } = await db.auth.getSession();
     if (sessionError || !sessionData?.session?.user) {
@@ -144,7 +144,7 @@
     if (!container) return;
     if (channel) {
       const oldClient = client();
-      if (oldClient) await oldClient.removeChannel(channel);
+      if (typeof oldClient?.removeChannel === 'function') await oldClient.removeChannel(channel);
       channel = null;
     }
     records.clear();
@@ -168,7 +168,7 @@
     container.append(heading, list);
 
     const db = client();
-    if (!db) {
+    if (!db || typeof db.from !== 'function') {
       status.textContent = 'Supabase indisponível';
       return;
     }
@@ -189,22 +189,26 @@
       (data || []).reverse().forEach(addRecord);
     }
 
-    channel = db
-      .channel('chronus-shared-roll-feed')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chronus_roll_events'
-      }, payload => addRecord(payload.new))
-      .subscribe(subscriptionStatus => {
-        if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
-        status.textContent = subscriptionStatus === 'SUBSCRIBED'
-          ? '● Sincronizada'
-          : subscriptionStatus === 'CHANNEL_ERROR' || subscriptionStatus === 'TIMED_OUT'
-            ? 'Reconectando…'
-            : 'Conectando…';
-        if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();
-      });
+    if (typeof db.channel === 'function') {
+      channel = db
+        .channel('chronus-shared-roll-feed')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chronus_roll_events'
+        }, payload => addRecord(payload.new))
+        .subscribe(subscriptionStatus => {
+          if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
+          status.textContent = subscriptionStatus === 'SUBSCRIBED'
+            ? '● Sincronizada'
+            : subscriptionStatus === 'CHANNEL_ERROR' || subscriptionStatus === 'TIMED_OUT'
+              ? 'Reconectando…'
+              : 'Conectando…';
+          if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();
+        });
+    } else {
+      status.textContent = 'Histórico disponível · tempo real indisponível';
+    }
 
     await loadRecentRolls();
   }
@@ -212,7 +216,7 @@
   async function unmountNarratorFeed() {
     feedGeneration += 1;
     const db = client();
-    if (channel && db) await db.removeChannel(channel);
+    if (channel && typeof db?.removeChannel === 'function') await db.removeChannel(channel);
     channel = null;
     mountedRoot = null;
     records.clear();
