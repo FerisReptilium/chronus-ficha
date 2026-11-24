@@ -24,6 +24,9 @@ assert(service.includes('feedGeneration += 1'), 'stale async history responses m
 assert(service.includes("unmountSharedRollFeed: unmountNarratorFeed"), 'shared feed must release its channel');
 assert(live.includes("mountSharedRollFeed?.(document.getElementById('chronus-live-feed'))"), 'LIVE route must mount the shared roll feed');
 assert(router.includes("if (cleanHash !== '#/live')"), 'leaving LIVE must release its realtime subscription');
+assert(router.includes('window.ChronusLiveV140?.unmount?.()'), 'leaving LIVE must release authenticated room presence');
+assert(live.includes('unmount: disconnectPresence'), 'LIVE module must expose room presence cleanup');
+assert(live.includes('const seenUsers = new Set()'), 'multiple browser tabs for one account must not inflate participant count');
 assert(dice.includes('Rolagem compartilhada com a mesa.'), 'dice confirmation must identify the whole table');
 assert(migration.includes('chronus_roll_events_select_table_players'), 'player SELECT policy missing');
 assert(migration.includes("p.role = 'player'"), 'policy must require a trusted player profile');
