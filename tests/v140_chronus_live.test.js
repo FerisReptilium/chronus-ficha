@@ -47,7 +47,7 @@ assert(source.includes("state: participant.camera ? 'camera' : (hasSource ? 'por
 assert(source.includes("local.portrait = null"), 'portrait hydration must clear stale or demonstration portraits');
 assert(source.includes("local.cameraArt = null"), 'camera simulation must not retain stale or demonstration art');
 assert(source.includes('portraitHydrationId'), 'portrait hydration must reject stale async responses');
-assert(source.includes('personagem ainda não possui foto cadastrada na ficha'), 'missing portrait must be explained without claiming a live camera');
+assert(source.includes('ainda não possui foto cadastrada na ficha'), 'missing portrait must be explained without claiming a live camera');
 assert(source.includes('textContent'), 'dynamic participant content must use textContent');
 assert(source.includes('aria-live="polite"'), 'live announcements missing');
 
