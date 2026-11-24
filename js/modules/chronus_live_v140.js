@@ -587,11 +587,13 @@ window.ChronusLiveV140 = (function() {
   function applyPresenceState() {
     if (!presenceChannel) return;
     const next = [];
+    const seenUsers = new Set();
     const presence = presenceChannel.presenceState?.() || {};
     Object.entries(presence).forEach(([key, entries]) => {
       (entries || []).forEach(entry => {
         const userId = typeof entry.user_id === 'string' ? entry.user_id : '';
-        if (!userId) return;
+        if (!userId || seenUsers.has(userId)) return;
+        seenUsers.add(userId);
         const isLocal = userId === currentIdentity?.userId;
         const existing = state.participants.find(item => item.id === `${userId}:${key}`);
         next.push({
@@ -648,6 +650,12 @@ window.ChronusLiveV140 = (function() {
       return;
     }
     currentIdentity = { userId: user.id, displayName: profile.display_name || user.email?.split('@')[0] || 'Participante', role: profile.role };
+    const localParticipant = state.participants.find(item => item.isLocal);
+    if (localParticipant) {
+      localParticipant.playerName = currentIdentity.displayName;
+      localParticipant.role = profile.role === 'narrator' ? 'Narrador' : 'Jogador';
+      localParticipant.detail = profile.role === 'narrator' ? 'Controle da sessão' : 'Você';
+    }
     const character = state.participants.find(item => item.isLocal)?.characterName || 'Personagem';
     const key = `${user.id}:${(window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)}`;
     const channel = db.channel('chronus-live:main-table', { config: { private: true, presence: { key } } });
@@ -702,6 +710,7 @@ window.ChronusLiveV140 = (function() {
   return Object.freeze({
     init,
     load,
+    unmount: disconnectPresence,
     mediaStateFor: participant => mediaDescriptor(participant).state,
     mode: 'presence-enabled',
     marker: PREVIEW_MARKER
