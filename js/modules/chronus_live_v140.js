@@ -500,6 +500,13 @@ window.ChronusLiveV140 = (function() {
       local = { id: `local:${user.id}`, userId: user.id, playerName: 'Carregando…', characterName: 'Personagem', role: 'Jogador', detail: 'Conectado', portrait: null, cameraArt: null, camera: false, microphone: false, speaking: false, isLocal: true };
       state.participants = state.participants.filter(item => !item.isLocal).concat(local);
     }
+    if (!user) {
+      state.participants = state.participants.filter(item => !item.isLocal);
+      const status = document.getElementById('chronus-live-connection-status');
+      if (status?.querySelector('strong')) status.querySelector('strong').textContent = 'Entre para acessar a mesa';
+      renderAll();
+      return;
+    }
     if (!local) return;
     local.portrait = null;
     local.cameraArt = null;
@@ -509,14 +516,6 @@ window.ChronusLiveV140 = (function() {
     local.detail = 'Conectado';
 
     if (rendered && window.location.hash.startsWith('#/live')) renderAll();
-
-    if (!user) {
-      state.participants = state.participants.filter(item => !item.isLocal);
-      const status = document.getElementById('chronus-live-connection-status');
-      if (status?.querySelector('strong')) status.querySelector('strong').textContent = 'Entre para acessar a mesa';
-      renderAll();
-      return;
-    }
 
     local.playerName = profile?.display_name || user.email?.split('@')[0] || 'Jogador';
 
