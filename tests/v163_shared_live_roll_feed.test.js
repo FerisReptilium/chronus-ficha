@@ -35,6 +35,7 @@ assert(migration.includes('single shared CHRONUS chronicle'), 'global visibility
 assert(initialMigration.includes('chronus_roll_events_select_owner_or_narrator'), 'original migration policy must remain auditable');
 assert(sqlBaseline.includes('Player A sees the shared table events'), 'database integration test must cover cross-player visibility');
 assert(presenceMigration.includes('ON realtime.messages'), 'private LIVE presence policy must target Realtime messages');
+assert(presenceMigration.includes('chronus_live_presence_authenticated_insert') && presenceMigration.includes('FOR INSERT') && presenceMigration.includes('WITH CHECK'), 'authenticated participants must be authorized to publish presence');
 assert(presenceMigration.includes("realtime.topic() = 'chronus-live:main-table'"), 'presence policy must be scoped to the single LIVE room topic');
 assert(presenceMigration.includes("p.role IN ('player', 'narrator')"), 'presence access must require a trusted player or narrator profile');
 assert(presenceMigration.includes('TO authenticated'), 'anonymous users must not join the private presence channel');
