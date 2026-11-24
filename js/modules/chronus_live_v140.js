@@ -78,12 +78,16 @@ window.ChronusLiveV140 = (function() {
   let rendered = false;
   let portraitObjectUrl = '';
   let portraitHydrationId = 0;
+  let presenceChannel = null;
+  let presenceGeneration = 0;
+  let presenceStatus = 'Desconectado';
+  let currentIdentity = null;
   let state = createInitialState();
 
   function createInitialState() {
     return {
-      participants: DEFAULT_PARTICIPANTS.map(participant => ({ ...participant })),
-      spotlightId: 'narrator',
+      participants: isLocalPreview() ? DEFAULT_PARTICIPANTS.map(participant => ({ ...participant })) : [],
+      spotlightId: isLocalPreview() ? 'narrator' : '',
       layout: 'focus',
       screenShare: false
     };
@@ -164,14 +168,14 @@ window.ChronusLiveV140 = (function() {
         </div>
       </header>
 
-      <div class="chronus-live-room" aria-label="Protótipo da sala CHRONUS LIVE">
+      <div class="chronus-live-room" aria-label="Sala CHRONUS LIVE">
         <main class="chronus-live-stage-column">
           <div class="chronus-live-room-bar">
             <div>
               <span class="chronus-live-room-code">K-17 / SALA 01</span>
               <strong>O Sinal de Teufelsberg</strong>
             </div>
-            <div class="chronus-live-room-state"><span aria-hidden="true"></span> 5 participantes conectados</div>
+            <div class="chronus-live-room-state" id="chronus-live-participant-count"><span aria-hidden="true"></span> Aguardando participantes</div>
           </div>
 
           <section id="chronus-live-stage" class="chronus-live-stage" aria-label="Participante em destaque"></section>
@@ -224,7 +228,7 @@ window.ChronusLiveV140 = (function() {
         </aside>
       </div>
 
-      <p class="chronus-live-disclaimer">Demonstração local da interface. Nenhum vídeo, áudio ou dado da sessão está sendo transmitido ou gravado.</p>
+      <p class="chronus-live-disclaimer">Presença e rolagens são sincronizadas pela sessão autenticada. Áudio, vídeo e compartilhamento de tela ainda não estão disponíveis.</p>
       <div id="chronus-live-announcement" class="sr-only" role="status" aria-live="polite"></div>
     `;
 
@@ -311,7 +315,12 @@ window.ChronusLiveV140 = (function() {
     }
 
     const participant = participantById(state.spotlightId);
-    stage.classList.toggle('is-speaking', Boolean(participant.speaking && participant.microphone));
+    if (!participant) {
+      stage.classList.remove('is-speaking');
+      stage.appendChild(createElement('div', 'chronus-live-empty-stage', 'Entre com sua conta para aparecer na mesa.'));
+      return;
+    }
+    stage.classList.toggle('is-speaking', false);
     const mediaWrap = createElement('div', 'chronus-live-stage-media');
     appendMedia(mediaWrap, participant, false);
 
@@ -336,7 +345,7 @@ window.ChronusLiveV140 = (function() {
       card.type = 'button';
       card.dataset.participantId = participant.id;
       card.classList.toggle('is-selected', participant.id === state.spotlightId && !state.screenShare);
-      card.classList.toggle('is-speaking', Boolean(participant.speaking && participant.microphone));
+      card.classList.toggle('is-speaking', false);
       card.setAttribute('aria-pressed', String(participant.id === state.spotlightId && !state.screenShare));
       card.setAttribute('aria-label', `Destacar ${participant.characterName}`);
 
@@ -359,6 +368,7 @@ window.ChronusLiveV140 = (function() {
     renderRoster();
     updateLocalControls();
     updateLayoutControls();
+    updateParticipantCount();
   }
 
   function seedFeed() {
@@ -391,19 +401,20 @@ window.ChronusLiveV140 = (function() {
   }
 
   function updateLocalControls() {
-    const local = participantById('local');
+    const local = state.participants.find(item => item.isLocal);
     const microphone = document.getElementById('chronus-live-microphone');
     const camera = document.getElementById('chronus-live-camera');
     if (microphone) {
-      microphone.setAttribute('aria-pressed', String(!local.microphone));
-      microphone.classList.toggle('is-off', !local.microphone);
-      setControlContent(microphone, local.microphone ? 'microphone' : 'microphoneOff', local.microphone ? 'Microfone' : 'Sem áudio', local.microphone ? 'Desligar microfone simulado' : 'Ligar microfone simulado');
+      microphone.disabled = true;
+      microphone.setAttribute('aria-pressed', 'false');
+      microphone.classList.add('is-off');
+      setControlContent(microphone, 'microphoneOff', 'Áudio', 'Áudio ainda não disponível');
     }
     if (camera) {
-      const cameraLabel = local.camera ? 'Câmera' : (local.portrait ? 'Retrato' : 'Sem foto');
-      camera.setAttribute('aria-pressed', String(!local.camera));
-      camera.classList.toggle('is-off', !local.camera);
-      setControlContent(camera, local.camera ? 'camera' : 'cameraOff', cameraLabel, local.camera ? 'Desligar câmera simulada' : 'Ligar câmera simulada');
+      camera.disabled = true;
+      camera.setAttribute('aria-pressed', 'false');
+      camera.classList.add('is-off');
+      setControlContent(camera, 'cameraOff', 'Câmera', 'Vídeo ainda não disponível');
     }
   }
 
@@ -423,9 +434,10 @@ window.ChronusLiveV140 = (function() {
   function updateShareControl() {
     const share = document.getElementById('chronus-live-share');
     if (!share) return;
-    share.setAttribute('aria-pressed', String(state.screenShare));
-    share.classList.toggle('is-active', state.screenShare);
-    setControlContent(share, 'share', state.screenShare ? 'Encerrar tela' : 'Compartilhar', state.screenShare ? 'Encerrar compartilhamento simulado' : 'Simular compartilhamento de tela');
+    share.disabled = true;
+    share.setAttribute('aria-pressed', 'false');
+    share.classList.remove('is-active');
+    setControlContent(share, 'share', 'Compartilhar', 'Compartilhamento de tela ainda não disponível');
   }
 
   function announce(message) {
@@ -442,41 +454,10 @@ window.ChronusLiveV140 = (function() {
     const focus = document.getElementById('chronus-live-focus');
     const grid = document.getElementById('chronus-live-grid');
 
-    setControlContent(share, 'share', 'Compartilhar', 'Simular compartilhamento de tela');
+    setControlContent(share, 'share', 'Compartilhar', 'Compartilhamento de tela ainda não disponível');
+    share.disabled = true;
     setControlContent(dice, 'dice', 'Rolar dados', 'Abrir o rolador CHRONUS');
     setControlContent(leave, 'leave', 'Sair', 'Sair da sala de demonstração');
-
-    microphone?.addEventListener('click', () => {
-      const local = participantById('local');
-      local.microphone = !local.microphone;
-      local.speaking = local.microphone;
-      renderAll();
-      appendFeed(local.characterName, local.microphone ? 'Microfone simulado ligado.' : 'Microfone simulado desligado.', 'agora');
-      announce(local.microphone ? 'Microfone simulado ligado.' : 'Microfone simulado desligado.');
-    });
-
-    camera?.addEventListener('click', () => {
-      const local = participantById('local');
-      local.camera = !local.camera;
-      state.spotlightId = local.id;
-      state.screenShare = false;
-      updateShareControl();
-      renderAll();
-      const cameraOffMessage = local.portrait
-        ? 'Câmera desligada; retrato cadastrado na ficha exibido.'
-        : 'Câmera desligada; personagem sem foto cadastrada na ficha.';
-      appendFeed(local.characterName, local.camera ? 'Câmera simulada ligada.' : cameraOffMessage, 'agora');
-      announce(local.camera ? 'Câmera simulada ligada.' : cameraOffMessage);
-    });
-
-    share?.addEventListener('click', () => {
-      state.screenShare = !state.screenShare;
-      updateShareControl();
-      renderStage();
-      renderRoster();
-      appendFeed('Narrador', state.screenShare ? 'Documento compartilhado com a mesa.' : 'Compartilhamento encerrado.', 'agora');
-      announce(state.screenShare ? 'Compartilhamento simulado iniciado.' : 'Compartilhamento simulado encerrado.');
-    });
 
     dice?.addEventListener('click', () => {
       const launcher = document.getElementById('chronus-dice-launcher');
@@ -509,27 +490,35 @@ window.ChronusLiveV140 = (function() {
     const hydrationId = ++portraitHydrationId;
     const user = window.ChronusAuth?.getUser?.();
     const profile = window.ChronusAuth?.getProfile?.();
-    const local = participantById('local');
+    let local = state.participants.find(item => item.isLocal);
 
     if (portraitObjectUrl) {
       URL.revokeObjectURL(portraitObjectUrl);
       portraitObjectUrl = '';
     }
+    if (!local && user) {
+      local = { id: `local:${user.id}`, userId: user.id, playerName: 'Carregando…', characterName: 'Personagem', role: 'Jogador', detail: 'Conectado', portrait: null, cameraArt: null, camera: false, microphone: false, speaking: false, isLocal: true };
+      state.participants = state.participants.filter(item => !item.isLocal).concat(local);
+    }
+    if (!local) return;
     local.portrait = null;
     local.cameraArt = null;
-    local.playerName = 'Jogador local';
-    local.characterName = 'Desperto 01';
+    local.playerName = 'Carregando…';
+    local.characterName = 'Personagem';
     local.role = 'Jogador';
-    local.detail = 'Tradição não definida';
+    local.detail = 'Conectado';
 
     if (rendered && window.location.hash.startsWith('#/live')) renderAll();
 
     if (!user) {
+      state.participants = state.participants.filter(item => !item.isLocal);
+      renderAll();
       return;
     }
 
     local.playerName = profile?.display_name || user.email?.split('@')[0] || 'Jogador';
 
+    currentIdentity = { userId: user.id, displayName: local.playerName, role: profile?.role === 'narrator' ? 'narrator' : 'player' };
     if (profile?.role === 'narrator') {
       local.characterName = 'Narrador da Crônica';
       local.role = 'Narrador';
@@ -580,12 +569,110 @@ window.ChronusLiveV140 = (function() {
     }
 
     if (rendered && window.location.hash.startsWith('#/live')) renderAll();
+    if (window.location.hash.startsWith('#/live')) connectPresence();
+  }
+
+  function updateParticipantCount() {
+    const count = document.getElementById('chronus-live-participant-count');
+    if (count) count.textContent = state.participants.length === 1 ? '1 participante conectado' : `${state.participants.length} participantes conectados`;
+  }
+
+  function applyPresenceState() {
+    if (!presenceChannel) return;
+    const next = [];
+    const presence = presenceChannel.presenceState?.() || {};
+    Object.entries(presence).forEach(([key, entries]) => {
+      (entries || []).forEach(entry => {
+        const userId = typeof entry.user_id === 'string' ? entry.user_id : '';
+        if (!userId) return;
+        const isLocal = userId === currentIdentity?.userId;
+        const existing = state.participants.find(item => item.id === `${userId}:${key}`);
+        next.push({
+          id: `${userId}:${key}`,
+          userId,
+          playerName: isLocal ? currentIdentity.displayName : (String(entry.display_name || 'Participante').slice(0, 80)),
+          characterName: String(entry.character_name || (isLocal ? 'Personagem' : 'Participante')).slice(0, 80),
+          role: isLocal && currentIdentity.role === 'narrator' ? 'Narrador' : 'Participante',
+          detail: isLocal ? 'Você' : 'Conectado',
+          portrait: isLocal ? (existing?.portrait || null) : null,
+          cameraArt: null,
+          camera: false,
+          microphone: false,
+          speaking: false,
+          isLocal
+        });
+      });
+    });
+    state.participants = next;
+    if (!next.some(item => item.id === state.spotlightId)) state.spotlightId = next.find(item => item.isLocal)?.id || next[0]?.id || '';
+    renderAll();
+  }
+
+  async function disconnectPresence() {
+    presenceGeneration += 1;
+    const old = presenceChannel;
+    presenceChannel = null;
+    if (old) {
+      try { await window.ChronusSupabase?.getClient?.()?.removeChannel(old); }
+      catch (error) { console.warn('CHRONUS LIVE: falha ao sair da presença.', error); }
+    }
+  }
+
+  async function connectPresence() {
+    const generation = ++presenceGeneration;
+    const db = window.ChronusSupabase?.getClient?.();
+    const statusEl = document.getElementById('chronus-live-connection-status');
+    if (!db || typeof db.channel !== 'function') {
+      if (statusEl) statusEl.querySelector('strong').textContent = 'Serviço indisponível';
+      return;
+    }
+    const { data, error } = await db.auth.getSession();
+    if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
+    const user = data?.session?.user;
+    if (error || !user) {
+      if (statusEl) statusEl.querySelector('strong').textContent = 'Entre para acessar a mesa';
+      presenceStatus = 'Não autenticado';
+      return;
+    }
+    const { data: profile, error: profileError } = await db.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
+    if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
+    if (profileError || !profile || !['player', 'narrator'].includes(profile.role)) {
+      if (statusEl) statusEl.querySelector('strong').textContent = 'Perfil sem acesso à mesa';
+      return;
+    }
+    currentIdentity = { userId: user.id, displayName: profile.display_name || user.email?.split('@')[0] || 'Participante', role: profile.role };
+    const character = state.participants.find(item => item.isLocal)?.characterName || 'Personagem';
+    const key = `${user.id}:${(window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)}`;
+    const channel = db.channel('chronus-live:main-table', { config: { private: true, presence: { key } } });
+    presenceChannel = channel;
+    channel.on('presence', { event: 'sync' }, applyPresenceState);
+    channel.on('presence', { event: 'join' }, applyPresenceState);
+    channel.on('presence', { event: 'leave' }, applyPresenceState);
+    channel.subscribe(async status => {
+      if (generation !== presenceGeneration || presenceChannel !== channel) return;
+      presenceStatus = status;
+      if (status === 'SUBSCRIBED') {
+        try {
+          const result = await channel.track({ user_id: user.id, display_name: currentIdentity.displayName, character_name: character });
+          if (result === 'ok') {
+            if (statusEl) statusEl.querySelector('strong').textContent = 'Mesa sincronizada';
+            if (statusEl) statusEl.querySelector('small').textContent = 'Presença ativa · áudio/vídeo indisponíveis';
+          }
+        } catch (trackError) {
+          console.warn('CHRONUS LIVE: não foi possível publicar presença.', trackError);
+          if (statusEl) statusEl.querySelector('strong').textContent = 'Falha ao entrar na mesa';
+        }
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        if (statusEl) statusEl.querySelector('strong').textContent = 'Sem conexão · tentando novamente';
+      }
+    });
   }
 
   function load() {
     ensureStylesheet();
     if (!rendered || !getRoot()?.querySelector('.chronus-live-room')) buildShell();
     hydrateCurrentParticipant();
+    connectPresence();
     window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'));
     document.documentElement.dataset.chronusLive = PREVIEW_MARKER;
     if (isLocalPreview()) document.documentElement.dataset.chronusLiveLocalPreview = 'true';
@@ -596,7 +683,10 @@ window.ChronusLiveV140 = (function() {
     initialized = true;
     ensureStylesheet();
     window.ChronusAuth?.onAuthChange?.(() => {
-      if (window.location.hash.startsWith('#/live')) hydrateCurrentParticipant();
+      if (window.location.hash.startsWith('#/live')) {
+        void disconnectPresence();
+        hydrateCurrentParticipant();
+      }
     });
     if (window.location.hash.startsWith('#/live')) load();
     document.documentElement.dataset.chronusLive = PREVIEW_MARKER;
@@ -607,7 +697,7 @@ window.ChronusLiveV140 = (function() {
     init,
     load,
     mediaStateFor: participant => mediaDescriptor(participant).state,
-    mode: 'prototype',
+    mode: 'presence-enabled',
     marker: PREVIEW_MARKER
   });
 })();
