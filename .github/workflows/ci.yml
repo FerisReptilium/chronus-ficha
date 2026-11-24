@@ -121,16 +121,22 @@ jobs:
 
       - name: Validate Live, Player Area and sheet-to-dice on desktop and mobile
         run: |
-          node tests/visual/v140_live_preview.js
-          node tests/visual/v143_player_dashboard_preview.js
-          node tests/visual/v144_sheet_dice_preview.js
-          node tests/visual/v153_sheet_writing_alignment.js
-          node tests/visual/v154_mobile_navigation_accessibility.js
-          node tests/visual/v155_auth_modal_accessibility.js
-          node tests/visual/v156_sheet_page_tabs_accessibility.js
-          node tests/visual/v158_spa_route_announcements_accessibility.js
-          node tests/visual/v160_narrator_panel_presentation.js
-          node tests/visual/v149_multitab_storage_recovery.js
+          set -euo pipefail
+          run_visual_test() {
+            echo "::group::Visual QA: $1"
+            timeout 120s node "$1"
+            echo "::endgroup::"
+          }
+          run_visual_test tests/visual/v140_live_preview.js
+          run_visual_test tests/visual/v143_player_dashboard_preview.js
+          run_visual_test tests/visual/v144_sheet_dice_preview.js
+          run_visual_test tests/visual/v153_sheet_writing_alignment.js
+          run_visual_test tests/visual/v154_mobile_navigation_accessibility.js
+          run_visual_test tests/visual/v155_auth_modal_accessibility.js
+          run_visual_test tests/visual/v156_sheet_page_tabs_accessibility.js
+          run_visual_test tests/visual/v158_spa_route_announcements_accessibility.js
+          run_visual_test tests/visual/v160_narrator_panel_presentation.js
+          run_visual_test tests/visual/v149_multitab_storage_recovery.js
 
       - name: Upload browser evidence
         if: always()
