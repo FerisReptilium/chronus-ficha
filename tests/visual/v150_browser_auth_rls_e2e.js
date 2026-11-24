@@ -201,9 +201,11 @@ async function visibleCharacterIds(page, expectedUserId) {
       pageB.locator('#chronus-live-roster').innerText()
     ]);
     assert.ok(rosterA.includes(userA.name) && rosterA.includes(userB.name),
-      'browser A must see both authenticated participants in the shared LIVE room');
+      'browser A must see both authenticated participants in the shared LIVE room; expected '
+      + JSON.stringify([userA.name, userB.name]) + ', received ' + JSON.stringify(rosterA));
     assert.ok(rosterB.includes(userA.name) && rosterB.includes(userB.name),
-      'browser B must see both authenticated participants in the shared LIVE room');
+      'browser B must see both authenticated participants in the shared LIVE room; expected '
+      + JSON.stringify([userA.name, userB.name]) + ', received ' + JSON.stringify(rosterB));
 
     // Switch identity inside the same browser context through the real logout/login UI.
     pageA.once('dialog', dialog => dialog.accept());
