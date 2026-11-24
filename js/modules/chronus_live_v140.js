@@ -339,6 +339,10 @@ window.ChronusLiveV140 = (function() {
     if (!roster) return;
     roster.innerHTML = '';
     roster.classList.toggle('is-grid', state.layout === 'grid');
+    if (!state.participants.length) {
+      roster.appendChild(createElement('p', 'chronus-live-empty-roster', 'Nenhum participante conectado. Entre com sua conta para aparecer nesta mesa.'));
+      return;
+    }
 
     state.participants.forEach(participant => {
       const card = createElement('button', 'chronus-live-participant');
@@ -501,6 +505,7 @@ window.ChronusLiveV140 = (function() {
       state.participants = state.participants.filter(item => !item.isLocal).concat(local);
     }
     if (!user) {
+      if (isLocalPreview()) { renderAll(); return; }
       state.participants = state.participants.filter(item => !item.isLocal);
       const status = document.getElementById('chronus-live-connection-status');
       if (status?.querySelector('strong')) status.querySelector('strong').textContent = 'Entre para acessar a mesa';
