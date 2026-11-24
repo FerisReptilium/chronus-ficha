@@ -412,6 +412,22 @@ window.ChronusLiveV140 = (function() {
     const local = state.participants.find(item => item.isLocal);
     const microphone = document.getElementById('chronus-live-microphone');
     const camera = document.getElementById('chronus-live-camera');
+    if (isLocalPreview() && local) {
+      if (microphone) {
+        microphone.disabled = false;
+        microphone.setAttribute('aria-pressed', String(!local.microphone));
+        microphone.classList.toggle('is-off', !local.microphone);
+        setControlContent(microphone, local.microphone ? 'microphone' : 'microphoneOff', local.microphone ? 'Microfone' : 'Sem áudio', local.microphone ? 'Desligar microfone simulado' : 'Ligar microfone simulado');
+      }
+      if (camera) {
+        const cameraLabel = local.camera ? 'Câmera' : (local.portrait ? 'Retrato' : 'Sem foto');
+        camera.disabled = false;
+        camera.setAttribute('aria-pressed', String(!local.camera));
+        camera.classList.toggle('is-off', !local.camera);
+        setControlContent(camera, local.camera ? 'camera' : 'cameraOff', cameraLabel, local.camera ? 'Desligar câmera simulada' : 'Ligar câmera simulada');
+      }
+      return;
+    }
     if (microphone) {
       microphone.disabled = true;
       microphone.setAttribute('aria-pressed', 'false');
@@ -442,6 +458,13 @@ window.ChronusLiveV140 = (function() {
   function updateShareControl() {
     const share = document.getElementById('chronus-live-share');
     if (!share) return;
+    if (isLocalPreview()) {
+      share.disabled = false;
+      share.setAttribute('aria-pressed', String(state.screenShare));
+      share.classList.toggle('is-active', state.screenShare);
+      setControlContent(share, 'share', state.screenShare ? 'Encerrar tela' : 'Compartilhar', state.screenShare ? 'Encerrar compartilhamento simulado' : 'Simular compartilhamento de tela');
+      return;
+    }
     share.disabled = true;
     share.setAttribute('aria-pressed', 'false');
     share.classList.remove('is-active');
@@ -464,6 +487,32 @@ window.ChronusLiveV140 = (function() {
 
     setControlContent(share, 'share', 'Compartilhar', 'Compartilhamento de tela ainda não disponível');
     share.disabled = true;
+    if (isLocalPreview()) {
+      microphone?.addEventListener('click', () => {
+        const local = participantById('local');
+        local.microphone = !local.microphone;
+        local.speaking = local.microphone;
+        renderAll();
+        appendFeed(local.characterName, local.microphone ? 'Microfone simulado ligado.' : 'Microfone simulado desligado.', 'agora');
+        announce(local.microphone ? 'Microfone simulado ligado.' : 'Microfone simulado desligado.');
+      });
+      camera?.addEventListener('click', () => {
+        const local = participantById('local');
+        local.camera = !local.camera;
+        state.spotlightId = local.id;
+        state.screenShare = false;
+        updateShareControl();
+        renderAll();
+        announce(local.camera ? 'Câmera simulada ligada.' : 'Câmera desligada; retrato ou quadro vazio exibido.');
+      });
+      share?.addEventListener('click', () => {
+        state.screenShare = !state.screenShare;
+        updateShareControl();
+        renderStage();
+        renderRoster();
+        announce(state.screenShare ? 'Compartilhamento simulado iniciado.' : 'Compartilhamento simulado encerrado.');
+      });
+    }
     setControlContent(dice, 'dice', 'Rolar dados', 'Abrir o rolador CHRONUS');
     setControlContent(leave, 'leave', 'Sair', 'Sair da sala de demonstração');
 
