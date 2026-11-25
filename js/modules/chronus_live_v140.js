@@ -187,9 +187,15 @@ window.ChronusLiveV140 = (function() {
         <main class="chronus-live-stage-column">
           <div class="chronus-live-room-bar">
             <div>
-              <span class="chronus-live-room-code">K-17 / SALA 01</span>
-              <strong>O Sinal de Teufelsberg</strong>
+              <span class="chronus-live-room-code">CHRONUS LIVE / SESSÃO</span>
+              <strong id="chronus-live-session-heading">Selecione uma sessão</strong>
             </div>
+            <label class="chronus-live-session-picker" for="chronus-live-session-select">
+              <span>Sessão ativa</span>
+              <select id="chronus-live-session-select" aria-label="Selecionar sessão da mesa">
+                <option value="">Carregando sessões…</option>
+              </select>
+            </label>
             <div class="chronus-live-room-state" id="chronus-live-participant-count"><span aria-hidden="true"></span> Aguardando participantes</div>
             <div class="chronus-live-connection-status" id="chronus-live-connection-status" role="status" aria-live="polite">
               <strong>Conectando à mesa</strong>
@@ -777,10 +783,63 @@ window.ChronusLiveV140 = (function() {
     });
   }
 
+  async function initializeSessionSelection() {
+    const select = document.getElementById('chronus-live-session-select');
+    if (!select) return;
+    const db = window.ChronusSupabase?.getClient?.();
+    if (!db) {
+      select.replaceChildren(new Option('Entre para ver suas sessões', ''));
+      return;
+    }
+    const { data, error } = await db
+      .from('campaign_sessions')
+      .select('id, title, session_number, status')
+      .in('status', ['planned', 'in_progress'])
+      .order('session_number', { ascending: false })
+      .limit(50);
+    if (!select.isConnected) return;
+    if (error) {
+      select.replaceChildren(new Option('Não foi possível carregar', ''));
+      console.warn('CHRONUS LIVE: falha ao listar sessões autorizadas.', error);
+      return;
+    }
+    const sessions = data || [];
+    select.replaceChildren(new Option('Escolha uma sessão…', ''));
+    sessions.forEach(session => {
+      const option = document.createElement('option');
+      option.value = session.id;
+      option.textContent = [session.session_number, session.title].filter(Boolean).join(' · ').slice(0, 140);
+      select.appendChild(option);
+    });
+    const requestedId = getActiveSessionId();
+    const requested = sessions.find(session => session.id === requestedId);
+    if (requested) {
+      select.value = requested.id;
+      const heading = document.getElementById('chronus-live-session-heading');
+      if (heading) heading.textContent = requested.title;
+    } else if (!requestedId && sessions.length === 1) {
+      select.value = sessions[0].id;
+      window.location.hash = '#/live?session=' + encodeURIComponent(sessions[0].id);
+    } else if (requestedId) {
+      select.value = '';
+      const status = document.getElementById('chronus-live-connection-status');
+      if (status?.querySelector('strong')) status.querySelector('strong').textContent = 'Sem acesso a esta sessão';
+    }
+    select.onchange = () => {
+      const id = select.value;
+      if (!id) {
+        window.location.hash = '#/live';
+        return;
+      }
+      window.location.hash = '#/live?session=' + encodeURIComponent(id);
+    };
+  }
+
   function load() {
     ensureStylesheet();
     if (!rendered || !getRoot()?.querySelector('.chronus-live-room')) buildShell();
     hydrateCurrentParticipant();
+    void initializeSessionSelection();
     window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'), getActiveSessionId());
     document.documentElement.dataset.chronusLive = PREVIEW_MARKER;
     if (isLocalPreview()) document.documentElement.dataset.chronusLiveLocalPreview = 'true';
