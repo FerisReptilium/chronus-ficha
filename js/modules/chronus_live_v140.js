@@ -715,6 +715,8 @@ window.ChronusLiveV140 = (function() {
     }
     if (generation !== presenceGeneration) return;
     const statusEl = document.getElementById('chronus-live-connection-status');
+    if (statusEl?.querySelector('strong')) statusEl.querySelector('strong').textContent = 'Validando acesso à sessão';
+    if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Conferindo autenticação e vínculo';
     const sessionId = getActiveSessionId();
     if (!sessionId) {
       if (statusEl) statusEl.querySelector('strong').textContent = 'Selecione uma sessão válida';
@@ -725,7 +727,14 @@ window.ChronusLiveV140 = (function() {
       if (statusEl) statusEl.querySelector('strong').textContent = 'Serviço indisponível';
       return;
     }
-    const { data, error } = await db.auth.getSession();
+    let authResult;
+    try { authResult = await db.auth.getSession(); }
+    catch (authError) {
+      console.warn('CHRONUS LIVE: não foi possível validar a sessão autenticada.', authError);
+      if (statusEl) statusEl.querySelector('strong').textContent = 'Falha ao validar autenticação';
+      return;
+    }
+    const { data, error } = authResult;
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
     const user = data?.session?.user;
     if (error || !user) {
@@ -733,6 +742,7 @@ window.ChronusLiveV140 = (function() {
       presenceStatus = 'Não autenticado';
       return;
     }
+    if (statusEl) statusEl.querySelector('strong').textContent = 'Validando perfil';
     const { data: profile, error: profileError } = await db.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
     if (profileError || !profile || !['player', 'narrator'].includes(profile.role)) {
@@ -741,6 +751,7 @@ window.ChronusLiveV140 = (function() {
       if (statusEl) statusEl.querySelector('strong').textContent = 'Perfil sem acesso à mesa';
       return;
     }
+    if (statusEl) statusEl.querySelector('strong').textContent = 'Validando vínculo com a sessão';
     const { data: liveSession, error: sessionError } = await db.from('campaign_sessions').select('id').eq('id', sessionId).maybeSingle();
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
     if (sessionError || !liveSession) {
@@ -755,6 +766,7 @@ window.ChronusLiveV140 = (function() {
       localParticipant.role = profile.role === 'narrator' ? 'Narrador' : 'Jogador';
       localParticipant.detail = profile.role === 'narrator' ? 'Controle da sessão' : 'Você';
     }
+    if (statusEl) statusEl.querySelector('strong').textContent = 'Conectando presença';
     const character = state.participants.find(item => item.isLocal)?.characterName || 'Personagem';
     const key = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     presenceKey = key;
