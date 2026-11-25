@@ -123,6 +123,68 @@ USING (
   END
 );
 
+CREATE POLICY chronus_live_roll_feed_authenticated_select
+ON realtime.messages
+FOR SELECT
+TO authenticated
+USING (
+  CASE
+    WHEN realtime.topic() ~ '^chronus-rolls:session:[0-9a-fA-F-]{36}
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  CASE
+    WHEN realtime.topic() ~ '^chronus-live:session:[0-9a-fA-F-]{36}$'
+    THEN chronus_private.can_access_live_session(
+      substring(realtime.topic() FROM '^chronus-live:session:([0-9a-fA-F-]{36})$')::UUID
+    )
+    ELSE false
+  END
+);
+
+COMMENT ON TABLE public.chronus_live_session_members IS
+  'Explicit membership for a CHRONUS LIVE campaign session. Only the Narrator manages membership.';
+COMMENT ON COLUMN public.chronus_roll_events.session_id IS
+  'Campaign session that owns this roll event; required for all new LIVE rolls.';
+COMMENT ON POLICY chronus_live_roll_feed_authenticated_select ON realtime.messages IS
+  'Only members of the UUID-scoped CHRONUS LIVE session topic can join the private roll feed.';
+COMMENT ON POLICY chronus_live_presence_authenticated_select ON realtime.messages IS
+  'Only members of the UUID-scoped CHRONUS LIVE session topic can receive presence.';
+COMMENT ON POLICY chronus_live_presence_authenticated_insert ON realtime.messages IS
+  'Only members of the UUID-scoped CHRONUS LIVE session topic can publish presence.';
+
+COMMIT;
+
+    THEN chronus_private.can_access_live_session(
+      substring(realtime.topic() FROM '^chronus-rolls:session:([0-9a-fA-F-]{36})
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  CASE
+    WHEN realtime.topic() ~ '^chronus-live:session:[0-9a-fA-F-]{36}$'
+    THEN chronus_private.can_access_live_session(
+      substring(realtime.topic() FROM '^chronus-live:session:([0-9a-fA-F-]{36})$')::UUID
+    )
+    ELSE false
+  END
+);
+
+COMMENT ON TABLE public.chronus_live_session_members IS
+  'Explicit membership for a CHRONUS LIVE campaign session. Only the Narrator manages membership.';
+COMMENT ON COLUMN public.chronus_roll_events.session_id IS
+  'Campaign session that owns this roll event; required for all new LIVE rolls.';
+COMMENT ON POLICY chronus_live_presence_authenticated_select ON realtime.messages IS
+  'Only members of the UUID-scoped CHRONUS LIVE session topic can receive presence.';
+COMMENT ON POLICY chronus_live_presence_authenticated_insert ON realtime.messages IS
+  'Only members of the UUID-scoped CHRONUS LIVE session topic can publish presence.';
+
+COMMIT;
+)::UUID
+    )
+    ELSE false
+  END
+);
+
 CREATE POLICY chronus_live_presence_authenticated_insert
 ON realtime.messages
 FOR INSERT
