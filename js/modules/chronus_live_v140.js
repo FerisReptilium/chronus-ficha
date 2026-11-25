@@ -83,6 +83,7 @@ window.ChronusLiveV140 = (function() {
   let presenceGeneration = 0;
   let presenceStatus = 'Desconectado';
   let currentIdentity = null;
+  let activeSessionId = '';
   let state = createInitialState();
 
   function createInitialState() {
@@ -118,9 +119,12 @@ window.ChronusLiveV140 = (function() {
 
   function getActiveSessionId() {
     const hash = window.location.hash || '';
-    const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : '';
-    const value = new URLSearchParams(query).get('session') || '';
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : '';
+    if (hash.startsWith('#/live')) {
+      const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : '';
+      const value = new URLSearchParams(query).get('session') || '';
+      activeSessionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : '';
+    }
+    return activeSessionId;
   }
 
   function participantById(id) {
