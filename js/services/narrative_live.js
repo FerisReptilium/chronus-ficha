@@ -199,7 +199,7 @@
 
     if (typeof db.channel === 'function') {
       channel = db
-        .channel(`chronus-live:session:${sessionId}`, { config: { private: true } })
+        .channel(`chronus-rolls:session:${sessionId}`, { config: { private: true } })
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
