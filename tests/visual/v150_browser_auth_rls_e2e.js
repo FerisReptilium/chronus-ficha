@@ -57,7 +57,7 @@ async function createUser(label) {
   });
   assert.equal(character.status, 201, 'owner must create E2E fixture: ' + JSON.stringify(character.data));
   assert.equal(character.data.length, 1);
-  return { id, email, characterId: character.data[0].id, name: 'Browser ' + label.toUpperCase() };
+  return { id, email, characterId: character.data[0].id, name: 'Browser ' + label.toUpperCase(), characterName: 'Browser-owned ' + label };
 }
 
 async function cleanup() {
@@ -204,12 +204,12 @@ async function visibleCharacterIds(page, expectedUserId) {
       pageA.locator('#chronus-live-roster').innerText(),
       pageB.locator('#chronus-live-roster').innerText()
     ]);
-    assert.ok(rosterA.includes(userA.name) && rosterA.includes(userB.name),
-      'browser A must see both authenticated participants in the shared LIVE room; expected '
-      + JSON.stringify([userA.name, userB.name]) + ', received ' + JSON.stringify(rosterA));
-    assert.ok(rosterB.includes(userA.name) && rosterB.includes(userB.name),
-      'browser B must see both authenticated participants in the shared LIVE room; expected '
-      + JSON.stringify([userA.name, userB.name]) + ', received ' + JSON.stringify(rosterB));
+    assert.ok(rosterA.includes(userA.characterName) && rosterA.includes(userB.characterName),
+      'browser A must see both authenticated characters in the shared LIVE room; expected '
+      + JSON.stringify([userA.characterName, userB.characterName]) + ', received ' + JSON.stringify(rosterA));
+    assert.ok(rosterB.includes(userA.characterName) && rosterB.includes(userB.characterName),
+      'browser B must see both authenticated characters in the shared LIVE room; expected '
+      + JSON.stringify([userA.characterName, userB.characterName]) + ', received ' + JSON.stringify(rosterB));
 
     // Switch identity inside the same browser context through the real logout/login UI.
     pageA.once('dialog', dialog => dialog.accept());
