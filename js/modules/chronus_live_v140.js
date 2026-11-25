@@ -203,6 +203,22 @@ window.ChronusLiveV140 = (function() {
             </div>
           </div>
 
+          <section id="chronus-live-session-admin" class="chronus-live-session-admin" hidden aria-labelledby="chronus-live-session-admin-title">
+            <div class="chronus-live-session-admin-heading">
+              <strong id="chronus-live-session-admin-title">Acesso à sessão</strong>
+              <small>Somente o Narrador pode gerenciar os participantes</small>
+            </div>
+            <div class="chronus-live-session-admin-add">
+              <label for="chronus-live-member-player">Adicionar jogador</label>
+              <select id="chronus-live-member-player">
+                <option value="">Carregando jogadores…</option>
+              </select>
+              <button type="button" id="chronus-live-member-add">Adicionar</button>
+            </div>
+            <ul id="chronus-live-session-members" aria-label="Jogadores autorizados"></ul>
+            <p id="chronus-live-session-admin-status" role="status" aria-live="polite"></p>
+          </section>
+
           <section id="chronus-live-stage" class="chronus-live-stage" aria-label="Participante em destaque"></section>
 
           <div class="chronus-live-layout-bar" aria-label="Modos de visualização">
@@ -798,6 +814,105 @@ window.ChronusLiveV140 = (function() {
     });
   }
 
+  async function initializeSessionMembershipControls(sessionId) {
+    const panel = document.getElementById('chronus-live-session-admin');
+    const select = document.getElementById('chronus-live-member-player');
+    const addButton = document.getElementById('chronus-live-member-add');
+    const list = document.getElementById('chronus-live-session-members');
+    const status = document.getElementById('chronus-live-session-admin-status');
+    if (!panel || !select || !addButton || !list || !status) return;
+    panel.hidden = true;
+    if (!sessionId) return;
+    const db = window.ChronusSupabase?.getClient?.();
+    if (!db || typeof db.from !== 'function') return;
+    const { data: authData, error: authError } = await db.auth.getSession();
+    const user = authData?.session?.user;
+    if (authError || !user) return;
+    const { data: profile, error: profileError } = await db
+      .from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (profileError || profile?.role !== 'narrator') return;
+    panel.hidden = false;
+
+    const refresh = async () => {
+      status.textContent = 'Atualizando permissões…';
+      const [playersResult, membersResult] = await Promise.all([
+        db.from('profiles').select('id, display_name').eq('role', 'player').order('display_name').limit(200),
+        db.from('chronus_live_session_members').select('user_id').eq('session_id', sessionId)
+      ]);
+      if (playersResult.error || membersResult.error) {
+        status.textContent = 'Não foi possível carregar os acessos desta sessão';
+        console.warn('CHRONUS LIVE: falha ao carregar membros da sessão.', playersResult.error || membersResult.error);
+        return;
+      }
+      const players = playersResult.data || [];
+      const memberIds = new Set((membersResult.data || []).map(member => member.user_id));
+      select.replaceChildren(new Option('Selecione um jogador…', ''));
+      players.filter(player => !memberIds.has(player.id)).forEach(player => {
+        const option = document.createElement('option');
+        option.value = player.id;
+        option.textContent = String(player.display_name || 'Jogador').slice(0, 80);
+        select.appendChild(option);
+      });
+      if (select.options.length === 1) {
+        select.options[0].textContent = players.length ? 'Todos os jogadores já têm acesso' : 'Nenhum jogador cadastrado';
+      }
+      list.replaceChildren();
+      (membersResult.data || []).forEach(member => {
+        const player = players.find(item => item.id === member.user_id);
+        const item = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = String(player?.display_name || 'Jogador').slice(0, 80);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.dataset.removeUserId = member.user_id;
+        remove.textContent = 'Remover';
+        remove.setAttribute('aria-label', 'Remover ' + name.textContent + ' desta sessão');
+        item.append(name, remove);
+        list.appendChild(item);
+      });
+      status.textContent = (membersResult.data || []).length + ' jogador(es) autorizado(s)';
+    };
+
+    if (panel.dataset.bound !== 'true') {
+      addButton.addEventListener('click', async () => {
+        const targetUserId = select.value;
+        if (!targetUserId) {
+          status.textContent = 'Escolha um jogador antes de adicionar';
+          return;
+        }
+        addButton.disabled = true;
+        const { error } = await db.from('chronus_live_session_members').insert({
+          session_id: getActiveSessionId(),
+          user_id: targetUserId
+        });
+        addButton.disabled = false;
+        if (error) {
+          status.textContent = 'Não foi possível adicionar o jogador';
+          console.warn('CHRONUS LIVE: falha ao adicionar membro.', error);
+          return;
+        }
+        await refresh();
+      });
+      list.addEventListener('click', async event => {
+        const remove = event.target?.closest?.('button[data-remove-user-id]');
+        if (!remove) return;
+        const targetUserId = remove.dataset.removeUserId;
+        remove.disabled = true;
+        const { error } = await db.from('chronus_live_session_members')
+          .delete().eq('session_id', getActiveSessionId()).eq('user_id', targetUserId);
+        if (error) {
+          remove.disabled = false;
+          status.textContent = 'Não foi possível remover o jogador';
+          console.warn('CHRONUS LIVE: falha ao remover membro.', error);
+          return;
+        }
+        await refresh();
+      });
+      panel.dataset.bound = 'true';
+    }
+    await refresh();
+  }
+
   async function initializeSessionSelection() {
     const select = document.getElementById('chronus-live-session-select');
     if (!select) return;
@@ -828,10 +943,12 @@ window.ChronusLiveV140 = (function() {
     });
     const requestedId = getActiveSessionId();
     const requested = sessions.find(session => session.id === requestedId);
+    if (!requested) void initializeSessionMembershipControls('');
     if (requested) {
       select.value = requested.id;
       const heading = document.getElementById('chronus-live-session-heading');
       if (heading) heading.textContent = requested.title;
+      void initializeSessionMembershipControls(requested.id);
     } else if (!requestedId && sessions.length === 1) {
       select.value = sessions[0].id;
       window.location.hash = '#/live?session=' + encodeURIComponent(sessions[0].id);
