@@ -141,6 +141,15 @@ VALUES (
   '[{"sides":6,"value":6,"determination":false}]'::jsonb,
   6,6,0,'partial_success','shared',0,false
 );
+INSERT INTO public.chronus_roll_events (
+  session_id, character_name, action_label, roll_mode, dice, difficulty,
+  highest_result, margin, outcome, narrative_authority, acts_awarded, condition_awarded
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000402','Personagem B','Ação exclusiva B','Rolagem rápida',
+  '[{"sides":6,"value":5,"determination":false}]'::jsonb,
+  4,5,1,'success','player',0,false
+);
 COMMIT;
 
 -- Player A sees the shared table events and cannot create a narrator-owned event.
@@ -179,7 +188,7 @@ DO $$
 DECLARE v_count integer; v_blocked boolean := false;
 BEGIN
   SELECT count(*) INTO v_count FROM public.chronus_roll_events;
-  IF v_count <> 2 THEN RAISE EXCEPTION 'Narrator should see both session-A events; got %',v_count; END IF;
+  IF v_count <> 3 THEN RAISE EXCEPTION 'Narrator should see all three authorized session events; got %',v_count; END IF;
   BEGIN
     INSERT INTO public.chronus_roll_events (
       action_label, dice, difficulty, highest_result, margin,
