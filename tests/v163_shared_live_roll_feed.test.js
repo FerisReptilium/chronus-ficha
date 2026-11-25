@@ -14,7 +14,7 @@ const sessionMigration = fs.readFileSync('supabase/migrations/20261125000000_chr
 
 assert(service.includes('function mountSharedRollFeed(container, sessionId)'), 'session-aware shared feed mount API missing');
 assert(service.includes(".eq('session_id', sessionId)"), 'roll history must be filtered to the selected session');
-assert(service.includes('chronus-live:session:${sessionId}'), 'roll feed must subscribe to the selected session topic');
+assert(service.includes('chronus-rolls:session:${sessionId}'), 'roll feed must use its own selected-session topic');
 assert(service.includes('session_id: sessionId'), 'new roll events must carry the selected session id');
 assert(service.includes(".on('postgres_changes'"), 'shared roll feed must subscribe to Postgres INSERT events');
 assert(service.includes("table: 'chronus_roll_events'"), 'shared feed must listen to roll event table');
@@ -40,6 +40,7 @@ assert(sqlBaseline.includes('Player A should see only the two events in Session 
 assert(sqlBaseline.includes('Player A read a roll from Session B'), 'database integration test must reject cross-session roll visibility');
 assert(sessionMigration.includes('chronus_live_session_members'), 'migration must add explicit session membership');
 assert(sessionMigration.includes('chronus_roll_events_select_session_members'), 'roll visibility must be session-scoped');
+assert(sessionMigration.includes('chronus_live_roll_feed_authenticated_select'), 'private session roll feed channel must require session membership');
 assert(sessionMigration.includes('chronus_private.can_access_live_session'), 'presence and roll access must require session membership or narrator role');
 assert(sessionMigration.includes("'^chronus-live:session:[0-9a-fA-F-]{36}$'"), 'presence policy must accept only UUID-scoped session topics');
 assert(sessionMigration.includes('chronus_live_presence_authenticated_insert') && sessionMigration.includes('FOR INSERT') && sessionMigration.includes('WITH CHECK'), 'authenticated participants must be authorized to publish presence');
