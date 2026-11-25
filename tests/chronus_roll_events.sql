@@ -88,7 +88,7 @@ BEGIN
      OR v_policy.qual NOT LIKE '%can_access_live_session%' THEN
     RAISE EXCEPTION 'Private roll feed topic must be restricted to authenticated session members: %', v_policy;
   END IF;
-END $;
+END $$;
 
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -176,7 +176,7 @@ DECLARE v_count integer;
 BEGIN
   SELECT count(*) INTO v_count FROM public.chronus_roll_events;
   IF v_count <> 3 THEN RAISE EXCEPTION 'Player B should see three events across their two sessions; got %',v_count; END IF;
-END $;
+END $$;
 ROLLBACK;
 
 -- Player A sees the shared table events and cannot create a narrator-owned event.
