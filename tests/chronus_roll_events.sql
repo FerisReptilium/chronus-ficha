@@ -49,9 +49,8 @@ BEGIN
   END IF;
   IF v_policy.cmd <> 'SELECT'
      OR NOT ('authenticated' = ANY(v_policy.roles))
-     OR v_policy.qual NOT LIKE '%chronus-live:main-table%'
-     OR v_policy.qual NOT LIKE '%player%'
-     OR v_policy.qual NOT LIKE '%narrator%' THEN
+     OR v_policy.qual NOT LIKE '%chronus-live:session:%'
+     OR v_policy.qual NOT LIKE '%can_access_live_session%' THEN
     RAISE EXCEPTION 'LIVE presence policy is not scoped to authenticated CHRONUS players/narrators: %', v_policy;
   END IF;
 END $$;
@@ -70,9 +69,8 @@ BEGIN
   END IF;
   IF v_insert_policy.cmd <> 'INSERT'
      OR NOT ('authenticated' = ANY(v_insert_policy.roles))
-     OR v_insert_policy.with_check NOT LIKE '%chronus-live:main-table%'
-     OR v_insert_policy.with_check NOT LIKE '%player%'
-     OR v_insert_policy.with_check NOT LIKE '%narrator%' THEN
+     OR v_insert_policy.with_check NOT LIKE '%chronus-live:session:%'
+     OR v_insert_policy.with_check NOT LIKE '%can_access_live_session%' THEN
     RAISE EXCEPTION 'LIVE presence INSERT policy is not scoped to authenticated CHRONUS players/narrators: %', v_insert_policy;
   END IF;
 END $$;
@@ -90,17 +88,30 @@ ON CONFLICT (id) DO NOTHING;
 UPDATE public.profiles SET role='narrator'
 WHERE id='00000000-0000-0000-0000-000000000303';
 
+INSERT INTO public.campaign_sessions (
+  id, session_number, title, slug, summary, status, visibility, published, created_by
+) VALUES
+('00000000-0000-0000-0000-000000000401',990301,'Sessão A','live-e2e-a','Sessão de teste A','in_progress','narrator',false,'00000000-0000-0000-0000-000000000303'),
+('00000000-0000-0000-0000-000000000402',990302,'Sessão B','live-e2e-b','Sessão de teste B','in_progress','narrator',false,'00000000-0000-0000-0000-000000000303')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.chronus_live_session_members (session_id,user_id,created_by) VALUES
+('00000000-0000-0000-0000-000000000401','00000000-0000-0000-0000-000000000301','00000000-0000-0000-0000-000000000303'),
+('00000000-0000-0000-0000-000000000401','00000000-0000-0000-0000-000000000302','00000000-0000-0000-0000-000000000303'),
+('00000000-0000-0000-0000-000000000402','00000000-0000-0000-0000-000000000302','00000000-0000-0000-0000-000000000303')
+ON CONFLICT DO NOTHING;
+
 -- Player A inserts a normal roll with three matching base dice and the special d12.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000301"}',true);
 INSERT INTO public.chronus_roll_events (
-  character_name, action_label, roll_mode, dice, difficulty,
+  session_id, character_name, action_label, roll_mode, dice, difficulty,
   highest_result, margin, outcome, narrative_authority,
   acts_awarded, condition_awarded
 )
 VALUES (
-  'Personagem A', 'Teste de força', 'Teste guiado',
+  '00000000-0000-0000-0000-000000000401', 'Personagem A', 'Teste de força', 'Teste guiado',
   '[{"sides":8,"value":4,"determination":false},{"sides":8,"value":7,"determination":false},{"sides":8,"value":5,"determination":false},{"sides":12,"value":10,"determination":true}]'::jsonb,
   6, 10, 4, 'exceptional_success', 'player', 1, true
 );
@@ -126,7 +137,7 @@ INSERT INTO public.chronus_roll_events (
   acts_awarded, condition_awarded
 )
 VALUES (
-  'Personagem B','Ação B','Rolagem rápida',
+  '00000000-0000-0000-0000-000000000401','Personagem B','Ação B','Rolagem rápida',
   '[{"sides":6,"value":6,"determination":false}]'::jsonb,
   6,6,0,'partial_success','shared',0,false
 );
@@ -140,14 +151,17 @@ DO $$
 DECLARE v_count integer; v_blocked boolean := false;
 BEGIN
   SELECT count(*) INTO v_count FROM public.chronus_roll_events;
-  IF v_count <> 2 THEN RAISE EXCEPTION 'Player A should see the shared table events; got %',v_count; END IF;
+  IF v_count <> 2 THEN RAISE EXCEPTION 'Player A should see only the two events in Session A; got %',v_count; END IF;
+  IF EXISTS (SELECT 1 FROM public.chronus_roll_events WHERE session_id='00000000-0000-0000-0000-000000000402') THEN
+    RAISE EXCEPTION 'Player A read a roll from Session B';
+  END IF;
   BEGIN
     INSERT INTO public.chronus_roll_events (
-      player_user_id, action_label, dice, difficulty, highest_result, margin,
+      session_id, player_user_id, action_label, dice, difficulty, highest_result, margin,
       outcome, narrative_authority, acts_awarded, condition_awarded
     )
     VALUES (
-      '00000000-0000-0000-0000-000000000302','Spoof',
+      '00000000-0000-0000-0000-000000000401','00000000-0000-0000-0000-000000000302','Spoof',
       '[{"sides":8,"value":8,"determination":false}]'::jsonb,
       6,8,2,'success','player',0,false
     );
@@ -165,7 +179,7 @@ DO $$
 DECLARE v_count integer; v_blocked boolean := false;
 BEGIN
   SELECT count(*) INTO v_count FROM public.chronus_roll_events;
-  IF v_count <> 2 THEN RAISE EXCEPTION 'Narrator should see both events; got %',v_count; END IF;
+  IF v_count <> 2 THEN RAISE EXCEPTION 'Narrator should see both session-A events; got %',v_count; END IF;
   BEGIN
     INSERT INTO public.chronus_roll_events (
       action_label, dice, difficulty, highest_result, margin,
