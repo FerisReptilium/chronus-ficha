@@ -47,8 +47,6 @@ jobs:
           cp supabase/migrations/008_chronus_roll_events_immutable_grants.sql .chronus-db-ci/supabase/migrations/20261121000900_chronus_roll_events_immutable_grants.sql
           cp supabase/migrations/20261122165137_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122165137_character_revision_cas.sql
           cp supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql .chronus-db-ci/supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql
-          cp supabase/migrations/20261123010000_shared_roll_visibility.sql .chronus-db-ci/supabase/migrations/20261123010000_shared_roll_visibility.sql
-          cp supabase/migrations/20261123020000_chronus_live_presence_access.sql .chronus-db-ci/supabase/migrations/20261123020000_chronus_live_presence_access.sql
           cp supabase/migrations/20261125000000_chronus_live_session_isolation.sql .chronus-db-ci/supabase/migrations/20261125000000_chronus_live_session_isolation.sql
           cd .chronus-db-ci
           supabase init
@@ -96,7 +94,7 @@ jobs:
           node tests/v144_sheet_dice_integration.test.js
           node tests/rules/narrative_resolution.test.js
 
-      - name: Verify all fifteen migrations were recorded
+      - name: Verify all thirteen migrations were recorded
         run: |
           set -euo pipefail
           set -a
@@ -112,10 +110,10 @@ jobs:
               '20261121000000','20261121000100','20261121000200',
               '20261121000300','20261121000400','20261121000500',
               '20261121000600','20261121000700','20261121000800','20261121000900',
-              '20261122165137','20261123000000','20261123010000','20261123020000','20261125000000'
+              '20261122165137','20261123000000','20261125000000'
             );
-            IF v_count <> 15 THEN
-              RAISE EXCEPTION 'Expected 15 recorded migrations, found %', v_count;
+            IF v_count <> 13 THEN
+              RAISE EXCEPTION 'Expected 13 recorded migrations, found %', v_count;
             END IF;
           END $$;
           SELECT version, name FROM supabase_migrations.schema_migrations
