@@ -19,6 +19,7 @@ const base = apiUrl.replace(/\/+$/, '');
 const runTag = (process.env.GITHUB_RUN_ID || 'local') + '-' + crypto.randomBytes(5).toString('hex');
 const password = 'Chronus-E2E-' + crypto.randomBytes(12).toString('hex') + '!';
 const createdUsers = [];
+const createdSessions = [];
 
 async function api(path, { method = 'GET', key = anonKey, token = key, body, prefer } = {}) {
   const headers = { apikey: key, Authorization: 'Bearer ' + token };
@@ -61,6 +62,12 @@ async function createUser(label) {
 }
 
 async function cleanup() {
+  for (const id of createdSessions.reverse()) {
+    const result = await api('/rest/v1/campaign_sessions?id=eq.' + encodeURIComponent(id), {
+      method: 'DELETE', key: serviceRoleKey, token: serviceRoleKey
+    });
+    if (!result.ok && result.status !== 404) throw new Error('Could not clean disposable session ' + id + ': HTTP ' + result.status);
+  }
   for (const id of createdUsers.reverse()) {
     const result = await api('/auth/v1/admin/users/' + encodeURIComponent(id), {
       method: 'DELETE', key: serviceRoleKey, token: serviceRoleKey
@@ -161,6 +168,30 @@ async function visibleCharacterIds(page, expectedUserId) {
   try {
     const userA = await createUser('a');
     const userB = await createUser('b');
+    const sessionResult = await api('/rest/v1/campaign_sessions?select=id', {
+      method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
+      prefer: 'return=representation',
+      body: {
+        session_number: Math.floor(Date.now() / 1000),
+        title: 'Browser LIVE session ' + runTag,
+        slug: 'browser-live-' + runTag,
+        summary: 'Disposable session for authenticated LIVE E2E',
+        status: 'in_progress', visibility: 'narrator', published: false,
+        created_by: userA.id
+      }
+    });
+    assert.equal(sessionResult.status, 201, 'service role must create disposable LIVE session: ' + JSON.stringify(sessionResult.data));
+    const sessionId = sessionResult.data?.[0]?.id;
+    assert.ok(sessionId, 'disposable LIVE session must have an id');
+    createdSessions.push(sessionId);
+    const members = await api('/rest/v1/chronus_live_session_members', {
+      method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
+      body: [
+        { session_id: sessionId, user_id: userA.id, created_by: userA.id },
+        { session_id: sessionId, user_id: userB.id, created_by: userA.id }
+      ]
+    });
+    assert.equal(members.status, 201, 'service role must provision both session memberships: ' + JSON.stringify(members.data));
     browser = await chromium.launch({ headless: true });
 
     // Two independent browser contexts represent isolated browser sessions.
@@ -185,8 +216,8 @@ async function visibleCharacterIds(page, expectedUserId) {
     // Verify real Supabase Realtime Presence with two independently authenticated
     // browser contexts. Both pages must see both accounts in the same private room.
     await Promise.all([
-      pageA.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live', { waitUntil: 'domcontentloaded' }),
-      pageB.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live', { waitUntil: 'domcontentloaded' })
+      pageA.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' }),
+      pageB.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' })
     ]);
     await Promise.all([
       pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userA.id, { timeout: 10000 }),
