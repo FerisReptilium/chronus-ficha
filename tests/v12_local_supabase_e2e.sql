@@ -54,7 +54,8 @@ BEGIN
       'chronicle_chapters','library_items','locations','npc_documents','npc_locations',
       'npcs','portal_assets','session_documents','session_locations','session_npcs','soundtrack'
     ])
-    AND cmd='SELECT';
+    AND cmd='SELECT'
+    AND policyname <> 'campaign_sessions_live_member_select';
   IF v_select <> 15 THEN RAISE EXCEPTION 'FAIL migration 005: expected 15 SELECT policies, found %', v_select; END IF;
 
   SELECT count(*) INTO v_writes

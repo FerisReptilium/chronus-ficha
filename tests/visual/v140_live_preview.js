@@ -181,7 +181,7 @@ async function runMode(browser, mode, viewport) {
   for (const [stateName, state] of Object.entries({ portrait, cameraOn, cameraOff, screenShare, grid })) {
     if (state.boxesOutsideViewport.length || state.controlsOutsideBar.length || state.clippedText.length) throw new Error(`${mode}: ${stateName} content clipping`);
   }
-  if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected`);
+  if (errors.console.length || errors.page.length) throw new Error(`${mode}: browser errors detected: ${JSON.stringify(errors)}`);
 
   await context.close();
   return result;
@@ -191,14 +191,15 @@ async function runMode(browser, mode, viewport) {
   fs.mkdirSync(outputDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const results = {};
-
-  for (const [mode, viewport] of Object.entries(viewports)) {
-    results[mode] = await runMode(browser, mode, viewport);
+  try {
+    for (const [mode, viewport] of Object.entries(viewports)) {
+      results[mode] = await runMode(browser, mode, viewport);
+    }
+    fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
+    console.log('v1.4.0 CHRONUS LIVE desktop/mobile visual QA: PASS');
+  } finally {
+    await browser.close();
   }
-
-  await browser.close();
-  fs.writeFileSync(path.join(outputDir, 'qa.json'), `${JSON.stringify(results, null, 2)}\n`);
-  console.log('v1.4.0 CHRONUS LIVE desktop/mobile visual QA: PASS');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

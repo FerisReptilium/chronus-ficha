@@ -115,6 +115,11 @@ window.ChronusRouter = (function() {
       document.body.classList.remove('in-sheet-mode');
     }
 
+    if (cleanHash !== '#/live') {
+      void window.ChronusNarrativeLive?.unmountSharedRollFeed?.();
+      void window.ChronusLiveV140?.unmount?.();
+    }
+
     // Se for rota de dashboard ou conteúdo, recarrega dados atualizados
     if (cleanHash === '#/player') {
       window.ChronusPlayerDashboard?.load();

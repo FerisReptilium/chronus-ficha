@@ -47,13 +47,16 @@ jobs:
           cp supabase/migrations/008_chronus_roll_events_immutable_grants.sql .chronus-db-ci/supabase/migrations/20261121000900_chronus_roll_events_immutable_grants.sql
           cp supabase/migrations/20261122165137_character_revision_cas.sql .chronus-db-ci/supabase/migrations/20261122165137_character_revision_cas.sql
           cp supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql .chronus-db-ci/supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql
+          cp supabase/migrations/20261125212222_chronus_live_session_isolation.sql .chronus-db-ci/supabase/migrations/20261125212222_chronus_live_session_isolation.sql
           cd .chronus-db-ci
           supabase init
           # Allocate per-run PostgreSQL ports: concurrent pull-request workflows
           # share hosted runner infrastructure and must not bind the same host port.
-          db_port=$((55000 + GITHUB_RUN_ID % 10000))
+          # Mix the run ID with the shell's per-job random seed so overlapping
+          # runs do not collide when their IDs share the same decimal suffix.
+          db_port=$((20000 + (GITHUB_RUN_ID * 31 + RANDOM) % 28000))
           shadow_port=$((db_port + 1))
-          inbucket_port=$((56000 + GITHUB_RUN_ID % 10000))
+          inbucket_port=$((50000 + (GITHUB_RUN_ID * 17 + RANDOM) % 9000))
           smtp_port=$((inbucket_port + 1))
           pop3_port=$((inbucket_port + 2))
           sed -i "/^\\[db\\]/,/^\\[/ s/^port = 54322$/port = ${db_port}/" supabase/config.toml
@@ -91,7 +94,7 @@ jobs:
           node tests/v144_sheet_dice_integration.test.js
           node tests/rules/narrative_resolution.test.js
 
-      - name: Verify all twelve migrations were recorded
+      - name: Verify all thirteen migrations were recorded
         run: |
           set -euo pipefail
           set -a
@@ -107,10 +110,10 @@ jobs:
               '20261121000000','20261121000100','20261121000200',
               '20261121000300','20261121000400','20261121000500',
               '20261121000600','20261121000700','20261121000800','20261121000900',
-              '20261122165137','20261123000000'
+              '20261122165137','20261123000000','20261125212222'
             );
-            IF v_count <> 12 THEN
-              RAISE EXCEPTION 'Expected 12 recorded migrations, found %', v_count;
+            IF v_count <> 13 THEN
+              RAISE EXCEPTION 'Expected 13 recorded migrations, found %', v_count;
             END IF;
           END $$;
           SELECT version, name FROM supabase_migrations.schema_migrations

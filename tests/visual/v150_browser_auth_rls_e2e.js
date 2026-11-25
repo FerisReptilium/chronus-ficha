@@ -19,6 +19,7 @@ const base = apiUrl.replace(/\/+$/, '');
 const runTag = (process.env.GITHUB_RUN_ID || 'local') + '-' + crypto.randomBytes(5).toString('hex');
 const password = 'Chronus-E2E-' + crypto.randomBytes(12).toString('hex') + '!';
 const createdUsers = [];
+const createdSessions = [];
 
 async function api(path, { method = 'GET', key = anonKey, token = key, body, prefer } = {}) {
   const headers = { apikey: key, Authorization: 'Bearer ' + token };
@@ -57,10 +58,16 @@ async function createUser(label) {
   });
   assert.equal(character.status, 201, 'owner must create E2E fixture: ' + JSON.stringify(character.data));
   assert.equal(character.data.length, 1);
-  return { id, email, characterId: character.data[0].id, name: 'Browser ' + label.toUpperCase() };
+  return { id, email, characterId: character.data[0].id, name: 'Browser ' + label.toUpperCase(), characterName: 'Browser-owned ' + label };
 }
 
 async function cleanup() {
+  for (const id of createdSessions.reverse()) {
+    const result = await api('/rest/v1/campaign_sessions?id=eq.' + encodeURIComponent(id), {
+      method: 'DELETE', key: serviceRoleKey, token: serviceRoleKey
+    });
+    if (!result.ok && result.status !== 404) throw new Error('Could not clean disposable session ' + id + ': HTTP ' + result.status);
+  }
   for (const id of createdUsers.reverse()) {
     const result = await api('/auth/v1/admin/users/' + encodeURIComponent(id), {
       method: 'DELETE', key: serviceRoleKey, token: serviceRoleKey
@@ -128,29 +135,72 @@ async function loginThroughUi(page, user) {
   assert.equal(displayedName, user.name, 'header must display the authenticated profile identity');
 }
 
+async function navigateToLive(page, sessionId) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await page.evaluate(id => {
+      window.location.hash = '#/live?session=' + encodeURIComponent(id);
+    }, sessionId);
+    try {
+      await page.waitForFunction(() => window.location.hash.startsWith('#/live?session='), undefined, { timeout: 5000 });
+      await page.locator('#chronus-live-connection-status').waitFor({ state: 'visible', timeout: 5000 });
+      return;
+    } catch {
+      await page.waitForTimeout(200);
+    }
+  }
+  throw new Error('Browser could not remain on the selected CHRONUS LIVE session route');
+}
+
+async function liveDiagnostics(page, sessionId) {
+  return page.evaluate(async expectedSessionId => {
+    const client = window.ChronusSupabase?.getClient?.();
+    const user = window.ChronusAuth?.getUser?.();
+    if (!client || !user) return { hash: location.hash, userId: user?.id || null, status: document.querySelector('#chronus-live-connection-status')?.innerText || null };
+    const [profile, session, membership] = await Promise.all([
+      client.from('profiles').select('display_name,role').eq('id', user.id).maybeSingle(),
+      client.from('campaign_sessions').select('id,title,status').eq('id', expectedSessionId).maybeSingle(),
+      client.from('chronus_live_session_members').select('session_id,user_id').eq('session_id', expectedSessionId).eq('user_id', user.id).maybeSingle()
+    ]);
+    return {
+      hash: location.hash,
+      userId: user.id,
+      status: document.querySelector('#chronus-live-connection-status')?.innerText || null,
+      profile: { data: profile.data, error: profile.error?.message || null },
+      session: { data: session.data, error: session.error?.message || null },
+      membership: { data: membership.data, error: membership.error?.message || null },
+      roster: document.querySelector('#chronus-live-roster')?.innerText || null
+    };
+  }, sessionId);
+}
+
 async function visibleCharacterIds(page, expectedUserId) {
   let lastError;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     try {
-      await page.waitForFunction(expected =>
-        window.ChronusAuth?.getUser()?.id === expected
-        && typeof window.ChronusSupabase?.getClient === 'function'
-      , expectedUserId, { timeout: 10000 });
+      await page.waitForFunction(async expected => {
+        const client = window.ChronusSupabase?.getClient?.();
+        if (!client) return false;
+        const { data, error } = await client.auth.getSession();
+        return !error && data?.session?.user?.id === expected;
+      }, expectedUserId, { timeout: 15000 });
       return await page.evaluate(async expected => {
-        if (window.ChronusAuth?.getUser()?.id !== expected) {
-          throw new Error('Browser identity changed before the RLS query');
+        const client = window.ChronusSupabase?.getClient?.();
+        if (!client) throw new Error('Supabase client unavailable after navigation');
+        const { data: authData, error: authError } = await client.auth.getSession();
+        if (authError || authData?.session?.user?.id !== expected) {
+          throw new Error('Supabase token did not finish switching to the expected account');
         }
-        const client = window.ChronusSupabase.getClient();
         const { data, error } = await client.from('characters').select('id,user_id,name,revision');
         if (error) throw new Error(error.message);
         return data.map(row => ({ id: row.id, owner: row.user_id, name: row.name }));
       }, expectedUserId);
     } catch (error) {
       lastError = error;
-      if (!/Execution context was destroyed|Most likely the page has been closed|Target page, context or browser has been closed/i.test(String(error))) {
+      if (!/Execution context was destroyed|Most likely the page has been closed|Target page, context or browser has been closed|Supabase client unavailable|Failed to fetch|Browser identity changed/i.test(String(error))) {
         throw error;
       }
       await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(200);
     }
   }
   throw lastError || new Error('Could not query visible character rows after navigation');
@@ -161,14 +211,54 @@ async function visibleCharacterIds(page, expectedUserId) {
   try {
     const userA = await createUser('a');
     const userB = await createUser('b');
+    const userNarrator = await createUser('narrator');
+    const userGuest = await createUser('guest');
+    const narratorProfile = await api('/rest/v1/profiles?id=eq.' + encodeURIComponent(userNarrator.id), {
+      method: 'PATCH', key: serviceRoleKey, token: serviceRoleKey, body: { role: 'narrator' }
+    });
+    assert.ok(narratorProfile.status === 204 || narratorProfile.status === 200,
+      'trusted service role must provision the narrator profile: HTTP ' + narratorProfile.status);
+    const verifiedNarratorProfile = await api('/rest/v1/profiles?id=eq.' + encodeURIComponent(userNarrator.id) + '&select=role', {
+      key: serviceRoleKey, token: serviceRoleKey
+    });
+    assert.equal(verifiedNarratorProfile.data?.[0]?.role, 'narrator',
+      'trusted service role must persist the narrator role: ' + JSON.stringify(verifiedNarratorProfile.data));
+    const sessionResult = await api('/rest/v1/campaign_sessions?select=id', {
+      method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
+      prefer: 'return=representation',
+      body: {
+        session_number: Math.floor(Date.now() / 1000),
+        title: 'Browser LIVE session ' + runTag,
+        slug: 'browser-live-' + runTag,
+        summary: 'Disposable session for authenticated LIVE E2E',
+        status: 'in_progress', visibility: 'narrator', published: false,
+        created_by: userA.id
+      }
+    });
+    assert.equal(sessionResult.status, 201, 'service role must create disposable LIVE session: ' + JSON.stringify(sessionResult.data));
+    const sessionId = sessionResult.data?.[0]?.id;
+    assert.ok(sessionId, 'disposable LIVE session must have an id');
+    createdSessions.push(sessionId);
+    const members = await api('/rest/v1/chronus_live_session_members', {
+      method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
+      body: [
+        { session_id: sessionId, user_id: userA.id, created_by: userA.id },
+        { session_id: sessionId, user_id: userB.id, created_by: userA.id }
+      ]
+    });
+    assert.equal(members.status, 201, 'service role must provision both session memberships: ' + JSON.stringify(members.data));
     browser = await chromium.launch({ headless: true });
 
     // Two independent browser contexts represent isolated browser sessions.
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
+    const contextNarrator = await browser.newContext();
+    const contextGuest = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
-    await Promise.all([interceptLocalConfig(pageA), interceptLocalConfig(pageB)]);
+    const pageNarrator = await contextNarrator.newPage();
+    const pageGuest = await contextGuest.newPage();
+    await Promise.all([interceptLocalConfig(pageA), interceptLocalConfig(pageB), interceptLocalConfig(pageNarrator), interceptLocalConfig(pageGuest)]);
 
     await Promise.all([loginThroughUi(pageA, userA), loginThroughUi(pageB, userB)]);
 
@@ -181,6 +271,70 @@ async function visibleCharacterIds(page, expectedUserId) {
       'authenticated browser B must see only its own character');
     assert.ok(rowsA.every(row => row.owner === userA.id));
     assert.ok(rowsB.every(row => row.owner === userB.id));
+
+    // Verify real Supabase Realtime Presence with two independently authenticated
+    // browser contexts. Both pages must see both accounts in the same private room.
+    await Promise.all([navigateToLive(pageA, sessionId), navigateToLive(pageB, sessionId)]);
+    await Promise.all([
+      pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userA.id, { timeout: 10000 }),
+      pageB.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id, { timeout: 10000 })
+    ]);
+    await Promise.all([pageA, pageB].map(async (page, index) => {
+      try {
+        await page.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 });
+      } catch (error) {
+        const diagnostics = await liveDiagnostics(page, sessionId);
+        throw new Error('LIVE presence did not synchronize in browser ' + (index ? 'B' : 'A') + ': ' + JSON.stringify(diagnostics) + '\\n' + error.message);
+      }
+    }));
+    await Promise.all([
+      pageA.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, undefined, { timeout: 20000 }),
+      pageB.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, undefined, { timeout: 20000 })
+    ]);
+    const [rosterA, rosterB] = await Promise.all([
+      pageA.locator('#chronus-live-roster').innerText(),
+      pageB.locator('#chronus-live-roster').innerText()
+    ]);
+    assert.ok(rosterA.includes(userA.characterName) && rosterA.includes(userB.characterName),
+      'browser A must see both authenticated characters in the shared LIVE room; expected '
+      + JSON.stringify([userA.characterName, userB.characterName]) + ', received ' + JSON.stringify(rosterA));
+    assert.ok(rosterB.includes(userA.characterName) && rosterB.includes(userB.characterName),
+      'browser B must see both authenticated characters in the shared LIVE room; expected '
+      + JSON.stringify([userA.characterName, userB.characterName]) + ', received ' + JSON.stringify(rosterB));
+
+    // Narrator UI must be able to grant and revoke session membership without a service key.
+    await loginThroughUi(pageNarrator, userNarrator);
+    await navigateToLive(pageNarrator, sessionId);
+    try {
+      await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });
+    } catch (error) {
+      const diagnostics = await liveDiagnostics(pageNarrator, sessionId);
+      throw new Error('Narrator membership panel did not initialize: ' + JSON.stringify(diagnostics) + '\\n' + error.message);
+    }
+    const memberSelect = pageNarrator.locator('#chronus-live-member-player');
+    await pageNarrator.waitForFunction(expected => {
+      const select = document.querySelector('#chronus-live-member-player');
+      return Boolean(select && Array.from(select.options).some(option => option.value === expected));
+    }, userGuest.id, { timeout: 10000 });
+    await memberSelect.selectOption(userGuest.id);
+    await pageNarrator.locator('#chronus-live-member-add').click();
+    await pageNarrator.waitForFunction(expected => {
+      const list = document.querySelector('#chronus-live-session-members');
+      return Boolean(list && list.innerText.includes(expected));
+    }, userGuest.name, { timeout: 10000 });
+
+    await loginThroughUi(pageGuest, userGuest);
+    await navigateToLive(pageGuest, sessionId);
+    await pageGuest.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 });
+
+    const guestRow = pageNarrator.locator('#chronus-live-session-members li').filter({ hasText: userGuest.name });
+    await guestRow.locator('button').click();
+    await pageNarrator.waitForFunction(expected => {
+      const list = document.querySelector('#chronus-live-session-members');
+      return Boolean(list && !list.innerText.includes(expected));
+    }, userGuest.name, { timeout: 10000 });
+    await pageGuest.reload({ waitUntil: 'domcontentloaded' });
+    await pageGuest.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Sem acesso a esta sessão', undefined, { timeout: 20000 });
 
     // Switch identity inside the same browser context through the real logout/login UI.
     pageA.once('dialog', dialog => dialog.accept());
@@ -203,7 +357,9 @@ async function visibleCharacterIds(page, expectedUserId) {
 
     await contextA.close();
     await contextB.close();
-    console.log('PASS: real browser UI login, two isolated sessions, RLS data isolation, logout and account switch');
+    await contextNarrator.close();
+    await contextGuest.close();
+    console.log('PASS: browser Auth/RLS, account switch, session presence, and Narrator membership grant/revoke');
   } finally {
     if (browser) await browser.close();
     await cleanup();

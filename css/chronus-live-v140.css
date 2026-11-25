@@ -191,6 +191,153 @@ body.in-live-mode .chronus-audio-dock {
   background: linear-gradient(90deg, rgba(184, 148, 85, 0.07), transparent 38%);
 }
 
+.chronus-live-session-picker {
+  display: grid;
+  gap: 5px;
+  min-width: min(260px, 42%);
+  color: var(--live-muted);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chronus-live-session-picker select {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--live-line);
+  border-radius: 3px;
+  background: #0b0d0d;
+  color: var(--live-ink);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.chronus-live-session-picker select:focus-visible {
+  outline: 2px solid var(--live-gold);
+  outline-offset: 2px;
+}
+
+#chronus-live-session-admin[hidden] {
+  display: none !important;
+}
+
+.chronus-live-session-admin {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(220px, 1.3fr);
+  gap: 12px 20px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--live-line);
+  background: rgba(8, 11, 11, 0.82);
+}
+
+.chronus-live-session-admin-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.chronus-live-session-admin-heading strong {
+  color: var(--live-gold);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chronus-live-session-admin-heading small,
+#chronus-live-session-admin-status {
+  color: var(--live-muted);
+  font-size: 0.72rem;
+}
+
+.chronus-live-session-admin-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  align-items: end;
+}
+
+.chronus-live-session-admin-add label {
+  grid-column: 1 / -1;
+  color: var(--live-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chronus-live-session-admin-add select {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--live-line);
+  border-radius: 3px;
+  background: #0b0d0d;
+  color: var(--live-ink);
+}
+
+.chronus-live-session-admin-add button,
+#chronus-live-session-members button {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid var(--live-gold);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--live-gold);
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.chronus-live-session-admin-add button:disabled,
+#chronus-live-session-members button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+#chronus-live-session-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#chronus-live-session-members li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 7px 5px 10px;
+  border: 1px solid var(--live-line);
+  color: var(--live-ink);
+  font-size: 0.72rem;
+}
+
+#chronus-live-session-members button {
+  min-height: 26px;
+  padding: 3px 7px;
+  border-color: rgba(190, 90, 80, 0.65);
+  color: #d99b91;
+}
+
+#chronus-live-session-admin-status {
+  grid-column: 1 / -1;
+  min-height: 1em;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .chronus-live-session-admin {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chronus-live-room-bar > div:first-child {
   display: grid;
   gap: 3px;
@@ -1130,4 +1277,47 @@ body.in-live-mode .chronus-audio-dock {
   .chronus-live-root {
     display: none !important;
   }
+}
+
+
+/* Shared dice results in the live session feed */
+.chronus-live-roll-status {
+  color: var(--live-green);
+  font-family: var(--font-sans);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chronus-live-roll-event {
+  min-width: 0;
+}
+
+.chronus-live-roll-event > div {
+  min-width: 0;
+}
+
+.chronus-live-roll-event p {
+  overflow-wrap: anywhere;
+}
+
+.chronus-live-roll-dice {
+  color: var(--live-gold) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.62rem !important;
+}
+
+.chronus-live-roll-result {
+  display: block;
+  margin-top: 4px;
+  color: var(--live-ink) !important;
+  font-size: 0.55rem !important;
+}
+
+.chronus-live-roll-empty {
+  grid-column: 1 / -1;
+  color: var(--live-muted);
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
 }

@@ -573,7 +573,7 @@ window.ChronusDiceRollerV135 = (function() {
         window.ChronusNarrativeLive.publish(record).then(result => {
           if (!syncStatus.isConnected) return;
           if (result?.ok) {
-            syncStatus.textContent = '✓ Rolagem compartilhada com o Narrador.';
+            syncStatus.textContent = '✓ Rolagem compartilhada com a mesa.';
           } else if (result?.reason === 'not_player') {
             syncStatus.textContent = 'Conta de Narrador: rolagens não são publicadas como jogadas de personagem.';
           } else if (result?.reason === 'not_signed_in') {

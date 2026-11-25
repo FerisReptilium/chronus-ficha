@@ -15,9 +15,9 @@ assert(ci.includes("find js tests -type f -name '*.js'"), 'unified CI must synta
 assert(ci.includes('for test_file in tests/*.test.js'), 'unified CI must run the complete regression suite');
 assert(ci.includes('/js/modules/chronus_live_v140.js'), 'critical smoke must include the live room module');
 assert(ci.includes('playwright@1.61.1'), 'browser QA must use a pinned Playwright version');
-assert(ci.includes('node tests/visual/v140_live_preview.js'), 'browser QA must validate the live room on desktop and mobile');
-assert(ci.includes('node tests/visual/v143_player_dashboard_preview.js'), 'browser QA must validate the Player Area on desktop and mobile');
-assert(ci.includes('node tests/visual/v144_sheet_dice_preview.js'), 'browser QA must validate sheet-to-dice integration on desktop and mobile');
+assert(ci.includes('run_visual_test tests/visual/v140_live_preview.js'), 'browser QA must validate the live room on desktop and mobile');
+assert(ci.includes('run_visual_test tests/visual/v143_player_dashboard_preview.js'), 'browser QA must validate the Player Area on desktop and mobile');
+assert(ci.includes('run_visual_test tests/visual/v144_sheet_dice_preview.js'), 'browser QA must validate sheet-to-dice integration on desktop and mobile');
 assert(ci.includes('actions/upload-artifact@v7'), 'browser evidence must be retained as an artifact using the current action major');
 assert(ci.split('actions/setup-node@v7').length - 1 >= 2, 'both CI jobs must use the current setup-node action');
 assert((ci.match(/node-version: '24'/g) || []).length >= 2, 'both CI jobs must run on the supported Node.js 24 runtime');
