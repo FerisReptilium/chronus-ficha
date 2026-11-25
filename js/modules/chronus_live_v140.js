@@ -776,6 +776,7 @@ window.ChronusLiveV140 = (function() {
       return;
     }
     currentIdentity = { userId: user.id, displayName: profile.display_name || user.email?.split('@')[0] || 'Participante', role: profile.role, sessionId };
+    if (profile.role === 'narrator') void initializeSessionMembershipControls(sessionId);
     const localParticipant = state.participants.find(item => item.isLocal);
     if (localParticipant) {
       localParticipant.playerName = currentIdentity.displayName;
