@@ -4,7 +4,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS public.chronus_live_session_members (
   session_id UUID NOT NULL REFERENCES public.campaign_sessions(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_by UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
+  created_by UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (session_id, user_id)
 );
