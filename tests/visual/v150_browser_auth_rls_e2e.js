@@ -218,6 +218,11 @@ async function visibleCharacterIds(page, expectedUserId) {
     });
     assert.ok(narratorProfile.status === 204 || narratorProfile.status === 200,
       'trusted service role must provision the narrator profile: HTTP ' + narratorProfile.status);
+    const verifiedNarratorProfile = await api('/rest/v1/profiles?id=eq.' + encodeURIComponent(userNarrator.id) + '&select=role', {
+      key: serviceRoleKey, token: serviceRoleKey
+    });
+    assert.equal(verifiedNarratorProfile.data?.[0]?.role, 'narrator',
+      'trusted service role must persist the narrator role: ' + JSON.stringify(verifiedNarratorProfile.data));
     const sessionResult = await api('/rest/v1/campaign_sessions?select=id', {
       method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
       prefer: 'return=representation',
@@ -300,7 +305,12 @@ async function visibleCharacterIds(page, expectedUserId) {
     // Narrator UI must be able to grant and revoke session membership without a service key.
     await loginThroughUi(pageNarrator, userNarrator);
     await navigateToLive(pageNarrator, sessionId);
-    await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });
+    try {
+      await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });
+    } catch (error) {
+      const diagnostics = await liveDiagnostics(pageNarrator, sessionId);
+      throw new Error('Narrator membership panel did not initialize: ' + JSON.stringify(diagnostics) + '\\n' + error.message);
+    }
     const memberSelect = pageNarrator.locator('#chronus-live-member-player');
     await pageNarrator.waitForFunction(expected => {
       const select = document.querySelector('#chronus-live-member-player');
