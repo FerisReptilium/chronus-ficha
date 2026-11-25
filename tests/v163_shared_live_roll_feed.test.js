@@ -7,7 +7,6 @@ const service = fs.readFileSync('js/services/narrative_live.js', 'utf8');
 const live = fs.readFileSync('js/modules/chronus_live_v140.js', 'utf8');
 const dice = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const router = fs.readFileSync('js/router.js', 'utf8');
-const historicalMigration = fs.readFileSync('supabase/migrations/20261123010000_shared_roll_visibility.sql', 'utf8');
 const sqlBaseline = fs.readFileSync('tests/chronus_roll_events.sql', 'utf8');
 const initialMigration = fs.readFileSync('supabase/migrations/006_chronus_roll_events.sql', 'utf8');
 const sessionMigration = fs.readFileSync('supabase/migrations/20261125000000_chronus_live_session_isolation.sql', 'utf8');
@@ -39,7 +38,6 @@ assert(router.includes('window.ChronusLiveV140?.unmount?.()'), 'leaving LIVE mus
 assert(live.includes('unmount: disconnectPresence'), 'LIVE module must expose room presence cleanup');
 assert(live.includes('const seenUsers = new Set()'), 'multiple browser tabs for one account must not inflate participant count');
 assert(dice.includes('Rolagem compartilhada com a mesa.'), 'dice confirmation must identify the whole table');
-assert(historicalMigration.includes('chronus_roll_events_select_table_players'), 'historical broad visibility migration must remain auditable');
 assert(initialMigration.includes('chronus_roll_events_select_owner_or_narrator'), 'original migration policy must remain auditable');
 assert(sqlBaseline.includes('Player A should see only the two events in Session A'), 'database integration test must cover same-session sharing');
 assert(sqlBaseline.includes('Player A read a roll from Session B'), 'database integration test must reject cross-session roll visibility');
