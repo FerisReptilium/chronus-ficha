@@ -778,7 +778,10 @@ window.ChronusLiveV140 = (function() {
     channel.subscribe(async status => {
       if (generation !== presenceGeneration || presenceChannel !== channel) return;
       presenceStatus = status;
+      if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Realtime: ' + status;
       if (status === 'SUBSCRIBED') {
+        if (statusEl) statusEl.querySelector('strong').textContent = 'Presença autorizada';
+        if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Publicando seu participante…';
         try {
           const result = await channel.track({ user_id: user.id, display_name: currentIdentity.displayName, character_name: character });
           if (result === 'ok') {
