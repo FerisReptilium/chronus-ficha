@@ -906,7 +906,7 @@ window.ChronusLiveV140 = (function() {
           console.warn('CHRONUS LIVE: falha ao remover membro.', error);
           return;
         }
-        await refresh();
+        await initializeSessionMembershipControls(getActiveSessionId());
       });
       panel.dataset.bound = 'true';
     }
