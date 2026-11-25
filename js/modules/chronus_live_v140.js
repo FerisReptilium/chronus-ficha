@@ -116,6 +116,13 @@ window.ChronusLiveV140 = (function() {
     return document.getElementById('chronus-live-root');
   }
 
+  function getActiveSessionId() {
+    const hash = window.location.hash || '';
+    const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : '';
+    const value = new URLSearchParams(query).get('session') || '';
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : '';
+  }
+
   function participantById(id) {
     return state.participants.find(participant => participant.id === id) || state.participants[0];
   }
@@ -698,6 +705,12 @@ window.ChronusLiveV140 = (function() {
     }
     if (generation !== presenceGeneration) return;
     const statusEl = document.getElementById('chronus-live-connection-status');
+    const sessionId = getActiveSessionId();
+    if (!sessionId) {
+      if (statusEl) statusEl.querySelector('strong').textContent = 'Selecione uma sessão válida';
+      if (statusEl) statusEl.querySelector('small').textContent = 'A sala não usa mais um canal global';
+      return;
+    }
     if (!db || typeof db.channel !== 'function') {
       if (statusEl) statusEl.querySelector('strong').textContent = 'Serviço indisponível';
       return;
@@ -718,7 +731,14 @@ window.ChronusLiveV140 = (function() {
       if (statusEl) statusEl.querySelector('strong').textContent = 'Perfil sem acesso à mesa';
       return;
     }
-    currentIdentity = { userId: user.id, displayName: profile.display_name || user.email?.split('@')[0] || 'Participante', role: profile.role };
+    const { data: liveSession, error: sessionError } = await db.from('campaign_sessions').select('id').eq('id', sessionId).maybeSingle();
+    if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
+    if (sessionError || !liveSession) {
+      if (statusEl) statusEl.querySelector('strong').textContent = 'Sem acesso a esta sessão';
+      if (statusEl) statusEl.querySelector('small').textContent = 'Peça ao Narrador para liberar seu acesso';
+      return;
+    }
+    currentIdentity = { userId: user.id, displayName: profile.display_name || user.email?.split('@')[0] || 'Participante', role: profile.role, sessionId };
     const localParticipant = state.participants.find(item => item.isLocal);
     if (localParticipant) {
       localParticipant.playerName = currentIdentity.displayName;
@@ -728,7 +748,7 @@ window.ChronusLiveV140 = (function() {
     const character = state.participants.find(item => item.isLocal)?.characterName || 'Personagem';
     const key = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     presenceKey = key;
-    const channel = db.channel('chronus-live:main-table', { config: { private: true, presence: { key } } });
+    const channel = db.channel(`chronus-live:session:${sessionId}`, { config: { private: true, presence: { key } } });
     presenceChannel = channel;
     channel.on('presence', { event: 'sync' }, applyPresenceState);
     channel.on('presence', { event: 'join' }, applyPresenceState);
@@ -757,7 +777,7 @@ window.ChronusLiveV140 = (function() {
     ensureStylesheet();
     if (!rendered || !getRoot()?.querySelector('.chronus-live-room')) buildShell();
     hydrateCurrentParticipant();
-    window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'));
+    window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'), getActiveSessionId());
     document.documentElement.dataset.chronusLive = PREVIEW_MARKER;
     if (isLocalPreview()) document.documentElement.dataset.chronusLiveLocalPreview = 'true';
   }
@@ -782,6 +802,7 @@ window.ChronusLiveV140 = (function() {
     load,
     unmount: disconnectPresence,
     mediaStateFor: participant => mediaDescriptor(participant).state,
+    getActiveSessionId,
     mode: 'presence-enabled',
     marker: PREVIEW_MARKER
   });
