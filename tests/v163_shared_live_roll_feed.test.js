@@ -27,6 +27,11 @@ assert(service.includes('feedGeneration += 1'), 'stale async history responses m
 assert(service.includes("unmountSharedRollFeed: unmountNarratorFeed"), 'shared feed must release its channel');
 assert(live.includes("mountSharedRollFeed?.(document.getElementById('chronus-live-feed'), getActiveSessionId())"), 'LIVE route must mount the session-scoped roll feed');
 assert(live.includes('function getActiveSessionId()'), 'LIVE must validate the selected session identifier');
+assert(live.includes('initializeSessionMembershipControls'), 'Narrator session membership controls must be initialized');
+assert(live.includes("id=\"chronus-live-session-admin\""), 'Narrator session access panel must exist');
+assert(live.includes("eq('role', 'player')"), 'membership manager must list player profiles only');
+assert(live.includes("from('chronus_live_session_members').insert"), 'Narrator must be able to grant session access through authenticated RLS');
+assert(live.includes(".delete().eq('session_id', getActiveSessionId())"), 'Narrator must be able to revoke session access through authenticated RLS');
 assert(live.includes("'Selecione uma sessão válida'"), 'LIVE must fail closed when no valid session is selected');
 assert(live.includes('chronus-live:session:${sessionId}'), 'presence must use a session-specific topic');
 assert(router.includes("if (cleanHash !== '#/live')"), 'leaving LIVE must release its realtime subscription');
