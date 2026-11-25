@@ -90,6 +90,8 @@
       return { skipped: true, reason: 'unsupported_difficulty' };
     }
 
+    const sessionId = root.ChronusLiveV140?.getActiveSessionId?.() || '';
+    if (!sessionId) return { skipped: true, reason: 'session_not_selected' };
     const db = client();
     if (!db || typeof db.from !== 'function') return { ok: false, reason: 'client_unavailable' };
 
@@ -118,6 +120,7 @@
     const characterName = record.spec?.characterName || (titleParts.length > 1 ? titleParts.shift() : '');
     const actionLabel = titleParts.join(' · ') || String(record.title || 'Teste CHRONUS');
     const payload = {
+      session_id: sessionId,
       character_name: characterName,
       action_label: actionLabel.slice(0, 160),
       roll_mode: record.mode === 'Rolagem rápida' ? 'Rolagem rápida' : 'Teste guiado',
@@ -140,7 +143,7 @@
     return { ok: true };
   }
 
-  async function mountSharedRollFeed(container) {
+  async function mountSharedRollFeed(container, sessionId) {
     if (!container) return;
     if (channel) {
       const oldClient = client();
@@ -167,6 +170,10 @@
     list.setAttribute('aria-relevant', 'additions text');
     container.append(heading, list);
 
+    if (!sessionId) {
+      status.textContent = 'Selecione uma sessão para ver as rolagens';
+      return;
+    }
     const db = client();
     if (!db || typeof db.from !== 'function') {
       status.textContent = 'Supabase indisponível';
@@ -177,7 +184,8 @@
     async function loadRecentRolls() {
       const { data, error } = await db
         .from('chronus_roll_events')
-        .select('id, player_display_name, character_name, action_label, roll_mode, dice, difficulty, highest_result, margin, outcome, narrative_authority, determination_used, acts_awarded, condition_awarded, created_at')
+        .select('id, session_id, player_display_name, character_name, action_label, roll_mode, dice, difficulty, highest_result, margin, outcome, narrative_authority, determination_used, acts_awarded, condition_awarded, created_at')
+        .eq('session_id', sessionId)
         .order('created_at', { ascending: false })
         .limit(20);
       if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
@@ -191,7 +199,7 @@
 
     if (typeof db.channel === 'function') {
       channel = db
-        .channel('chronus-shared-roll-feed')
+        .channel(`chronus-live:session:${sessionId}`, { config: { private: true } })
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
