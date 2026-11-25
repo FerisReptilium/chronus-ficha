@@ -135,6 +135,28 @@ async function loginThroughUi(page, user) {
   assert.equal(displayedName, user.name, 'header must display the authenticated profile identity');
 }
 
+async function liveDiagnostics(page, sessionId) {
+  return page.evaluate(async expectedSessionId => {
+    const client = window.ChronusSupabase?.getClient?.();
+    const user = window.ChronusAuth?.getUser?.();
+    if (!client || !user) return { hash: location.hash, userId: user?.id || null, status: document.querySelector('#chronus-live-connection-status')?.innerText || null };
+    const [profile, session, membership] = await Promise.all([
+      client.from('profiles').select('display_name,role').eq('id', user.id).maybeSingle(),
+      client.from('campaign_sessions').select('id,title,status').eq('id', expectedSessionId).maybeSingle(),
+      client.from('chronus_live_session_members').select('session_id,user_id').eq('session_id', expectedSessionId).eq('user_id', user.id).maybeSingle()
+    ]);
+    return {
+      hash: location.hash,
+      userId: user.id,
+      status: document.querySelector('#chronus-live-connection-status')?.innerText || null,
+      profile: { data: profile.data, error: profile.error?.message || null },
+      session: { data: session.data, error: session.error?.message || null },
+      membership: { data: membership.data, error: membership.error?.message || null },
+      roster: document.querySelector('#chronus-live-roster')?.innerText || null
+    };
+  }, sessionId);
+}
+
 async function visibleCharacterIds(page, expectedUserId) {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -223,10 +245,14 @@ async function visibleCharacterIds(page, expectedUserId) {
       pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userA.id, { timeout: 10000 }),
       pageB.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id, { timeout: 10000 })
     ]);
-    await Promise.all([
-      pageA.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 }),
-      pageB.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 })
-    ]);
+    await Promise.all([pageA, pageB].map(async (page, index) => {
+      try {
+        await page.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 });
+      } catch (error) {
+        const diagnostics = await liveDiagnostics(page, sessionId);
+        throw new Error('LIVE presence did not synchronize in browser ' + (index ? 'B' : 'A') + ': ' + JSON.stringify(diagnostics) + '\\n' + error.message);
+      }
+    }));
     await Promise.all([
       pageA.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, undefined, { timeout: 20000 }),
       pageB.waitForFunction(() => document.querySelectorAll('#chronus-live-roster .chronus-live-participant').length === 2, undefined, { timeout: 20000 })
