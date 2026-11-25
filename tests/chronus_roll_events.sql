@@ -152,6 +152,18 @@ VALUES (
 );
 COMMIT;
 
+-- Player B belongs to both sessions and can see both session feeds.
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000302"}',true);
+DO $
+DECLARE v_count integer;
+BEGIN
+  SELECT count(*) INTO v_count FROM public.chronus_roll_events;
+  IF v_count <> 3 THEN RAISE EXCEPTION 'Player B should see three events across their two sessions; got %',v_count; END IF;
+END $;
+ROLLBACK;
+
 -- Player A sees the shared table events and cannot create a narrator-owned event.
 BEGIN;
 SET LOCAL ROLE authenticated;
