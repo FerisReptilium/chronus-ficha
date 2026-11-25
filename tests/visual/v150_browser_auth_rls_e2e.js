@@ -137,14 +137,18 @@ async function loginThroughUi(page, user) {
 
 async function navigateToLive(page, sessionId) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    await page.evaluate(id => {
-      window.location.hash = '#/live?session=' + encodeURIComponent(id);
-    }, sessionId);
     try {
+      // Changing the hash may synchronously trigger the app's route transition.
+      // Playwright can lose the current execution context while that transition
+      // is in progress; treat that as navigation, not as a terminal test failure.
+      await page.evaluate(id => {
+        window.location.hash = '#/live?session=' + encodeURIComponent(id);
+      }, sessionId);
       await page.waitForFunction(() => window.location.hash.startsWith('#/live?session='), undefined, { timeout: 5000 });
       await page.locator('#chronus-live-connection-status').waitFor({ state: 'visible', timeout: 5000 });
       return;
     } catch {
+      await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
       await page.waitForTimeout(200);
     }
   }
