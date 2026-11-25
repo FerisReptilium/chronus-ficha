@@ -32,7 +32,9 @@ assert(source.includes("const PREVIEW_MARKER = 'v1.4.0-prototype'"), 'prototype 
 assert(source.includes("mode: 'presence-enabled'"), 'authenticated presence mode contract missing');
 assert(source.includes("data.mediaState") || source.includes('dataset.mediaState'), 'media state marker missing');
 assert(source.includes('microphone.disabled = true') && source.includes('camera.disabled = true') && source.includes('share.disabled = true'), 'unimplemented media controls must remain disabled');
-assert(source.includes("channel('chronus-live:main-table', { config: { private: true, presence: { key } } })"), 'private room presence subscription missing');
+assert(source.includes('db.channel(`chronus-live:session:${sessionId}`, { config: { private: true, presence: { key } } })'), 'session-scoped private room presence subscription missing');
+assert(source.includes('function getActiveSessionId()'), 'validated active session selection missing');
+assert(source.includes('chronus-live-session-select'), 'authorized session selector missing');
 assert(source.includes("channel.on('presence', { event: 'sync' }, applyPresenceState)"), 'presence sync handler missing');
 assert(source.includes("channel.on('presence', { event: 'join' }, applyPresenceState)"), 'presence join handler missing');
 assert(source.includes("channel.on('presence', { event: 'leave' }, applyPresenceState)"), 'presence leave handler missing');
