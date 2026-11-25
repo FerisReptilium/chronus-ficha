@@ -49,6 +49,7 @@ jobs:
           cp supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql .chronus-db-ci/supabase/migrations/20261123000000_narrator_campaign_admin_sheet_editing.sql
           cp supabase/migrations/20261123010000_shared_roll_visibility.sql .chronus-db-ci/supabase/migrations/20261123010000_shared_roll_visibility.sql
           cp supabase/migrations/20261123020000_chronus_live_presence_access.sql .chronus-db-ci/supabase/migrations/20261123020000_chronus_live_presence_access.sql
+          cp supabase/migrations/20261125000000_chronus_live_session_isolation.sql .chronus-db-ci/supabase/migrations/20261125000000_chronus_live_session_isolation.sql
           cd .chronus-db-ci
           supabase init
           # Allocate per-run PostgreSQL ports: concurrent pull-request workflows
