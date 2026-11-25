@@ -75,6 +75,21 @@ BEGIN
   END IF;
 END $$;
 
+DO $
+DECLARE v_policy record;
+BEGIN
+  SELECT cmd, roles, qual INTO v_policy
+  FROM pg_policies
+  WHERE schemaname='realtime' AND tablename='messages'
+    AND policyname='chronus_live_roll_feed_authenticated_select';
+  IF NOT FOUND OR v_policy.cmd <> 'SELECT'
+     OR NOT ('authenticated' = ANY(v_policy.roles))
+     OR v_policy.qual NOT LIKE '%chronus-rolls:session:%'
+     OR v_policy.qual NOT LIKE '%can_access_live_session%' THEN
+    RAISE EXCEPTION 'Private roll feed topic must be restricted to authenticated session members: %', v_policy;
+  END IF;
+END $;
+
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_user_meta_data, created_at, updated_at
