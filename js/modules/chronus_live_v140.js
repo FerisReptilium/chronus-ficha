@@ -986,6 +986,10 @@ window.ChronusLiveV140 = (function() {
       if (window.location.hash.startsWith('#/live')) {
         void disconnectPresence();
         hydrateCurrentParticipant();
+        void initializeSessionSelection();
+        window.ChronusNarrativeLive?.mountSharedRollFeed?.(
+          document.getElementById('chronus-live-feed'), getActiveSessionId()
+        );
       }
     });
     if (window.location.hash.startsWith('#/live')) load();
