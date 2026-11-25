@@ -14,7 +14,7 @@ CREATE INDEX IF NOT EXISTS chronus_live_session_members_user_idx
 
 ALTER TABLE public.chronus_live_session_members ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.chronus_live_session_members FROM anon, authenticated, service_role;
-GRANT SELECT, INSERT, DELETE ON TABLE public.chronus_live_session_members TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.chronus_live_session_members TO authenticated, service_role;
 
 CREATE POLICY chronus_live_session_members_select_own_or_narrator
   ON public.chronus_live_session_members
