@@ -8,7 +8,9 @@ on:
       - 'tests/**'
       - '.github/workflows/chronus-database-ci.yml'
   push:
-    branches: [rebuild/core-database-baseline]
+    branches:
+      - main
+      - rebuild/core-database-baseline
     paths:
       - 'supabase/**'
       - 'tests/**'
@@ -50,10 +52,6 @@ jobs:
           cp supabase/migrations/20261125212222_chronus_live_session_isolation.sql .chronus-db-ci/supabase/migrations/20261125212222_chronus_live_session_isolation.sql
           cd .chronus-db-ci
           supabase init
-          # Allocate per-run PostgreSQL ports: concurrent pull-request workflows
-          # share hosted runner infrastructure and must not bind the same host port.
-          # Mix the run ID with the shell's per-job random seed so overlapping
-          # runs do not collide when their IDs share the same decimal suffix.
           db_port=$((20000 + (GITHUB_RUN_ID * 31 + RANDOM) % 28000))
           shadow_port=$((db_port + 1))
           inbucket_port=$((50000 + (GITHUB_RUN_ID * 17 + RANDOM) % 9000))
@@ -73,11 +71,11 @@ jobs:
           if ! supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor > supabase-start.log 2>&1; then
             echo "Supabase local bootstrap failed. Sanitized startup log (last 180 lines):"
             sed -E \
-              -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g' \
+              -e 's/eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g' \
               -e 's/sb_(secret|publishable)_[A-Za-z0-9_-]+/[REDACTED_SUPABASE_KEY]/g' \
               supabase-start.log | tail -n 180
             echo "Docker container summary:"
-            docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
+            docker ps -a --format 'table {{.Names}}\\t{{.Status}}\\t{{.Image}}' || true
             exit 1
           fi
           supabase status -o env > ../supabase-local.env
