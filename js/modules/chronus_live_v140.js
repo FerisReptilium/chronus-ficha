@@ -891,7 +891,7 @@ window.ChronusLiveV140 = (function() {
           console.warn('CHRONUS LIVE: falha ao adicionar membro.', error);
           return;
         }
-        await refresh();
+        await initializeSessionMembershipControls(getActiveSessionId());
       });
       list.addEventListener('click', async event => {
         const remove = event.target?.closest?.('button[data-remove-user-id]');
