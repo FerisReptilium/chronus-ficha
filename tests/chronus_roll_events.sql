@@ -225,7 +225,7 @@ BEGIN
       'Narrador tenta rolar','[{"sides":8,"value":8,"determination":false}]'::jsonb,
       6,8,2,'success','player',0,false
     );
-  EXCEPTION WHEN insufficient_privilege THEN v_blocked := true;
+  EXCEPTION WHEN insufficient_privilege OR raise_exception THEN v_blocked := true;
   END;
   IF NOT v_blocked THEN RAISE EXCEPTION 'Narrator was able to insert a player roll'; END IF;
 END $$;
