@@ -9,7 +9,7 @@ const dice = fs.readFileSync('js/modules/dice_roller_v135.js', 'utf8');
 const router = fs.readFileSync('js/router.js', 'utf8');
 const sqlBaseline = fs.readFileSync('tests/chronus_roll_events.sql', 'utf8');
 const initialMigration = fs.readFileSync('supabase/migrations/006_chronus_roll_events.sql', 'utf8');
-const sessionMigration = fs.readFileSync('supabase/migrations/20261125000000_chronus_live_session_isolation.sql', 'utf8');
+const sessionMigration = fs.readFileSync('supabase/migrations/20261125212222_chronus_live_session_isolation.sql', 'utf8');
 
 assert(service.includes('function mountSharedRollFeed(container, sessionId)'), 'session-aware shared feed mount API missing');
 assert(service.includes(".eq('session_id', sessionId)"), 'roll history must be filtered to the selected session');
