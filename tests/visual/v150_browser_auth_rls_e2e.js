@@ -159,7 +159,7 @@ async function liveDiagnostics(page, sessionId) {
 
 async function visibleCharacterIds(page, expectedUserId) {
   let lastError;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     try {
       await page.waitForFunction(async expected => {
         const client = window.ChronusSupabase?.getClient?.();
@@ -168,7 +168,8 @@ async function visibleCharacterIds(page, expectedUserId) {
         return !error && data?.session?.user?.id === expected;
       }, expectedUserId, { timeout: 15000 });
       return await page.evaluate(async expected => {
-        const client = window.ChronusSupabase.getClient();
+        const client = window.ChronusSupabase?.getClient?.();
+        if (!client) throw new Error('Supabase client unavailable after navigation');
         const { data: authData, error: authError } = await client.auth.getSession();
         if (authError || authData?.session?.user?.id !== expected) {
           throw new Error('Supabase token did not finish switching to the expected account');
@@ -179,10 +180,11 @@ async function visibleCharacterIds(page, expectedUserId) {
       }, expectedUserId);
     } catch (error) {
       lastError = error;
-      if (!/Execution context was destroyed|Most likely the page has been closed|Target page, context or browser has been closed/i.test(String(error))) {
+      if (!/Execution context was destroyed|Most likely the page has been closed|Target page, context or browser has been closed|Supabase client unavailable|Failed to fetch|Browser identity changed/i.test(String(error))) {
         throw error;
       }
       await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(200);
     }
   }
   throw lastError || new Error('Could not query visible character rows after navigation');
