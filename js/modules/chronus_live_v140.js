@@ -850,6 +850,7 @@ window.ChronusLiveV140 = (function() {
   function load() {
     ensureStylesheet();
     if (!rendered || !getRoot()?.querySelector('.chronus-live-room')) buildShell();
+    void connectPresence();
     hydrateCurrentParticipant();
     void initializeSessionSelection();
     window.ChronusNarrativeLive?.mountSharedRollFeed?.(document.getElementById('chronus-live-feed'), getActiveSessionId());
