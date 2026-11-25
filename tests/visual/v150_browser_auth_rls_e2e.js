@@ -161,15 +161,21 @@ async function visibleCharacterIds(page, expectedUserId) {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      await page.waitForFunction(expected =>
-        window.ChronusAuth?.getUser()?.id === expected
-        && typeof window.ChronusSupabase?.getClient === 'function'
-      , expectedUserId, { timeout: 10000 });
+      await page.waitForFunction(async expected => {
+        const client = window.ChronusSupabase?.getClient?.();
+        if (window.ChronusAuth?.getUser()?.id !== expected || !client) return false;
+        const { data, error } = await client.auth.getSession();
+        return !error && data?.session?.user?.id === expected;
+      }, expectedUserId, { timeout: 15000 });
       return await page.evaluate(async expected => {
         if (window.ChronusAuth?.getUser()?.id !== expected) {
           throw new Error('Browser identity changed before the RLS query');
         }
         const client = window.ChronusSupabase.getClient();
+        const { data: authData, error: authError } = await client.auth.getSession();
+        if (authError || authData?.session?.user?.id !== expected) {
+          throw new Error('Supabase token did not finish switching to the expected account');
+        }
         const { data, error } = await client.from('characters').select('id,user_id,name,revision');
         if (error) throw new Error(error.message);
         return data.map(row => ({ id: row.id, owner: row.user_id, name: row.name }));
