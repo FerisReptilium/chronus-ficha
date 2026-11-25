@@ -289,6 +289,10 @@ async function visibleCharacterIds(page, expectedUserId) {
     await pageNarrator.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
     await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });
     const memberSelect = pageNarrator.locator('#chronus-live-member-player');
+    await pageNarrator.waitForFunction(expected => {
+      const select = document.querySelector('#chronus-live-member-player');
+      return Boolean(select && Array.from(select.options).some(option => option.value === expected));
+    }, userGuest.id, { timeout: 10000 });
     await memberSelect.selectOption(userGuest.id);
     await pageNarrator.locator('#chronus-live-member-add').click();
     await pageNarrator.waitForFunction(expected => {
