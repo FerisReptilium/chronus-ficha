@@ -195,6 +195,13 @@ async function visibleCharacterIds(page, expectedUserId) {
   try {
     const userA = await createUser('a');
     const userB = await createUser('b');
+    const userNarrator = await createUser('narrator');
+    const userGuest = await createUser('guest');
+    const narratorProfile = await api('/rest/v1/profiles?id=eq.' + encodeURIComponent(userNarrator.id), {
+      method: 'PATCH', key: serviceRoleKey, token: serviceRoleKey, body: { role: 'narrator' }
+    });
+    assert.ok(narratorProfile.status === 204 || narratorProfile.status === 200,
+      'trusted service role must provision the narrator profile: HTTP ' + narratorProfile.status);
     const sessionResult = await api('/rest/v1/campaign_sessions?select=id', {
       method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
       prefer: 'return=representation',
@@ -224,9 +231,13 @@ async function visibleCharacterIds(page, expectedUserId) {
     // Two independent browser contexts represent isolated browser sessions.
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
+    const contextNarrator = await browser.newContext();
+    const contextGuest = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
-    await Promise.all([interceptLocalConfig(pageA), interceptLocalConfig(pageB)]);
+    const pageNarrator = await contextNarrator.newPage();
+    const pageGuest = await contextGuest.newPage();
+    await Promise.all([interceptLocalConfig(pageA), interceptLocalConfig(pageB), interceptLocalConfig(pageNarrator), interceptLocalConfig(pageGuest)]);
 
     await Promise.all([loginThroughUi(pageA, userA), loginThroughUi(pageB, userB)]);
 
@@ -273,6 +284,31 @@ async function visibleCharacterIds(page, expectedUserId) {
       'browser B must see both authenticated characters in the shared LIVE room; expected '
       + JSON.stringify([userA.characterName, userB.characterName]) + ', received ' + JSON.stringify(rosterB));
 
+    // Narrator UI must be able to grant and revoke session membership without a service key.
+    await loginThroughUi(pageNarrator, userNarrator);
+    await pageNarrator.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
+    await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });
+    const memberSelect = pageNarrator.locator('#chronus-live-member-player');
+    await memberSelect.selectOption(userGuest.id);
+    await pageNarrator.locator('#chronus-live-member-add').click();
+    await pageNarrator.waitForFunction(expected => {
+      const list = document.querySelector('#chronus-live-session-members');
+      return Boolean(list && list.innerText.includes(expected));
+    }, userGuest.name, { timeout: 10000 });
+
+    await loginThroughUi(pageGuest, userGuest);
+    await pageGuest.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
+    await pageGuest.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 });
+
+    const guestRow = pageNarrator.locator('#chronus-live-session-members li').filter({ hasText: userGuest.name });
+    await guestRow.locator('button').click();
+    await pageNarrator.waitForFunction(expected => {
+      const list = document.querySelector('#chronus-live-session-members');
+      return Boolean(list && !list.innerText.includes(expected));
+    }, userGuest.name, { timeout: 10000 });
+    await pageGuest.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
+    await pageGuest.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Sem acesso a esta sessão', undefined, { timeout: 20000 });
+
     // Switch identity inside the same browser context through the real logout/login UI.
     pageA.once('dialog', dialog => dialog.accept());
     await pageA.locator('#btn-nav-logout').click();
@@ -294,7 +330,9 @@ async function visibleCharacterIds(page, expectedUserId) {
 
     await contextA.close();
     await contextB.close();
-    console.log('PASS: real browser Auth/RLS, account switch, and two-account private Realtime Presence');
+    await contextNarrator.close();
+    await contextGuest.close();
+    console.log('PASS: browser Auth/RLS, account switch, session presence, and Narrator membership grant/revoke');
   } finally {
     if (browser) await browser.close();
     await cleanup();
