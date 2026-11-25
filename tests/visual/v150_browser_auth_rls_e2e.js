@@ -185,8 +185,8 @@ async function visibleCharacterIds(page, expectedUserId) {
     // Verify real Supabase Realtime Presence with two independently authenticated
     // browser contexts. Both pages must see both accounts in the same private room.
     await Promise.all([
-      pageA.goto(portalUrl.replace(/\\/?$/, '/') + '#/live', { waitUntil: 'domcontentloaded' }),
-      pageB.goto(portalUrl.replace(/\\/?$/, '/') + '#/live', { waitUntil: 'domcontentloaded' })
+      pageA.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live', { waitUntil: 'domcontentloaded' }),
+      pageB.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live', { waitUntil: 'domcontentloaded' })
     ]);
     await Promise.all([
       pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userA.id, { timeout: 10000 }),
