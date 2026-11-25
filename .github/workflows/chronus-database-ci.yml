@@ -54,9 +54,11 @@ jobs:
           supabase init
           # Allocate per-run PostgreSQL ports: concurrent pull-request workflows
           # share hosted runner infrastructure and must not bind the same host port.
-          db_port=$((55000 + GITHUB_RUN_ID % 10000))
+          # Mix the run ID with the shell's per-job random seed so overlapping
+          # runs do not collide when their IDs share the same decimal suffix.
+          db_port=$((20000 + (GITHUB_RUN_ID * 31 + RANDOM) % 28000))
           shadow_port=$((db_port + 1))
-          inbucket_port=$((56000 + GITHUB_RUN_ID % 10000))
+          inbucket_port=$((50000 + (GITHUB_RUN_ID * 17 + RANDOM) % 9000))
           smtp_port=$((inbucket_port + 1))
           pop3_port=$((inbucket_port + 2))
           sed -i "/^\\[db\\]/,/^\\[/ s/^port = 54322$/port = ${db_port}/" supabase/config.toml
