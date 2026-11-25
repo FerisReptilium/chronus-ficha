@@ -799,7 +799,7 @@ window.ChronusLiveV140 = (function() {
     const select = document.getElementById('chronus-live-session-select');
     if (!select) return;
     const db = window.ChronusSupabase?.getClient?.();
-    if (!db) {
+    if (!db || typeof db.from !== 'function') {
       select.replaceChildren(new Option('Entre para ver suas sessões', ''));
       return;
     }
