@@ -191,6 +191,36 @@ body.in-live-mode .chronus-audio-dock {
   background: linear-gradient(90deg, rgba(184, 148, 85, 0.07), transparent 38%);
 }
 
+.chronus-live-session-picker {
+  display: grid;
+  gap: 5px;
+  min-width: min(260px, 42%);
+  color: var(--live-muted);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chronus-live-session-picker select {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--live-line);
+  border-radius: 3px;
+  background: #0b0d0d;
+  color: var(--live-ink);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.chronus-live-session-picker select:focus-visible {
+  outline: 2px solid var(--live-gold);
+  outline-offset: 2px;
+}
+
 .chronus-live-room-bar > div:first-child {
   display: grid;
   gap: 3px;
