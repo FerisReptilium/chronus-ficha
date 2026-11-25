@@ -132,7 +132,7 @@ BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated","sub":"00000000-0000-0000-0000-000000000302"}',true);
 INSERT INTO public.chronus_roll_events (
-  character_name, action_label, roll_mode, dice, difficulty,
+  session_id, character_name, action_label, roll_mode, dice, difficulty,
   highest_result, margin, outcome, narrative_authority,
   acts_awarded, condition_awarded
 )
