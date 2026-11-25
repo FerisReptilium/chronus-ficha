@@ -135,6 +135,22 @@ async function loginThroughUi(page, user) {
   assert.equal(displayedName, user.name, 'header must display the authenticated profile identity');
 }
 
+async function navigateToLive(page, sessionId) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await page.evaluate(id => {
+      window.location.hash = '#/live?session=' + encodeURIComponent(id);
+    }, sessionId);
+    try {
+      await page.waitForFunction(() => window.location.hash.startsWith('#/live?session='), undefined, { timeout: 5000 });
+      await page.locator('#chronus-live-connection-status').waitFor({ state: 'visible', timeout: 5000 });
+      return;
+    } catch {
+      await page.waitForTimeout(200);
+    }
+  }
+  throw new Error('Browser could not remain on the selected CHRONUS LIVE session route');
+}
+
 async function liveDiagnostics(page, sessionId) {
   return page.evaluate(async expectedSessionId => {
     const client = window.ChronusSupabase?.getClient?.();
@@ -253,10 +269,7 @@ async function visibleCharacterIds(page, expectedUserId) {
 
     // Verify real Supabase Realtime Presence with two independently authenticated
     // browser contexts. Both pages must see both accounts in the same private room.
-    await Promise.all([
-      pageA.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' }),
-      pageB.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' })
-    ]);
+    await Promise.all([navigateToLive(pageA, sessionId), navigateToLive(pageB, sessionId)]);
     await Promise.all([
       pageA.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userA.id, { timeout: 10000 }),
       pageB.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, userB.id, { timeout: 10000 })
@@ -286,7 +299,7 @@ async function visibleCharacterIds(page, expectedUserId) {
 
     // Narrator UI must be able to grant and revoke session membership without a service key.
     await loginThroughUi(pageNarrator, userNarrator);
-    await pageNarrator.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
+    await navigateToLive(pageNarrator, sessionId);
     await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });
     const memberSelect = pageNarrator.locator('#chronus-live-member-player');
     await pageNarrator.waitForFunction(expected => {
@@ -301,7 +314,7 @@ async function visibleCharacterIds(page, expectedUserId) {
     }, userGuest.name, { timeout: 10000 });
 
     await loginThroughUi(pageGuest, userGuest);
-    await pageGuest.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
+    await navigateToLive(pageGuest, sessionId);
     await pageGuest.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Mesa sincronizada', undefined, { timeout: 20000 });
 
     const guestRow = pageNarrator.locator('#chronus-live-session-members li').filter({ hasText: userGuest.name });
@@ -310,7 +323,7 @@ async function visibleCharacterIds(page, expectedUserId) {
       const list = document.querySelector('#chronus-live-session-members');
       return Boolean(list && !list.innerText.includes(expected));
     }, userGuest.name, { timeout: 10000 });
-    await pageGuest.goto((portalUrl.endsWith('/') ? portalUrl : portalUrl + '/') + '#/live?session=' + encodeURIComponent(sessionId), { waitUntil: 'domcontentloaded' });
+    await pageGuest.reload({ waitUntil: 'domcontentloaded' });
     await pageGuest.waitForFunction(() => document.querySelector('#chronus-live-connection-status strong')?.textContent === 'Sem acesso a esta sessão', undefined, { timeout: 20000 });
 
     // Switch identity inside the same browser context through the real logout/login UI.
