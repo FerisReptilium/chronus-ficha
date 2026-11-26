@@ -184,20 +184,43 @@
       return;
     }
 
+    let historyLoaded = false;
+    let historyPromise = null;
+    let historyEpoch = 0;
+
     async function loadRecentRolls() {
-      const { data, error } = await db
-        .from('chronus_roll_events')
-        .select('id, session_id, player_display_name, character_name, action_label, roll_mode, dice, difficulty, highest_result, margin, outcome, narrative_authority, determination_used, acts_awarded, condition_awarded, created_at')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
-      if (error) {
-        status.textContent = 'Histórico indisponível';
-        console.warn('CHRONUS: falha ao recuperar rolagens recentes.', error);
-        return;
+      if (historyLoaded) return;
+      if (historyPromise) return historyPromise;
+      const requestEpoch = historyEpoch;
+      const request = (async () => {
+        try {
+          const { data, error } = await db
+            .from('chronus_roll_events')
+            .select('id, session_id, player_display_name, character_name, action_label, roll_mode, dice, difficulty, highest_result, margin, outcome, narrative_authority, determination_used, acts_awarded, condition_awarded, created_at')
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: false })
+            .limit(20);
+          if (generation !== feedGeneration || requestEpoch !== historyEpoch || !mountedRoot?.isConnected) return;
+          if (error) {
+            status.textContent = 'Histórico indisponível';
+            console.warn('CHRONUS: falha ao recuperar rolagens recentes.', error);
+            return;
+          }
+          (data || []).reverse().forEach(record => addRecord(record, sessionId, generation));
+          historyLoaded = true;
+        } catch (error) {
+          if (generation === feedGeneration && requestEpoch === historyEpoch && mountedRoot?.isConnected) {
+            status.textContent = 'Histórico indisponível';
+            console.warn('CHRONUS: erro inesperado ao recuperar rolagens recentes.', error);
+          }
+        }
+      })();
+      historyPromise = request;
+      try {
+        await request;
+      } finally {
+        if (historyPromise === request) historyPromise = null;
       }
-      (data || []).reverse().forEach(record => addRecord(record, sessionId, generation));
     }
 
     if (typeof db.channel === 'function') {
@@ -217,6 +240,11 @@
               : subscriptionStatus === 'CLOSED'
                 ? 'Canal encerrado · reabra a sala'
                 : 'Conectando…';
+          if (subscriptionStatus === 'CHANNEL_ERROR' || subscriptionStatus === 'TIMED_OUT' || subscriptionStatus === 'CLOSED') {
+            historyLoaded = false;
+            historyEpoch += 1;
+            historyPromise = null;
+          }
           if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();
         });
     } else {
