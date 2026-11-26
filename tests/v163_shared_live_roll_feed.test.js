@@ -24,6 +24,10 @@ assert(service.includes("'● Sincronizada'"), 'connection status must be visibl
 assert(service.includes("'Reconectando…'"), 'connection loss must be visible');
 assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();"), 'history must be reloaded after reconnect');
 assert(service.includes('feedGeneration += 1'), 'stale async history responses must be invalidated on unmount');
+assert(service.includes('function addRecord(record, expectedSessionId, generation)'), 'shared roll events must be validated against their mounted session generation');
+assert(service.includes('record.session_id !== expectedSessionId'), 'late events from a previous session must be rejected');
+assert(service.includes('generation !== feedGeneration'), 'callbacks from stale feed subscriptions must be rejected');
+assert(service.includes('payload => addRecord(payload.new, sessionId, generation)'), 'Realtime INSERT callbacks must carry their originating session and generation');
 assert(service.includes("unmountSharedRollFeed: unmountNarratorFeed"), 'shared feed must release its channel');
 assert(live.includes("mountSharedRollFeed?.(document.getElementById('chronus-live-feed'), getActiveSessionId())"), 'LIVE route must mount the session-scoped roll feed');
 assert(live.includes('function getActiveSessionId()'), 'LIVE must validate the selected session identifier');
@@ -89,6 +93,31 @@ assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose prese
     'the current browser tab must retain local participant semantics');
   assert.equal(sandbox.state.participants[0].portrait, 'blob:local-portrait',
     'the current tab must retain its hydrated portrait');
+}
+
+
+// A delayed INSERT from a previous session must not contaminate the newly mounted feed.
+{
+  const start = service.indexOf('  function addRecord(');
+  const finish = service.indexOf('  function renderFeed()', start);
+  assert.ok(start >= 0 && finish > start, 'feed record reducer must remain independently testable');
+  const reducer = service.slice(start, finish);
+  let renders = 0;
+  const sandbox = {
+    feedGeneration: 7,
+    mountedRoot: { isConnected: true },
+    records: new Map(),
+    renderFeed() { renders += 1; }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(reducer, sandbox);
+  sandbox.addRecord({ id: 'stale-generation', session_id: 'session-a', created_at: '2026-11-26T00:00:00Z' }, 'session-a', 6);
+  sandbox.addRecord({ id: 'wrong-session', session_id: 'session-a', created_at: '2026-11-26T00:00:01Z' }, 'session-b', 7);
+  assert.equal(sandbox.records.size, 0, 'stale generation and mismatched session events must both be discarded');
+  assert.equal(renders, 0, 'discarded events must not render into the active feed');
+  sandbox.addRecord({ id: 'current-session', session_id: 'session-b', created_at: '2026-11-26T00:00:02Z' }, 'session-b', 7);
+  assert.deepEqual(Array.from(sandbox.records.keys()), ['current-session'], 'only the active session event may enter the feed');
+  assert.equal(renders, 1, 'the active session event should render once');
 }
 
 console.log('CHRONUS session-scoped LIVE roll feed regression: PASS');
