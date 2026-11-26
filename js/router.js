@@ -25,26 +25,36 @@ window.ChronusRouter = (function() {
   let navigationVersion = 0;
   let sheetStylesheetPromise = null;
 
+  function loadSheetStylesheet(href) {
+    return new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.dataset.chronusSheetStyles = href;
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', () => {
+        link.remove();
+        reject(new Error('Não foi possível carregar ' + href + '.'));
+      }, { once: true });
+      document.head.appendChild(link);
+    });
+  }
+
   function ensureSheetStylesheet() {
     if (sheetStylesheetPromise) return sheetStylesheetPromise;
 
-    sheetStylesheetPromise = new Promise((resolve, reject) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'css/sheet.css';
-      link.dataset.chronusSheetStyles = 'true';
-      link.addEventListener('load', resolve, { once: true });
-      link.addEventListener('error', () => {
-        sheetStylesheetPromise = null;
-        link.remove();
-        reject(new Error('Não foi possível carregar os estilos da ficha CHRONUS.'));
-      }, { once: true });
-      document.head.appendChild(link);
+    // A ordem é importante: os dois estilos de ajuste devem sobrescrever a base.
+    sheetStylesheetPromise = (async () => {
+      await loadSheetStylesheet('css/sheet.css');
+      await loadSheetStylesheet('css/sheet-writing-alignment-v15.css');
+      await loadSheetStylesheet('css/resource-counters.css');
+    })().catch(error => {
+      sheetStylesheetPromise = null;
+      throw error;
     });
 
     return sheetStylesheetPromise;
   }
-
   function init() {
     window.addEventListener('hashchange', handleRouteChange);
     setupMobileMenu();
