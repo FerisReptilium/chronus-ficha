@@ -8,7 +8,9 @@ const router = fs.readFileSync('js/router.js', 'utf8');
 
 assert.equal(html.includes('href="css/sheet.css"'), false, 'The large character-sheet stylesheet must not block the initial portal load.');
 assert.ok(router.includes('function ensureSheetStylesheet()'), 'The router must provide an on-demand stylesheet loader.');
-assert.ok(router.includes("link.href = 'css/sheet.css'"), 'The loader must request the original character-sheet stylesheet.');
+assert.ok(router.includes("loadSheetStylesheet('css/sheet.css')"), 'The loader must request the original character-sheet stylesheet.');
+assert.ok(router.includes("loadSheetStylesheet('css/sheet-writing-alignment-v15.css')"), 'Writing alignment must remain part of the lazy stylesheet sequence.');
+assert.ok(router.includes("loadSheetStylesheet('css/resource-counters.css')"), 'Resource controls must remain part of the lazy stylesheet sequence.');
 assert.ok(router.includes('async function handleRouteChange()'), 'Route handling must await the sheet stylesheet before showing the sheet.');
 
 const sheetRoute = router.indexOf("if (cleanHash === '#/sheet') {", router.indexOf('if (routeDef.openAuth)'));
