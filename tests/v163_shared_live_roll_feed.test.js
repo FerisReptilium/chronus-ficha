@@ -25,6 +25,11 @@ assert(service.includes("'Reconectando…'"), 'connection loss must be visible')
 assert(service.includes("subscriptionStatus === 'CLOSED'"), 'a permanently closed feed channel must not appear to be reconnecting');
 assert(service.includes("'Canal encerrado · reabra a sala'"), 'a closed feed channel must expose a truthful recovery instruction');
 assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();"), 'history must be reloaded after reconnect');
+assert(service.includes('let historyLoaded = false;') && service.includes('let historyPromise = null;'), 'roll history refresh state must be scoped to the mounted session');
+assert(service.includes('if (historyLoaded) return;') && service.includes('if (historyPromise) return historyPromise;'), 'duplicate initial and reconnect callbacks must share one history request');
+assert(service.includes('if (historyPromise === request) historyPromise = null;'), 'a stale history request must not clear a newer in-flight request');
+assert(service.includes('requestEpoch !== historyEpoch'), 'history responses started before a connection interruption must be discarded');
+assert(service.includes('historyEpoch += 1;') && service.includes('historyPromise = null;'), 'connection interruptions must invalidate in-flight history and permit a fresh recovery request');
 assert(service.includes('feedGeneration += 1'), 'stale async history responses must be invalidated on unmount');
 assert(service.includes('function addRecord(record, expectedSessionId, generation)'), 'shared roll events must be validated against their mounted session generation');
 assert(service.includes('record.session_id !== expectedSessionId'), 'late events from a previous session must be rejected');
