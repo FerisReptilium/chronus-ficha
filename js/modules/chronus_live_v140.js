@@ -774,6 +774,14 @@ window.ChronusLiveV140 = (function() {
     const { data, error } = authResult;
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
     const user = data?.session?.user;
+    if (!user && !error && window.location.hash.includes('preview=1')) {
+      // The unauthenticated preview is an intentional local-only demonstration.
+      // Keep its demo participant interactive; never create a Realtime channel.
+      presenceStatus = 'Prévia local';
+      if (statusEl?.querySelector('strong')) statusEl.querySelector('strong').textContent = 'Prévia demonstrativa';
+      if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Modo local · sem conexão com uma sessão real';
+      return;
+    }
     if (error || !user) {
       presenceStatus = 'Não autenticado';
       setPresenceValidationFailure('Entre para acessar a mesa', 'Faça login para entrar na sessão');
