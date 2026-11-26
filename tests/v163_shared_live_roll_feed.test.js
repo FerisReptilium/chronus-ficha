@@ -71,6 +71,44 @@ assert(live.includes('microphone.disabled = true') && live.includes('camera.disa
 assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose presence-enabled mode');
 assert(live.includes("status === 'CLOSED'"), 'a closed presence channel must be distinguished from a temporary connection loss');
 assert(live.includes("if (result === 'ok')") && live.includes("'Presença não confirmada'"), 'presence tracking must expose unsuccessful acknowledgements instead of leaving a pending state');
+assert(live.includes('catch (profileLookupError)'), 'unexpected profile lookup rejections must be handled');
+assert(live.includes('catch (sessionLookupError)'), 'unexpected session lookup rejections must be handled');
+assert(live.includes("'Falha ao validar perfil'"), 'profile lookup failures must have a distinct visible state');
+assert(live.includes("'Falha ao validar sessão'"), 'session lookup failures must have a distinct visible state');
+assert(live.includes('function clearLocalPresenceIdentity()'), 'failed presence validation must clear stale local identity');
+assert(live.includes("generation !== presenceGeneration || !window.location.hash.startsWith('#/live')"), 'late validation failures must not overwrite a newer route or connection');
+
+// Failed validation must clear stale local identity and remove the local participant.
+{
+  const start = live.indexOf('  function clearLocalPresenceIdentity() {');
+  const end = live.indexOf('  async function connectPresence()', start);
+  assert.ok(start >= 0 && end > start, 'presence failure helpers must remain independently testable');
+  const helpers = live.slice(start, end);
+  const status = { title: '', detail: '' };
+  const statusEl = {
+    querySelector(selector) {
+      if (selector === 'strong') return { set textContent(value) { status.title = value; } };
+      if (selector === 'small') return { set textContent(value) { status.detail = value; } };
+      return null;
+    }
+  };
+  let renders = 0;
+  const sandbox = {
+    currentIdentity: { userId: 'stale-user' },
+    presenceKey: 'stale-tab',
+    state: { participants: [{ id: 'stale-user:tab', isLocal: true }, { id: 'other-user' }] },
+    renderAll() { renders += 1; },
+    document: { getElementById(id) { return id === 'chronus-live-connection-status' ? statusEl : null; } }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(helpers + "\\nsetPresenceValidationFailure('Falha ao validar perfil', 'Tente atualizar a sala');", sandbox);
+  assert.equal(sandbox.currentIdentity, null, 'failed validation must clear stale authenticated identity');
+  assert.equal(sandbox.presenceKey, '', 'failed validation must clear the old per-tab presence key');
+  assert.deepEqual(sandbox.state.participants.map(item => item.id), ['other-user'], 'failed validation must remove only the stale local participant');
+  assert.equal(status.title, 'Falha ao validar perfil', 'the validation failure must be visible');
+  assert.equal(status.detail, 'Tente atualizar a sala', 'the recovery instruction must be visible');
+  assert.equal(renders, 1, 'the roster must rerender after local identity cleanup');
+}
 
 // A second tab for the same account must not steal the current tab's local identity.
 {
