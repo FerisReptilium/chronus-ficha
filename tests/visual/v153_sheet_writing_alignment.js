@@ -17,6 +17,17 @@ async function inspectViewport(browser, name, viewport) {
     await page.locator('#attributeLayer select').first().waitFor({ state: 'attached', timeout: 15000 });
     await page.locator('#page2Formulas input').first().waitFor({ state: 'attached', timeout: 15000 });
     await page.evaluate(() => {
+      // O teste visual é local e usa uma identidade sintética para acionar a
+      // mesma rota protegida que carrega os estilos sob demanda.
+      window.ChronusAuth.getUser = () => ({ id: 'visual-qa-player' });
+      window.ChronusAuth.getProfile = () => ({ role: 'player' });
+      window.location.hash = '#/sheet';
+    });
+    await page.waitForFunction(() => {
+      const links = [...document.querySelectorAll('link[data-chronus-sheet-styles]')];
+      return links.length === 3 && links.every(link => Boolean(link.sheet));
+    }, { timeout: 15000 });
+    await page.evaluate(() => {
       const sheetView = document.querySelector('#view-sheet');
       sheetView.style.display = 'block';
       sheetView.classList.add('is-active');
