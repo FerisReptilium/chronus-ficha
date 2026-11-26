@@ -506,7 +506,7 @@ window.ChronusNarratorPanel = (function() {
 
   function safeBackupFilename(value) {
     return String(value || 'personagem')
-      .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
       .slice(0, 48) || 'personagem';
   }
@@ -560,7 +560,7 @@ window.ChronusNarratorPanel = (function() {
     const payload = JSON.parse(await file.text());
     const incoming = validateCharacterBackup(payload, targetCharacter);
     const confirmed = window.confirm(
-      `RESTAURAR FICHA\\n\\nJogador: ${playerName}\\nPersonagem: ${targetCharacter.name || 'Sem nome'}\\nBackup de: ${payload.exported_at || 'data não informada'}\\n\\nA ficha atual será substituída somente se a revisão na nuvem ainda for ${targetCharacter.revision}. Uma versão mais recente será preservada.\\n\\nDeseja continuar?`
+      `RESTAURAR FICHA\n\nJogador: ${playerName}\nPersonagem: ${targetCharacter.name || 'Sem nome'}\nBackup de: ${payload.exported_at || 'data não informada'}\n\nA ficha atual será substituída somente se a revisão na nuvem ainda for ${targetCharacter.revision}. Uma versão mais recente será preservada.\n\nDeseja continuar?`
     );
     if (!confirmed) return false;
 
