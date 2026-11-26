@@ -30,7 +30,7 @@ assert(live.includes('initializeSessionMembershipControls'), 'Narrator session m
 assert(live.includes("id=\"chronus-live-session-admin\""), 'Narrator session access panel must exist');
 assert(live.includes("eq('role', 'player')"), 'membership manager must list player profiles only');
 assert(live.includes("from('chronus_live_session_members').insert"), 'Narrator must be able to grant session access through authenticated RLS');
-assert(live.includes(".delete().eq('session_id', getActiveSessionId())"), 'Narrator must be able to revoke session access through authenticated RLS');
+assert(live.includes(".delete().eq('session_id', sessionId)"), 'Narrator revocation must target the session bound to its membership controls');
 assert(live.includes("'Selecione uma sessão válida'"), 'LIVE must fail closed when no valid session is selected');
 assert(live.includes('chronus-live:session:${sessionId}'), 'presence must use a session-specific topic');
 assert(router.includes("if (cleanHash !== '#/live')"), 'leaving LIVE must release its realtime subscription');
