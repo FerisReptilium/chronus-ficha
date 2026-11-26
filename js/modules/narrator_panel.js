@@ -437,7 +437,7 @@ window.ChronusNarratorPanel = (function() {
       if (playerIds.length > 0) {
         const { data: chars, error: charsErr } = await client
           .from('characters')
-          .select('id, user_id, name, data, updated_at')
+          .select('id, user_id, name, data, revision, updated_at')
           .in('user_id', playerIds)
           .order('updated_at', { ascending: false });
         if (charsErr) throw charsErr;
@@ -469,6 +469,121 @@ window.ChronusNarratorPanel = (function() {
     }
   }
 
+  const CHARACTER_BACKUP_FORMAT = 'chronus-character-backup';
+  const CHARACTER_BACKUP_VERSION = 1;
+  const CHARACTER_BACKUP_MAX_BYTES = 2 * 1024 * 1024;
+
+  function buildCharacterBackup(character, player) {
+    return {
+      format: CHARACTER_BACKUP_FORMAT,
+      version: CHARACTER_BACKUP_VERSION,
+      exported_at: new Date().toISOString(),
+      scope: 'character',
+      character: {
+        id: character.id,
+        user_id: character.user_id,
+        name: character.name || character.data?.identity?.name || '',
+        revision: character.revision,
+        updated_at: character.updated_at || null,
+        player_name: player?.display_name || 'Jogador',
+        data: character.data
+      }
+    };
+  }
+
+  function downloadCharacterBackup(payload, filename) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function safeBackupFilename(value) {
+    return String(value || 'personagem')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      .slice(0, 48) || 'personagem';
+  }
+
+  function hasUnsafeBackupKeys(value) {
+    if (!value || typeof value !== 'object') return false;
+    if (Array.isArray(value)) return value.some(hasUnsafeBackupKeys);
+    return Object.entries(value).some(([key, nested]) =>
+      ['__proto__', 'prototype', 'constructor'].includes(key) || hasUnsafeBackupKeys(nested)
+    );
+  }
+
+  function validateCharacterBackup(payload, targetCharacter) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('O arquivo não contém um objeto de backup válido.');
+    if (hasUnsafeBackupKeys(payload)) throw new Error('O arquivo contém propriedades não permitidas. Nenhum dado foi alterado.');
+    if (payload.format !== CHARACTER_BACKUP_FORMAT || payload.version !== CHARACTER_BACKUP_VERSION) {
+      throw new Error('Formato ou versão de backup não reconhecidos pelo CHRONUS.');
+    }
+    if (!payload.character || typeof payload.character !== 'object' || Array.isArray(payload.character)) {
+      throw new Error('O arquivo não contém uma ficha individual.');
+    }
+    const incoming = payload.character;
+    if (incoming.id !== targetCharacter.id || incoming.user_id !== targetCharacter.user_id) {
+      throw new Error('Este backup pertence a outro personagem ou jogador. Nenhum dado foi alterado.');
+    }
+    if (!Number.isInteger(incoming.revision) || incoming.revision < 1) {
+      throw new Error('O backup não possui uma revisão válida.');
+    }
+    const data = incoming.data;
+    if (!data || typeof data !== 'object' || Array.isArray(data)
+      || !data.identity || typeof data.identity !== 'object' || Array.isArray(data.identity)
+      || (data.identity.name !== undefined && typeof data.identity.name !== 'string')
+      || !Array.isArray(data.personalities)
+      || !data.attributes || typeof data.attributes !== 'object' || Array.isArray(data.attributes)
+      || !data.lists || typeof data.lists !== 'object' || Array.isArray(data.lists)
+      || !data.page2 || typeof data.page2 !== 'object' || Array.isArray(data.page2)) {
+      throw new Error('A estrutura da ficha está incompleta ou inválida.');
+    }
+    for (const key of ['skills', 'advantages', 'equipment', 'formulas']) {
+      if (!Array.isArray(data.lists[key])) throw new Error(`A lista "${key}" está inválida.`);
+    }
+    if (!Array.isArray(data.page2.formulas) || !Array.isArray(data.page2.inventory)) {
+      throw new Error('As listas da segunda página estão inválidas.');
+    }
+    const serialized = JSON.stringify(data);
+    if (serialized.length > CHARACTER_BACKUP_MAX_BYTES) throw new Error('A ficha excede o limite de segurança de 2 MB.');
+    return incoming;
+  }
+
+  async function restoreCharacterBackup(file, targetCharacter, playerName) {
+    if (!file || file.size > CHARACTER_BACKUP_MAX_BYTES) throw new Error('Arquivo ausente ou maior que o limite de 2 MB.');
+    const payload = JSON.parse(await file.text());
+    const incoming = validateCharacterBackup(payload, targetCharacter);
+    const confirmed = window.confirm(
+      `RESTAURAR FICHA\n\nJogador: ${playerName}\nPersonagem: ${targetCharacter.name || 'Sem nome'}\nBackup de: ${payload.exported_at || 'data não informada'}\n\nA ficha atual será substituída somente se a revisão na nuvem ainda for ${targetCharacter.revision}. Uma versão mais recente será preservada.\n\nDeseja continuar?`
+    );
+    if (!confirmed) return false;
+
+    const client = window.ChronusSupabase.getClient();
+    if (!client) throw new Error('Conexão com a nuvem indisponível.');
+    const { data, error } = await client
+      .from('characters')
+      .update({
+        name: incoming.data.identity.name || incoming.name || targetCharacter.name,
+        data: incoming.data
+      })
+      .eq('id', targetCharacter.id)
+      .eq('user_id', targetCharacter.user_id)
+      .eq('revision', targetCharacter.revision)
+      .select('id, revision, updated_at')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Conflito de versão: a ficha mudou desde a última leitura. Atualize a Mesa e tente novamente; a versão atual foi preservada.');
+    return true;
+  }
+
   function renderNarratorGrid(players, newestByUser, pane) {
     if (!pane) return;
 
@@ -498,7 +613,26 @@ window.ChronusNarratorPanel = (function() {
     refresh.type = 'button';
     refresh.id = 'btn-narrator-refresh';
     refresh.addEventListener('click', () => renderPlayerTable(pane));
-    shellHeader.append(headerCopy, refresh);
+    const exportCampaign = createEl('button', 'portal-btn portal-btn-secondary', '⬇ Backup da Mesa');
+    exportCampaign.type = 'button';
+    exportCampaign.addEventListener('click', () => {
+      const records = players.map(player => {
+        const character = newestByUser.get(player.id);
+        return character ? buildCharacterBackup(character, player) : null;
+      }).filter(Boolean);
+      if (!records.length) {
+        window.alert('Ainda não há fichas para exportar.');
+        return;
+      }
+      downloadCharacterBackup({
+        format: CHARACTER_BACKUP_FORMAT,
+        version: CHARACTER_BACKUP_VERSION,
+        exported_at: new Date().toISOString(),
+        scope: 'campaign',
+        records
+      }, `chronus-backup-mesa-${new Date().toISOString().slice(0,10)}.json`);
+    });
+    shellHeader.append(headerCopy, exportCampaign, refresh);
 
     const grid = createEl('div', 'narrator-players-grid');
 
@@ -574,6 +708,46 @@ window.ChronusNarratorPanel = (function() {
         openButton.disabled = true;
       }
       footer.appendChild(openButton);
+      if (character) {
+        const backupActions = createEl('div', 'narrator-backup-actions');
+        const exportButton = createEl('button', 'portal-btn portal-btn-secondary', '⬇ Exportar ficha');
+        exportButton.type = 'button';
+        exportButton.addEventListener('click', () => {
+          downloadCharacterBackup(
+            buildCharacterBackup(character, player),
+            `chronus-${safeBackupFilename(charName)}-backup.json`
+          );
+        });
+
+        const importInput = createEl('input');
+        importInput.type = 'file';
+        importInput.accept = 'application/json,.json';
+        importInput.hidden = true;
+        importInput.setAttribute('aria-label', `Selecionar backup da ficha de ${playerName}`);
+        const importButton = createEl('button', 'portal-btn portal-btn-secondary', '↥ Restaurar backup');
+        importButton.type = 'button';
+        importButton.addEventListener('click', () => importInput.click());
+        importInput.addEventListener('change', async () => {
+          const file = importInput.files?.[0];
+          if (!file) return;
+          importButton.disabled = true;
+          importButton.textContent = 'Validando…';
+          try {
+            const restored = await restoreCharacterBackup(file, character, playerName);
+            if (!restored) return;
+            window.alert('Backup restaurado e confirmado na nuvem. A Mesa será atualizada.');
+            await renderPlayerTable(pane);
+          } catch (error) {
+            window.alert(`Não foi possível restaurar o backup: ${error?.message || error}`);
+          } finally {
+            importButton.disabled = false;
+            importButton.textContent = '↥ Restaurar backup';
+            importInput.value = '';
+          }
+        });
+        backupActions.append(exportButton, importInput, importButton);
+        footer.appendChild(backupActions);
+      }
 
       card.append(cardHead, cardBody, footer);
       grid.appendChild(card);
