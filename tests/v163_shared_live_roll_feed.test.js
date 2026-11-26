@@ -62,7 +62,7 @@ assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose prese
 // A second tab for the same account must not steal the current tab's local identity.
 {
   const start = live.indexOf('  function applyPresenceState() {');
-  const end = live.indexOf('\\n  async function disconnectPresence()', start);
+  const end = live.indexOf('\n  async function disconnectPresence()', start);
   assert.ok(start >= 0 && end > start, 'presence state reducer must remain independently testable');
   const reducer = live.slice(start, end);
   const sandbox = {
@@ -81,7 +81,7 @@ assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose prese
     renderAll() {}
   };
   vm.createContext(sandbox);
-  vm.runInContext(reducer + '\\napplyPresenceState();', sandbox);
+  vm.runInContext(reducer + '\napplyPresenceState();', sandbox);
   assert.equal(sandbox.state.participants.length, 1, 'duplicate tabs must still render one participant');
   assert.equal(sandbox.state.participants[0].id, 'user-a:local-tab',
     'the current browser tab must win deduplication even when another tab appears first');
