@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const vm = require('node:vm');
 
 const service = fs.readFileSync('js/services/narrative_live.js', 'utf8');
 const live = fs.readFileSync('js/modules/chronus_live_v140.js', 'utf8');
@@ -57,5 +58,37 @@ assert(live.includes('presenceChannel.presenceState?.()'), 'LIVE roster must com
 assert(live.includes('isLocalPreview() ? DEFAULT_PARTICIPANTS.map'), 'fictional participants must be limited to localhost visual preview');
 assert(live.includes('microphone.disabled = true') && live.includes('camera.disabled = true') && live.includes('share.disabled = true'), 'unimplemented media controls must be disabled, not simulated');
 assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose presence-enabled mode');
+
+// A second tab for the same account must not steal the current tab's local identity.
+{
+  const start = live.indexOf('  function applyPresenceState() {');
+  const end = live.indexOf('\\n  async function disconnectPresence()', start);
+  assert.ok(start >= 0 && end > start, 'presence state reducer must remain independently testable');
+  const reducer = live.slice(start, end);
+  const sandbox = {
+    presenceChannel: {
+      presenceState: () => ({
+        'other-tab': [{ user_id: 'user-a', display_name: 'Felipe', character_name: 'Personagem' }],
+        'local-tab': [{ user_id: 'user-a', display_name: 'Felipe', character_name: 'Personagem' }]
+      })
+    },
+    presenceKey: 'local-tab',
+    currentIdentity: { displayName: 'Felipe', role: 'player' },
+    state: {
+      participants: [{ id: 'user-a:local-tab', portrait: 'blob:local-portrait' }],
+      spotlightId: 'user-a:other-tab'
+    },
+    renderAll() {}
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(reducer + '\\napplyPresenceState();', sandbox);
+  assert.equal(sandbox.state.participants.length, 1, 'duplicate tabs must still render one participant');
+  assert.equal(sandbox.state.participants[0].id, 'user-a:local-tab',
+    'the current browser tab must win deduplication even when another tab appears first');
+  assert.equal(sandbox.state.participants[0].isLocal, true,
+    'the current browser tab must retain local participant semantics');
+  assert.equal(sandbox.state.participants[0].portrait, 'blob:local-portrait',
+    'the current tab must retain its hydrated portrait');
+}
 
 console.log('CHRONUS session-scoped LIVE roll feed regression: PASS');
