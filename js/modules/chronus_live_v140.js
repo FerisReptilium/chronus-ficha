@@ -81,6 +81,7 @@ window.ChronusLiveV140 = (function() {
   let presenceChannel = null;
   let presenceKey = '';
   let presenceGeneration = 0;
+  let membershipGeneration = 0;
   let presenceStatus = 'Desconectado';
   let currentIdentity = null;
   let activeSessionId = '';
@@ -824,15 +825,18 @@ window.ChronusLiveV140 = (function() {
     const list = document.getElementById('chronus-live-session-members');
     const status = document.getElementById('chronus-live-session-admin-status');
     if (!panel || !select || !addButton || !list || !status) return;
+    const requestId = ++membershipGeneration;
     panel.hidden = true;
     if (!sessionId) return;
     const db = window.ChronusSupabase?.getClient?.();
     if (!db || typeof db.from !== 'function') return;
     const { data: authData, error: authError } = await db.auth.getSession();
+    if (requestId !== membershipGeneration || getActiveSessionId() !== sessionId) return;
     const user = authData?.session?.user;
     if (authError || !user) return;
     const { data: profile, error: profileError } = await db
       .from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (requestId !== membershipGeneration || getActiveSessionId() !== sessionId) return;
     if (profileError || profile?.role !== 'narrator') return;
     panel.hidden = false;
 
@@ -842,6 +846,7 @@ window.ChronusLiveV140 = (function() {
         db.from('profiles').select('id, display_name').eq('role', 'player').order('display_name').limit(200),
         db.from('chronus_live_session_members').select('user_id').eq('session_id', sessionId)
       ]);
+      if (requestId !== membershipGeneration || getActiveSessionId() !== sessionId) return;
       if (playersResult.error || membersResult.error) {
         status.textContent = 'Não foi possível carregar os acessos desta sessão';
         console.warn('CHRONUS LIVE: falha ao carregar membros da sessão.', playersResult.error || membersResult.error);
@@ -952,12 +957,10 @@ window.ChronusLiveV140 = (function() {
     });
     const requestedId = getActiveSessionId();
     const requested = sessions.find(session => session.id === requestedId);
-    if (!requested && !requestedId) void initializeSessionMembershipControls('');
     if (requested) {
       select.value = requested.id;
       const heading = document.getElementById('chronus-live-session-heading');
       if (heading) heading.textContent = requested.title;
-      void initializeSessionMembershipControls(requested.id);
     } else if (!requestedId && sessions.length === 1) {
       select.value = sessions[0].id;
       window.location.hash = '#/live?session=' + encodeURIComponent(sessions[0].id);
