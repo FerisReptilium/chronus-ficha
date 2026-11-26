@@ -22,6 +22,28 @@ window.ChronusRouter = (function() {
 
   let currentRoute = '#/home';
   let hasRenderedInitialRoute = false;
+  let navigationVersion = 0;
+  let sheetStylesheetPromise = null;
+
+  function ensureSheetStylesheet() {
+    if (sheetStylesheetPromise) return sheetStylesheetPromise;
+
+    sheetStylesheetPromise = new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'css/sheet.css';
+      link.dataset.chronusSheetStyles = 'true';
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', () => {
+        sheetStylesheetPromise = null;
+        link.remove();
+        reject(new Error('Não foi possível carregar os estilos da ficha CHRONUS.'));
+      }, { once: true });
+      document.head.appendChild(link);
+    });
+
+    return sheetStylesheetPromise;
+  }
 
   function init() {
     window.addEventListener('hashchange', handleRouteChange);
@@ -36,7 +58,8 @@ window.ChronusRouter = (function() {
     return new URLSearchParams(query).get('preview') === '1';
   }
 
-  function handleRouteChange() {
+  async function handleRouteChange() {
+    const routeVersion = ++navigationVersion;
     let hash = window.location.hash || '#/home';
     const queryIdx = hash.indexOf('?');
     let cleanHash = queryIdx !== -1 ? hash.substring(0, queryIdx) : hash;
@@ -80,6 +103,18 @@ window.ChronusRouter = (function() {
       window.ChronusAuth?.showAuthModal();
       window.location.hash = '#/home';
       return;
+    }
+
+    // A ficha contém um stylesheet pesado e isolado. Baixe-o apenas quando
+    // a rota autenticada for realmente aberta, sem bloquear o portal inicial.
+    if (cleanHash === '#/sheet') {
+      try {
+        await ensureSheetStylesheet();
+      } catch (error) {
+        console.error('CHRONUS: falha ao carregar os estilos da ficha.', error);
+      }
+      const latestHash = window.location.hash.split('?')[0] || '#/home';
+      if (routeVersion !== navigationVersion || latestHash !== cleanHash) return;
     }
 
     // A primeira renderização (inclusive deep link) é silenciosa para leitores de tela.
