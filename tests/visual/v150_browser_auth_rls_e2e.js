@@ -236,7 +236,7 @@ async function visibleCharacterIds(page, expectedUserId) {
         slug: 'browser-live-' + runTag,
         summary: 'Disposable session for authenticated LIVE E2E',
         status: 'in_progress', visibility: 'narrator', published: false,
-        created_by: userA.id
+        created_by: userNarrator.id
       }
     });
     assert.equal(sessionResult.status, 201, 'service role must create disposable LIVE session: ' + JSON.stringify(sessionResult.data));
@@ -246,8 +246,8 @@ async function visibleCharacterIds(page, expectedUserId) {
     const members = await api('/rest/v1/chronus_live_session_members', {
       method: 'POST', key: serviceRoleKey, token: serviceRoleKey,
       body: [
-        { session_id: sessionId, user_id: userA.id, created_by: userA.id },
-        { session_id: sessionId, user_id: userB.id, created_by: userA.id }
+        { session_id: sessionId, user_id: userA.id, created_by: userNarrator.id },
+        { session_id: sessionId, user_id: userB.id, created_by: userNarrator.id }
       ]
     });
     assert.equal(members.status, 201, 'service role must provision both session memberships: ' + JSON.stringify(members.data));
