@@ -1076,3 +1076,25 @@ textarea.form-control {
     width: 100%;
   }
 }
+
+
+/* Narrator character backup controls */
+.narrator-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.narrator-backup-actions .portal-btn {
+  min-height: 38px;
+  font-size: 0.78rem;
+}
+@media (max-width: 560px) {
+  .narrator-backup-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .narrator-backup-actions .portal-btn {
+    width: 100%;
+  }
+}
