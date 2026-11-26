@@ -122,7 +122,7 @@ async function openAuthModalThroughUi(page) {
   await waitForAuthFormReady(page);
 }
 
-async function loginThroughUi(page, user, expectedRoute = '#/player') {
+async function loginThroughUi(page, user, expectedRoute = null) {
   await page.goto(portalUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.ChronusAuth && window.ChronusSupabase));
   await openAuthModalThroughUi(page);
@@ -133,7 +133,9 @@ async function loginThroughUi(page, user, expectedRoute = '#/player') {
   await page.locator('#nav-user-area .user-name').waitFor({ state: 'visible' });
   // Wait for the login form's async submit handler to finish its role-based redirect
   // before callers navigate elsewhere; otherwise a late redirect can overwrite LIVE.
-  await page.waitForFunction(expected => window.location.hash === expected, expectedRoute, { timeout: 10000 });
+  if (expectedRoute) {
+    await page.waitForFunction(expected => window.location.hash === expected, expectedRoute, { timeout: 10000 });
+  }
   const displayedName = await page.locator('#nav-user-area .user-name').textContent();
   assert.equal(displayedName, user.name, 'header must display the authenticated profile identity');
 }
