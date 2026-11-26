@@ -808,16 +808,25 @@ window.ChronusLiveV140 = (function() {
         if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Publicando seu participante…';
         try {
           const result = await channel.track({ user_id: user.id, display_name: currentIdentity.displayName, character_name: character });
+          if (generation !== presenceGeneration || presenceChannel !== channel) return;
           if (result === 'ok') {
             if (statusEl) statusEl.querySelector('strong').textContent = 'Mesa sincronizada';
             if (statusEl) statusEl.querySelector('small').textContent = 'Presença ativa · áudio/vídeo indisponíveis';
+          } else {
+            if (statusEl) statusEl.querySelector('strong').textContent = 'Presença não confirmada';
+            if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Aguardando nova conexão com o Realtime';
           }
         } catch (trackError) {
           console.warn('CHRONUS LIVE: não foi possível publicar presença.', trackError);
-          if (statusEl) statusEl.querySelector('strong').textContent = 'Falha ao entrar na mesa';
+          if (generation !== presenceGeneration || presenceChannel !== channel) return;
+          if (statusEl) statusEl.querySelector('strong').textContent = 'Falha ao publicar presença';
+          if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'O canal permanece aguardando reconexão';
         }
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         if (statusEl) statusEl.querySelector('strong').textContent = 'Sem conexão · tentando novamente';
+      } else if (status === 'CLOSED') {
+        if (statusEl) statusEl.querySelector('strong').textContent = 'Canal encerrado · reabra a sala';
+        if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'A presença não está mais ativa';
       }
     });
   }
