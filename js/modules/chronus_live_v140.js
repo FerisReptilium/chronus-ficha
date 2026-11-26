@@ -721,6 +721,8 @@ window.ChronusLiveV140 = (function() {
   }
 
   async function connectPresence() {
+    const adminPanel = document.getElementById('chronus-live-session-admin');
+    if (adminPanel) adminPanel.hidden = true;
     const generation = ++presenceGeneration;
     const db = window.ChronusSupabase?.getClient?.();
     const previous = presenceChannel;
@@ -950,7 +952,7 @@ window.ChronusLiveV140 = (function() {
     });
     const requestedId = getActiveSessionId();
     const requested = sessions.find(session => session.id === requestedId);
-    if (!requested) void initializeSessionMembershipControls('');
+    if (!requested && !requestedId) void initializeSessionMembershipControls('');
     if (requested) {
       select.value = requested.id;
       const heading = document.getElementById('chronus-live-session-heading');
