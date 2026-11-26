@@ -538,6 +538,7 @@ window.ChronusNarratorPanel = (function() {
     const data = incoming.data;
     if (!data || typeof data !== 'object' || Array.isArray(data)
       || !data.identity || typeof data.identity !== 'object' || Array.isArray(data.identity)
+      || (data.identity.name !== undefined && typeof data.identity.name !== 'string')
       || !Array.isArray(data.personalities)
       || !data.attributes || typeof data.attributes !== 'object' || Array.isArray(data.attributes)
       || !data.lists || typeof data.lists !== 'object' || Array.isArray(data.lists)
@@ -732,7 +733,8 @@ window.ChronusNarratorPanel = (function() {
           importButton.disabled = true;
           importButton.textContent = 'Validando…';
           try {
-            await restoreCharacterBackup(file, character, playerName);
+            const restored = await restoreCharacterBackup(file, character, playerName);
+            if (!restored) return;
             window.alert('Backup restaurado e confirmado na nuvem. A Mesa será atualizada.');
             await renderPlayerTable(pane);
           } catch (error) {
