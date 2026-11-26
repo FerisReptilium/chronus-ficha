@@ -882,32 +882,38 @@ window.ChronusLiveV140 = (function() {
           return;
         }
         addButton.disabled = true;
-        const { error } = await db.from('chronus_live_session_members').insert({
-          session_id: getActiveSessionId(),
-          user_id: targetUserId
-        });
-        addButton.disabled = false;
-        if (error) {
-          status.textContent = 'Não foi possível adicionar o jogador';
-          console.warn('CHRONUS LIVE: falha ao adicionar membro.', error);
-          return;
+        try {
+          const { error } = await db.from('chronus_live_session_members').insert({
+            session_id: sessionId,
+            user_id: targetUserId
+          });
+          if (error) {
+            status.textContent = 'Não foi possível adicionar o jogador';
+            console.warn('CHRONUS LIVE: falha ao adicionar membro.', error);
+            return;
+          }
+          await refresh();
+        } finally {
+          addButton.disabled = false;
         }
-        await initializeSessionMembershipControls(getActiveSessionId());
       });
       list.addEventListener('click', async event => {
         const remove = event.target?.closest?.('button[data-remove-user-id]');
         if (!remove) return;
         const targetUserId = remove.dataset.removeUserId;
         remove.disabled = true;
-        const { error } = await db.from('chronus_live_session_members')
-          .delete().eq('session_id', getActiveSessionId()).eq('user_id', targetUserId);
-        if (error) {
+        try {
+          const { error } = await db.from('chronus_live_session_members')
+            .delete().eq('session_id', sessionId).eq('user_id', targetUserId);
+          if (error) {
+            status.textContent = 'Não foi possível remover o jogador';
+            console.warn('CHRONUS LIVE: falha ao remover membro.', error);
+            return;
+          }
+          await refresh();
+        } finally {
           remove.disabled = false;
-          status.textContent = 'Não foi possível remover o jogador';
-          console.warn('CHRONUS LIVE: falha ao remover membro.', error);
-          return;
         }
-        await initializeSessionMembershipControls(getActiveSessionId());
       });
       panel.dataset.bound = 'true';
     }
