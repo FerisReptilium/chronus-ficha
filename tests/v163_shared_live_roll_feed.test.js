@@ -22,6 +22,8 @@ assert(service.includes(".order('created_at', { ascending: false })"), 'shared f
 assert(service.includes(".limit(20)"), 'shared feed history must remain bounded');
 assert(service.includes("'● Sincronizada'"), 'connection status must be visible');
 assert(service.includes("'Reconectando…'"), 'connection loss must be visible');
+assert(service.includes("subscriptionStatus === 'CLOSED'"), 'a permanently closed feed channel must not appear to be reconnecting');
+assert(service.includes("'Canal encerrado · reabra a sala'"), 'a closed feed channel must expose a truthful recovery instruction');
 assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();"), 'history must be reloaded after reconnect');
 assert(service.includes('feedGeneration += 1'), 'stale async history responses must be invalidated on unmount');
 assert(service.includes('function addRecord(record, expectedSessionId, generation)'), 'shared roll events must be validated against their mounted session generation');
@@ -62,6 +64,8 @@ assert(live.includes('presenceChannel.presenceState?.()'), 'LIVE roster must com
 assert(live.includes('isLocalPreview() ? DEFAULT_PARTICIPANTS.map'), 'fictional participants must be limited to localhost visual preview');
 assert(live.includes('microphone.disabled = true') && live.includes('camera.disabled = true') && live.includes('share.disabled = true'), 'unimplemented media controls must be disabled, not simulated');
 assert(live.includes("mode: 'presence-enabled'"), 'LIVE module must expose presence-enabled mode');
+assert(live.includes("status === 'CLOSED'"), 'a closed presence channel must be distinguished from a temporary connection loss');
+assert(live.includes("if (result === 'ok')") && live.includes("'Presença não confirmada'"), 'presence tracking must expose unsuccessful acknowledgements instead of leaving a pending state');
 
 // A second tab for the same account must not steal the current tab's local identity.
 {

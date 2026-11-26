@@ -214,7 +214,9 @@
             ? '● Sincronizada'
             : subscriptionStatus === 'CHANNEL_ERROR' || subscriptionStatus === 'TIMED_OUT'
               ? 'Reconectando…'
-              : 'Conectando…';
+              : subscriptionStatus === 'CLOSED'
+                ? 'Canal encerrado · reabra a sala'
+                : 'Conectando…';
           if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();
         });
     } else {
