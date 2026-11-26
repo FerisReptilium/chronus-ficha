@@ -23,8 +23,9 @@
     return root.ChronusSupabase?.getClient?.() || null;
   }
 
-  function addRecord(record) {
-    if (!record?.id) return;
+  function addRecord(record, expectedSessionId, generation) {
+    if (!record?.id || !expectedSessionId || record.session_id !== expectedSessionId) return;
+    if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
     records.set(record.id, record);
     const ordered = [...records.values()]
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -145,11 +146,14 @@
 
   async function mountSharedRollFeed(container, sessionId) {
     if (!container) return;
-    if (channel) {
+    const generation = ++feedGeneration;
+    const previous = channel;
+    channel = null;
+    if (previous) {
       const oldClient = client();
-      if (typeof oldClient?.removeChannel === 'function') await oldClient.removeChannel(channel);
-      channel = null;
+      if (typeof oldClient?.removeChannel === 'function') await oldClient.removeChannel(previous);
     }
+    if (generation !== feedGeneration) return;
     records.clear();
     mountedRoot = container;
     container.replaceChildren();
@@ -180,7 +184,6 @@
       return;
     }
 
-    const generation = ++feedGeneration;
     async function loadRecentRolls() {
       const { data, error } = await db
         .from('chronus_roll_events')
@@ -194,7 +197,7 @@
         console.warn('CHRONUS: falha ao recuperar rolagens recentes.', error);
         return;
       }
-      (data || []).reverse().forEach(addRecord);
+      (data || []).reverse().forEach(record => addRecord(record, sessionId, generation));
     }
 
     if (typeof db.channel === 'function') {
@@ -204,7 +207,7 @@
           event: 'INSERT',
           schema: 'public',
           table: 'chronus_roll_events'
-        }, payload => addRecord(payload.new))
+        }, payload => addRecord(payload.new, sessionId, generation))
         .subscribe(subscriptionStatus => {
           if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
           status.textContent = subscriptionStatus === 'SUBSCRIBED'
@@ -224,10 +227,11 @@
   async function unmountNarratorFeed() {
     feedGeneration += 1;
     const db = client();
-    if (channel && typeof db?.removeChannel === 'function') await db.removeChannel(channel);
+    const previous = channel;
     channel = null;
     mountedRoot = null;
     records.clear();
+    if (previous && typeof db?.removeChannel === 'function') await db.removeChannel(previous);
   }
 
   root.ChronusNarrativeLive = Object.freeze({
