@@ -122,7 +122,7 @@ async function openAuthModalThroughUi(page) {
   await waitForAuthFormReady(page);
 }
 
-async function loginThroughUi(page, user) {
+async function loginThroughUi(page, user, expectedRoute = null) {
   await page.goto(portalUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.ChronusAuth && window.ChronusSupabase));
   await openAuthModalThroughUi(page);
@@ -131,6 +131,11 @@ async function loginThroughUi(page, user) {
   await page.locator('#authLoginButton').click();
   await page.waitForFunction(expected => window.ChronusAuth?.getUser()?.id === expected, user.id);
   await page.locator('#nav-user-area .user-name').waitFor({ state: 'visible' });
+  // Wait for the login form's async submit handler to finish its role-based redirect
+  // before callers navigate elsewhere; otherwise a late redirect can overwrite LIVE.
+  if (expectedRoute) {
+    await page.waitForFunction(expected => window.location.hash === expected, expectedRoute, { timeout: 10000 });
+  }
   const displayedName = await page.locator('#nav-user-area .user-name').textContent();
   assert.equal(displayedName, user.name, 'header must display the authenticated profile identity');
 }
@@ -307,7 +312,7 @@ async function visibleCharacterIds(page, expectedUserId) {
       + JSON.stringify([userA.characterName, userB.characterName]) + ', received ' + JSON.stringify(rosterB));
 
     // Narrator UI must be able to grant and revoke session membership without a service key.
-    await loginThroughUi(pageNarrator, userNarrator);
+    await loginThroughUi(pageNarrator, userNarrator, '#/narrator');
     await navigateToLive(pageNarrator, sessionId);
     try {
       await pageNarrator.locator('#chronus-live-session-admin').waitFor({ state: 'visible', timeout: 20000 });

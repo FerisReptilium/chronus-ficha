@@ -680,7 +680,11 @@ window.ChronusLiveV140 = (function() {
     const next = [];
     const seenUsers = new Set();
     const presence = presenceChannel.presenceState?.() || {};
-    Object.entries(presence).forEach(([key, entries]) => {
+    // When this account is connected from multiple tabs, prefer this tab's key
+    // before deduplicating by user id so the local participant keeps its identity.
+    Object.entries(presence)
+      .sort(([leftKey], [rightKey]) => Number(rightKey === presenceKey) - Number(leftKey === presenceKey))
+      .forEach(([key, entries]) => {
       (entries || []).forEach(entry => {
         const userId = typeof entry.user_id === 'string' ? entry.user_id : '';
         if (!userId || seenUsers.has(userId)) return;
