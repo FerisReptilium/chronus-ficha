@@ -101,7 +101,7 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
     document: { getElementById(id) { return id === 'chronus-live-connection-status' ? statusEl : null; } }
   };
   vm.createContext(sandbox);
-  vm.runInContext(helpers + "\\nsetPresenceValidationFailure('Falha ao validar perfil', 'Tente atualizar a sala');", sandbox);
+  vm.runInContext(helpers + "\nsetPresenceValidationFailure('Falha ao validar perfil', 'Tente atualizar a sala');", sandbox);
   assert.equal(sandbox.currentIdentity, null, 'failed validation must clear stale authenticated identity');
   assert.equal(sandbox.presenceKey, '', 'failed validation must clear the old per-tab presence key');
   assert.deepEqual(sandbox.state.participants.map(item => item.id), ['other-user'], 'failed validation must remove only the stale local participant');
