@@ -5,12 +5,16 @@ const fs = require('fs');
 
 const index = fs.readFileSync('index.html', 'utf8');
 const css = fs.readFileSync('css/sheet-writing-alignment-v15.css', 'utf8');
+const router = fs.readFileSync('js/router.js', 'utf8');
 
-const sheetLink = index.indexOf('href="css/sheet.css"');
-const alignmentLink = index.indexOf('href="css/sheet-writing-alignment-v15.css"');
-const resourceLink = index.indexOf('href="css/resource-counters.css"');
+for (const href of ['css/sheet.css', 'css/sheet-writing-alignment-v15.css', 'css/resource-counters.css']) {
+  assert(!index.includes('href="' + href + '"'), href + ' must not block the initial portal load');
+}
+const sheetLink = router.indexOf("loadSheetStylesheet('css/sheet.css')");
+const alignmentLink = router.indexOf("loadSheetStylesheet('css/sheet-writing-alignment-v15.css')");
+const resourceLink = router.indexOf("loadSheetStylesheet('css/resource-counters.css')");
 assert(sheetLink >= 0 && alignmentLink > sheetLink, 'Writing alignment layer must load after the original sheet stylesheet');
-assert(resourceLink < 0 || alignmentLink < resourceLink, 'Writing alignment must load before resource controls');
+assert(resourceLink > alignmentLink, 'Resource controls must load after the writing alignment layer');
 
 for (const selector of [
   '#view-sheet .sheet-input:not(textarea):not(.centered-number)',
