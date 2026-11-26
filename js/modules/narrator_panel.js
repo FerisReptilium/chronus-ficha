@@ -511,8 +511,17 @@ window.ChronusNarratorPanel = (function() {
       .slice(0, 48) || 'personagem';
   }
 
+  function hasUnsafeBackupKeys(value) {
+    if (!value || typeof value !== 'object') return false;
+    if (Array.isArray(value)) return value.some(hasUnsafeBackupKeys);
+    return Object.entries(value).some(([key, nested]) =>
+      ['__proto__', 'prototype', 'constructor'].includes(key) || hasUnsafeBackupKeys(nested)
+    );
+  }
+
   function validateCharacterBackup(payload, targetCharacter) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('O arquivo não contém um objeto de backup válido.');
+    if (hasUnsafeBackupKeys(payload)) throw new Error('O arquivo contém propriedades não permitidas. Nenhum dado foi alterado.');
     if (payload.format !== CHARACTER_BACKUP_FORMAT || payload.version !== CHARACTER_BACKUP_VERSION) {
       throw new Error('Formato ou versão de backup não reconhecidos pelo CHRONUS.');
     }
