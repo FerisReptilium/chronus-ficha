@@ -29,7 +29,7 @@ const routes = [
 ];
 
 // External SDK supply-chain integrity: pin the tested Supabase client release.
-assert(index.includes('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>'), 'Supabase JS SDK must remain pinned to an exact tested version');
+assert(index.includes('<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>'), 'Supabase JS SDK must remain pinned and deferred to an exact tested version');
 
 // Route/view integrity.
 for (const [route, viewId] of routes) {
