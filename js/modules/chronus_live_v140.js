@@ -725,6 +725,20 @@ window.ChronusLiveV140 = (function() {
     }
   }
 
+  function clearLocalPresenceIdentity() {
+    currentIdentity = null;
+    presenceKey = '';
+    state.participants = state.participants.filter(item => !item.isLocal);
+    renderAll();
+  }
+
+  function setPresenceValidationFailure(title, detail = '') {
+    clearLocalPresenceIdentity();
+    const statusEl = document.getElementById('chronus-live-connection-status');
+    if (statusEl?.querySelector('strong')) statusEl.querySelector('strong').textContent = title;
+    if (statusEl?.querySelector('small') && detail) statusEl.querySelector('small').textContent = detail;
+  }
+
   async function connectPresence() {
     const adminPanel = document.getElementById('chronus-live-session-admin');
     if (adminPanel) adminPanel.hidden = true;
@@ -740,10 +754,17 @@ window.ChronusLiveV140 = (function() {
     const statusEl = document.getElementById('chronus-live-connection-status');
     if (statusEl?.querySelector('strong')) statusEl.querySelector('strong').textContent = 'Validando acesso à sessão';
     if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Conferindo autenticação e vínculo';
+    if (isLocalPreview()) {
+      // Local visual QA has no authenticated session by design. Keep its demo
+      // participants interactive and never initialize Realtime or clear them.
+      presenceStatus = 'Prévia local';
+      if (statusEl?.querySelector('strong')) statusEl.querySelector('strong').textContent = 'Prévia demonstrativa';
+      if (statusEl?.querySelector('small')) statusEl.querySelector('small').textContent = 'Modo local · sem conexão com uma sessão real';
+      return;
+    }
     const sessionId = getActiveSessionId();
     if (!sessionId) {
-      if (statusEl) statusEl.querySelector('strong').textContent = 'Selecione uma sessão válida';
-      if (statusEl) statusEl.querySelector('small').textContent = 'A sala não usa mais um canal global';
+      setPresenceValidationFailure('Selecione uma sessão válida', 'A sala não usa mais um canal global');
       return;
     }
     if (!db || typeof db.channel !== 'function') {
@@ -753,33 +774,59 @@ window.ChronusLiveV140 = (function() {
     let authResult;
     try { authResult = await db.auth.getSession(); }
     catch (authError) {
+      if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
       console.warn('CHRONUS LIVE: não foi possível validar a sessão autenticada.', authError);
-      if (statusEl) statusEl.querySelector('strong').textContent = 'Falha ao validar autenticação';
+      setPresenceValidationFailure('Falha ao validar autenticação', 'Tente atualizar a sala');
       return;
     }
     const { data, error } = authResult;
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
     const user = data?.session?.user;
     if (error || !user) {
-      if (statusEl) statusEl.querySelector('strong').textContent = 'Entre para acessar a mesa';
       presenceStatus = 'Não autenticado';
+      setPresenceValidationFailure('Entre para acessar a mesa', 'Faça login para entrar na sessão');
       return;
     }
     if (statusEl) statusEl.querySelector('strong').textContent = 'Validando perfil';
-    const { data: profile, error: profileError } = await db.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
+    let profileResult;
+    try {
+      profileResult = await db.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
+    } catch (profileLookupError) {
+      if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
+      console.warn('CHRONUS LIVE: falha inesperada ao consultar o perfil.', profileLookupError);
+      setPresenceValidationFailure('Falha ao validar perfil', 'Tente atualizar a sala');
+      return;
+    }
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
-    if (profileError || !profile || !['player', 'narrator'].includes(profile.role)) {
-      state.participants = state.participants.filter(item => !item.isLocal);
-      renderAll();
-      if (statusEl) statusEl.querySelector('strong').textContent = 'Perfil sem acesso à mesa';
+    const { data: profile, error: profileError } = profileResult || {};
+    if (profileError) {
+      console.warn('CHRONUS LIVE: falha ao validar o perfil.', profileError);
+      setPresenceValidationFailure('Falha ao validar perfil', 'Não foi possível consultar sua conta');
+      return;
+    }
+    if (!profile || !['player', 'narrator'].includes(profile.role)) {
+      setPresenceValidationFailure('Perfil sem acesso à mesa', 'Verifique se sua conta está cadastrada como jogador ou Narrador');
       return;
     }
     if (statusEl) statusEl.querySelector('strong').textContent = 'Validando vínculo com a sessão';
-    const { data: liveSession, error: sessionError } = await db.from('campaign_sessions').select('id').eq('id', sessionId).maybeSingle();
+    let sessionResult;
+    try {
+      sessionResult = await db.from('campaign_sessions').select('id').eq('id', sessionId).maybeSingle();
+    } catch (sessionLookupError) {
+      if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
+      console.warn('CHRONUS LIVE: falha inesperada ao consultar a sessão.', sessionLookupError);
+      setPresenceValidationFailure('Falha ao validar sessão', 'Tente atualizar a sala');
+      return;
+    }
     if (generation !== presenceGeneration || !window.location.hash.startsWith('#/live')) return;
-    if (sessionError || !liveSession) {
-      if (statusEl) statusEl.querySelector('strong').textContent = 'Sem acesso a esta sessão';
-      if (statusEl) statusEl.querySelector('small').textContent = 'Peça ao Narrador para liberar seu acesso';
+    const { data: liveSession, error: sessionError } = sessionResult || {};
+    if (sessionError) {
+      console.warn('CHRONUS LIVE: falha ao validar a sessão.', sessionError);
+      setPresenceValidationFailure('Falha ao validar sessão', 'Não foi possível consultar esta sessão');
+      return;
+    }
+    if (!liveSession) {
+      setPresenceValidationFailure('Sem acesso a esta sessão', 'Peça ao Narrador para liberar seu acesso');
       return;
     }
     currentIdentity = { userId: user.id, displayName: profile.display_name || user.email?.split('@')[0] || 'Participante', role: profile.role, sessionId };
