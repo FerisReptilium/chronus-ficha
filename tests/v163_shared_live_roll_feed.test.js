@@ -47,7 +47,13 @@ assert(live.includes('catch (error) {') && live.includes("CHRONUS LIVE: falha ao
 assert(live.includes("id=\"chronus-live-session-admin\""), 'Narrator session access panel must exist');
 assert(live.includes("eq('role', 'player')"), 'membership manager must list player profiles only');
 assert(live.includes("from('chronus_live_session_members').insert"), 'Narrator must be able to grant session access through authenticated RLS');
-assert(live.includes(".delete().eq('session_id', sessionId)"), 'Narrator revocation must target the session bound to its membership controls');
+assert(live.includes(".delete().eq('session_id', context.sessionId)"), 'Narrator revocation must target the current session bound to its membership controls');
+assert(live.includes('panel._chronusLiveMembership = { sessionId, db, requestId, refresh, select, status }'), 'membership handlers must use the latest active session context');
+assert(live.includes('context.requestId !== membershipGeneration'), 'membership actions from a previous session must be rejected');
+assert(live.includes('getActiveSessionId() !== context.sessionId'), 'membership actions must never target a session that is no longer selected');
+assert(live.includes('falha inesperada ao carregar membros da sessão'), 'unexpected membership refresh rejections must be handled');
+assert(live.includes('falha inesperada ao adicionar membro'), 'unexpected membership grant rejections must be handled');
+assert(live.includes('falha inesperada ao remover membro'), 'unexpected membership revocation rejections must be handled');
 assert(live.includes("'Selecione uma sessão válida'"), 'LIVE must fail closed when no valid session is selected');
 assert(live.includes('chronus-live:session:${sessionId}'), 'presence must use a session-specific topic');
 assert(router.includes("if (cleanHash !== '#/live')"), 'leaving LIVE must release its realtime subscription');

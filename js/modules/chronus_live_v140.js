@@ -888,26 +888,55 @@ window.ChronusLiveV140 = (function() {
     if (!panel || !select || !addButton || !list || !status) return;
     const requestId = ++membershipGeneration;
     panel.hidden = true;
+    panel._chronusLiveMembership = null;
+    addButton.disabled = false;
     if (!sessionId) return;
     const db = window.ChronusSupabase?.getClient?.();
     if (!db || typeof db.from !== 'function') return;
-    const { data: authData, error: authError } = await db.auth.getSession();
-    if (requestId !== membershipGeneration || getActiveSessionId() !== sessionId) return;
+    const isCurrent = () => requestId === membershipGeneration &&
+      getActiveSessionId() === sessionId && panel.isConnected;
+
+    let authResult;
+    try {
+      authResult = await db.auth.getSession();
+    } catch (error) {
+      if (isCurrent()) console.warn('CHRONUS LIVE: falha ao validar autenticação do painel de acesso.', error);
+      return;
+    }
+    if (!isCurrent()) return;
+    const { data: authData, error: authError } = authResult || {};
     const user = authData?.session?.user;
     if (authError || !user) return;
-    const { data: profile, error: profileError } = await db
-      .from('profiles').select('role').eq('id', user.id).maybeSingle();
-    if (requestId !== membershipGeneration || getActiveSessionId() !== sessionId) return;
+
+    let profileResult;
+    try {
+      profileResult = await db.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    } catch (error) {
+      if (isCurrent()) console.warn('CHRONUS LIVE: falha ao consultar o perfil do Narrador.', error);
+      return;
+    }
+    if (!isCurrent()) return;
+    const { data: profile, error: profileError } = profileResult || {};
     if (profileError || profile?.role !== 'narrator') return;
     panel.hidden = false;
 
     const refresh = async () => {
+      if (!isCurrent()) return;
       status.textContent = 'Atualizando permissões…';
-      const [playersResult, membersResult] = await Promise.all([
-        db.from('profiles').select('id, display_name').eq('role', 'player').order('display_name').limit(200),
-        db.from('chronus_live_session_members').select('user_id').eq('session_id', sessionId)
-      ]);
-      if (requestId !== membershipGeneration || getActiveSessionId() !== sessionId) return;
+      let results;
+      try {
+        results = await Promise.all([
+          db.from('profiles').select('id, display_name').eq('role', 'player').order('display_name').limit(200),
+          db.from('chronus_live_session_members').select('user_id').eq('session_id', sessionId)
+        ]);
+      } catch (error) {
+        if (!isCurrent()) return;
+        status.textContent = 'Não foi possível carregar os acessos desta sessão';
+        console.warn('CHRONUS LIVE: falha inesperada ao carregar membros da sessão.', error);
+        return;
+      }
+      if (!isCurrent()) return;
+      const [playersResult, membersResult] = results;
       if (playersResult.error || membersResult.error) {
         status.textContent = 'Não foi possível carregar os acessos desta sessão';
         console.warn('CHRONUS LIVE: falha ao carregar membros da sessão.', playersResult.error || membersResult.error);
@@ -942,45 +971,72 @@ window.ChronusLiveV140 = (function() {
       status.textContent = (membersResult.data || []).length + ' jogador(es) autorizado(s)';
     };
 
+    // The delegated handlers read the latest session context instead of
+    // retaining the first session captured when the panel was mounted.
+    panel._chronusLiveMembership = { sessionId, db, requestId, refresh, select, status };
     if (panel.dataset.bound !== 'true') {
       addButton.addEventListener('click', async () => {
-        const targetUserId = select.value;
+        const context = panel._chronusLiveMembership;
+        if (!context || context.requestId !== membershipGeneration ||
+            getActiveSessionId() !== context.sessionId) return;
+        const targetUserId = context.select.value;
         if (!targetUserId) {
-          status.textContent = 'Escolha um jogador antes de adicionar';
+          context.status.textContent = 'Escolha um jogador antes de adicionar';
           return;
         }
         addButton.disabled = true;
         try {
-          const { error } = await db.from('chronus_live_session_members').insert({
-            session_id: sessionId,
+          const { error } = await context.db.from('chronus_live_session_members').insert({
+            session_id: context.sessionId,
             user_id: targetUserId
           });
+          if (context.requestId !== membershipGeneration ||
+              getActiveSessionId() !== context.sessionId) return;
           if (error) {
-            status.textContent = 'Não foi possível adicionar o jogador';
+            context.status.textContent = 'Não foi possível adicionar o jogador';
             console.warn('CHRONUS LIVE: falha ao adicionar membro.', error);
             return;
           }
-          await refresh();
+          await context.refresh();
+        } catch (error) {
+          if (context.requestId === membershipGeneration &&
+              getActiveSessionId() === context.sessionId) {
+            context.status.textContent = 'Não foi possível adicionar o jogador';
+            console.warn('CHRONUS LIVE: falha inesperada ao adicionar membro.', error);
+          }
         } finally {
-          addButton.disabled = false;
+          if (context.requestId === membershipGeneration &&
+              getActiveSessionId() === context.sessionId) addButton.disabled = false;
         }
       });
       list.addEventListener('click', async event => {
         const remove = event.target?.closest?.('button[data-remove-user-id]');
         if (!remove) return;
+        const context = panel._chronusLiveMembership;
+        if (!context || context.requestId !== membershipGeneration ||
+            getActiveSessionId() !== context.sessionId) return;
         const targetUserId = remove.dataset.removeUserId;
         remove.disabled = true;
         try {
-          const { error } = await db.from('chronus_live_session_members')
-            .delete().eq('session_id', sessionId).eq('user_id', targetUserId);
+          const { error } = await context.db.from('chronus_live_session_members')
+            .delete().eq('session_id', context.sessionId).eq('user_id', targetUserId);
+          if (context.requestId !== membershipGeneration ||
+              getActiveSessionId() !== context.sessionId) return;
           if (error) {
-            status.textContent = 'Não foi possível remover o jogador';
+            context.status.textContent = 'Não foi possível remover o jogador';
             console.warn('CHRONUS LIVE: falha ao remover membro.', error);
             return;
           }
-          await refresh();
+          await context.refresh();
+        } catch (error) {
+          if (context.requestId === membershipGeneration &&
+              getActiveSessionId() === context.sessionId) {
+            context.status.textContent = 'Não foi possível remover o jogador';
+            console.warn('CHRONUS LIVE: falha inesperada ao remover membro.', error);
+          }
         } finally {
-          remove.disabled = false;
+          if (context.requestId === membershipGeneration &&
+              getActiveSessionId() === context.sessionId) remove.disabled = false;
         }
       });
       panel.dataset.bound = 'true';
