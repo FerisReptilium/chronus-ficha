@@ -27,10 +27,13 @@ assert(service.includes("await removeChannelSafely(db, previous, 'saída da sala
   const sandbox = { console: { warn(...args) { warnings.push(args); } } };
   vm.createContext(sandbox);
   vm.runInContext(helper, sandbox);
-  await sandbox.removeChannelSafely({ async removeChannel() { throw new Error('network unavailable'); } }, { id: 'old-channel' }, 'test');
-  assert.equal(warnings.length, 1, 'failed channel removal must be logged without rejecting');
-  await sandbox.removeChannelSafely({}, { id: 'old-channel' }, 'test');
-  await sandbox.removeChannelSafely({ async removeChannel() {} }, null, 'test');
+  const cleanupChecks = Promise.all([
+    sandbox.removeChannelSafely({ async removeChannel() { throw new Error('network unavailable'); } }, { id: 'old-channel' }, 'test'),
+    sandbox.removeChannelSafely({}, { id: 'old-channel' }, 'test'),
+    sandbox.removeChannelSafely({ async removeChannel() {} }, null, 'test')
+  ]).then(() => {
+    assert.equal(warnings.length, 1, 'failed channel removal must be logged without rejecting');
+  });
 }
 assert(service.includes('function mountSharedRollFeed(container, sessionId)'), 'session-aware shared feed mount API missing');
 assert(service.includes(".eq('session_id', sessionId)"), 'roll history must be filtered to the selected session');
@@ -201,4 +204,4 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
   assert.equal(renders, 1, 'duplicate immutable INSERTs must not trigger another feed render');
 }
 
-console.log('CHRONUS session-scoped LIVE roll feed regression: PASS');
+cleanupChecks.then(() => console.log('CHRONUS session-scoped LIVE roll feed regression: PASS')).catch(error => { console.error(error); process.exitCode = 1; });
