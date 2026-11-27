@@ -147,15 +147,22 @@
     return { ok: true };
   }
 
+  async function removeChannelSafely(db, previous, context) {
+    if (!previous || typeof db?.removeChannel !== 'function') return;
+    try {
+      await db.removeChannel(previous);
+    } catch (error) {
+      // A stale channel must not prevent the next session feed from mounting.
+      console.warn('CHRONUS: falha ao remover canal Realtime anterior (' + context + ').', error);
+    }
+  }
+
   async function mountSharedRollFeed(container, sessionId) {
     if (!container) return;
     const generation = ++feedGeneration;
     const previous = channel;
     channel = null;
-    if (previous) {
-      const oldClient = client();
-      if (typeof oldClient?.removeChannel === 'function') await oldClient.removeChannel(previous);
-    }
+    if (previous) await removeChannelSafely(client(), previous, 'troca de sessão');
     if (generation !== feedGeneration) return;
     records.clear();
     mountedRoot = container;
@@ -264,7 +271,7 @@
     channel = null;
     mountedRoot = null;
     records.clear();
-    if (previous && typeof db?.removeChannel === 'function') await db.removeChannel(previous);
+    if (previous) await removeChannelSafely(db, previous, 'saída da sala');
   }
 
   root.ChronusNarrativeLive = Object.freeze({
