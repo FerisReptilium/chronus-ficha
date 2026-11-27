@@ -39,6 +39,11 @@ assert(service.includes("unmountSharedRollFeed: unmountNarratorFeed"), 'shared f
 assert(live.includes("mountSharedRollFeed?.(document.getElementById('chronus-live-feed'), getActiveSessionId())"), 'LIVE route must mount the session-scoped roll feed');
 assert(live.includes('function getActiveSessionId()'), 'LIVE must validate the selected session identifier');
 assert(live.includes('initializeSessionMembershipControls'), 'Narrator session membership controls must be initialized');
+assert(live.includes('let sessionSelectionGeneration = 0;'), 'session selector requests must have an independent generation token');
+assert(live.includes('const requestId = ++sessionSelectionGeneration;'), 'each session selector refresh must invalidate older requests');
+assert(live.includes('requestId !== sessionSelectionGeneration'), 'late session list responses must be discarded');
+assert(live.includes("!window.location.hash.startsWith('#/live')"), 'session list responses must not update the selector after leaving LIVE');
+assert(live.includes('catch (error) {') && live.includes("CHRONUS LIVE: falha ao listar sessões autorizadas."), 'unexpected session list failures must be handled visibly');
 assert(live.includes("id=\"chronus-live-session-admin\""), 'Narrator session access panel must exist');
 assert(live.includes("eq('role', 'player')"), 'membership manager must list player profiles only');
 assert(live.includes("from('chronus_live_session_members').insert"), 'Narrator must be able to grant session access through authenticated RLS');
