@@ -165,6 +165,9 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
   sandbox.addRecord({ id: 'current-session', session_id: 'session-b', created_at: '2026-11-26T00:00:02Z' }, 'session-b', 7);
   assert.deepEqual(Array.from(sandbox.records.keys()), ['current-session'], 'only the active session event may enter the feed');
   assert.equal(renders, 1, 'the active session event should render once');
+  sandbox.addRecord({ id: 'current-session', session_id: 'session-b', created_at: '2026-11-26T00:00:02Z' }, 'session-b', 7);
+  assert.equal(sandbox.records.size, 1, 'duplicate history and Realtime delivery must remain idempotent');
+  assert.equal(renders, 1, 'duplicate immutable INSERTs must not trigger another feed render');
 }
 
 console.log('CHRONUS session-scoped LIVE roll feed regression: PASS');

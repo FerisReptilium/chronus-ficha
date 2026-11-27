@@ -26,6 +26,9 @@
   function addRecord(record, expectedSessionId, generation) {
     if (!record?.id || !expectedSessionId || record.session_id !== expectedSessionId) return;
     if (generation !== feedGeneration || !mountedRoot?.isConnected) return;
+    // History and Realtime can deliver the same immutable INSERT during reconnect.
+    // Ignore the overlap before sorting or rebuilding the visible feed.
+    if (records.has(record.id)) return;
     records.set(record.id, record);
     const ordered = [...records.values()]
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
