@@ -12,6 +12,26 @@ const sqlBaseline = fs.readFileSync('tests/chronus_roll_events.sql', 'utf8');
 const initialMigration = fs.readFileSync('supabase/migrations/006_chronus_roll_events.sql', 'utf8');
 const sessionMigration = fs.readFileSync('supabase/migrations/20261125212222_chronus_live_session_isolation.sql', 'utf8');
 
+assert(service.includes('async function removeChannelSafely(db, previous, context)'), 'Realtime cleanup must be isolated behind a failure-tolerant helper');
+assert(service.includes("await removeChannelSafely(client(), previous, 'troca de sessão')"), 'a failed stale-channel cleanup must not abort mounting the next session feed');
+assert(service.includes("await removeChannelSafely(db, previous, 'saída da sala')"), 'leaving the LIVE route must tolerate stale-channel cleanup failures');
+
+// Realtime channel removal can reject during network loss; cleanup must resolve
+// so the caller can continue mounting the selected session or leaving the route.
+{
+  const start = service.indexOf('  async function removeChannelSafely(');
+  const end = service.indexOf('  async function mountSharedRollFeed(', start);
+  assert.ok(start >= 0 && end > start, 'Realtime cleanup helper must remain independently testable');
+  const helper = service.slice(start, end);
+  const warnings = [];
+  const sandbox = { console: { warn(...args) { warnings.push(args); } } };
+  vm.createContext(sandbox);
+  vm.runInContext(helper, sandbox);
+  await sandbox.removeChannelSafely({ async removeChannel() { throw new Error('network unavailable'); } }, { id: 'old-channel' }, 'test');
+  assert.equal(warnings.length, 1, 'failed channel removal must be logged without rejecting');
+  await sandbox.removeChannelSafely({}, { id: 'old-channel' }, 'test');
+  await sandbox.removeChannelSafely({ async removeChannel() {} }, null, 'test');
+}
 assert(service.includes('function mountSharedRollFeed(container, sessionId)'), 'session-aware shared feed mount API missing');
 assert(service.includes(".eq('session_id', sessionId)"), 'roll history must be filtered to the selected session');
 assert(service.includes('chronus-rolls:session:${sessionId}'), 'roll feed must use its own selected-session topic');
