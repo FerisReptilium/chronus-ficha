@@ -82,6 +82,7 @@ window.ChronusLiveV140 = (function() {
   let presenceKey = '';
   let presenceGeneration = 0;
   let membershipGeneration = 0;
+  let sessionSelectionGeneration = 0;
   let presenceStatus = 'Desconectado';
   let currentIdentity = null;
   let activeSessionId = '';
@@ -990,18 +991,36 @@ window.ChronusLiveV140 = (function() {
   async function initializeSessionSelection() {
     const select = document.getElementById('chronus-live-session-select');
     if (!select) return;
+    const requestId = ++sessionSelectionGeneration;
     const db = window.ChronusSupabase?.getClient?.();
     if (!db || typeof db.from !== 'function') {
-      select.replaceChildren(new Option('Entre para ver suas sessões', ''));
+      if (requestId === sessionSelectionGeneration && select.isConnected) {
+        select.replaceChildren(new Option('Entre para ver suas sessões', ''));
+      }
       return;
     }
-    const { data, error } = await db
-      .from('campaign_sessions')
-      .select('id, title, session_number, status')
-      .in('status', ['planned', 'in_progress'])
-      .order('session_number', { ascending: false })
-      .limit(50);
-    if (!select.isConnected) return;
+
+    let result;
+    try {
+      result = await db
+        .from('campaign_sessions')
+        .select('id, title, session_number, status')
+        .in('status', ['planned', 'in_progress'])
+        .order('session_number', { ascending: false })
+        .limit(50);
+    } catch (error) {
+      if (requestId !== sessionSelectionGeneration || !select.isConnected ||
+          !window.location.hash.startsWith('#/live')) return;
+      select.replaceChildren(new Option('Não foi possível carregar', ''));
+      console.warn('CHRONUS LIVE: falha ao listar sessões autorizadas.', error);
+      return;
+    }
+
+    // A slower response from an earlier auth/route refresh must not overwrite
+    // the session list or selection belonging to the latest request.
+    if (requestId !== sessionSelectionGeneration || !select.isConnected ||
+        !window.location.hash.startsWith('#/live')) return;
+    const { data, error } = result || {};
     if (error) {
       select.replaceChildren(new Option('Não foi possível carregar', ''));
       console.warn('CHRONUS LIVE: falha ao listar sessões autorizadas.', error);
