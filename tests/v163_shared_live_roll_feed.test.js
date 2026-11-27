@@ -18,6 +18,7 @@ assert(service.includes("await removeChannelSafely(db, previous, 'saída da sala
 
 // Realtime channel removal can reject during network loss; cleanup must resolve
 // so the caller can continue mounting the selected session or leaving the route.
+let cleanupChecks = Promise.resolve();
 {
   const start = service.indexOf('  async function removeChannelSafely(');
   const end = service.indexOf('  async function mountSharedRollFeed(', start);
@@ -27,7 +28,7 @@ assert(service.includes("await removeChannelSafely(db, previous, 'saída da sala
   const sandbox = { console: { warn(...args) { warnings.push(args); } } };
   vm.createContext(sandbox);
   vm.runInContext(helper, sandbox);
-  const cleanupChecks = Promise.all([
+  cleanupChecks = Promise.all([
     sandbox.removeChannelSafely({ async removeChannel() { throw new Error('network unavailable'); } }, { id: 'old-channel' }, 'test'),
     sandbox.removeChannelSafely({}, { id: 'old-channel' }, 'test'),
     sandbox.removeChannelSafely({ async removeChannel() {} }, null, 'test')
