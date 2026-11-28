@@ -195,7 +195,7 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
     mountedRoot: null,
     setTimeout(callback, delay) { scheduled.push({ callback, delay }); return scheduled.length; },
     recoveredCalls: [],
-    mountSharedRollFeed(container, sessionId) { recoveredCalls.push({ container, sessionId }); }
+    mountSharedRollFeed(container, sessionId) { globalThis.recoveredCalls.push({ container, sessionId }); }
   };
   vm.createContext(sandbox);
   vm.runInContext(scheduler, sandbox);
