@@ -17,6 +17,8 @@
   let channel = null;
   let mountedRoot = null;
   let feedGeneration = 0;
+  let feedRecoveryTimer = null;
+  let feedRecoveryAttempt = 0;
   const records = new Map();
 
   function client() {
@@ -157,8 +159,21 @@
     }
   }
 
+  function scheduleFeedRecovery(container, sessionId, generation) {
+    if (feedRecoveryTimer !== null) return;
+    const delay = Math.min(1000 * (2 ** feedRecoveryAttempt), 30000);
+    feedRecoveryAttempt += 1;
+    feedRecoveryTimer = setTimeout(() => {
+      feedRecoveryTimer = null;
+      if (generation !== feedGeneration || mountedRoot !== container || !container?.isConnected) return;
+      void mountSharedRollFeed(container, sessionId);
+    }, delay);
+  }
+
   async function mountSharedRollFeed(container, sessionId) {
     if (!container) return;
+    if (feedRecoveryTimer !== null) clearTimeout(feedRecoveryTimer);
+    feedRecoveryTimer = null;
     const generation = ++feedGeneration;
     const previous = channel;
     channel = null;
@@ -255,7 +270,13 @@
             historyEpoch += 1;
             historyPromise = null;
           }
-          if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();
+          if (subscriptionStatus === 'SUBSCRIBED') {
+            feedRecoveryAttempt = 0;
+            void loadRecentRolls();
+          } else if (subscriptionStatus === 'CLOSED') {
+            status.textContent = 'Canal encerrado · tentando restabelecer…';
+            scheduleFeedRecovery(container, sessionId, generation);
+          }
         });
     } else {
       status.textContent = 'Histórico disponível · tempo real indisponível';
@@ -266,6 +287,9 @@
 
   async function unmountNarratorFeed() {
     feedGeneration += 1;
+    if (feedRecoveryTimer !== null) clearTimeout(feedRecoveryTimer);
+    feedRecoveryTimer = null;
+    feedRecoveryAttempt = 0;
     const db = client();
     const previous = channel;
     channel = null;
