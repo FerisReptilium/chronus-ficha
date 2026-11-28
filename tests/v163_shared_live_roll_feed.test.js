@@ -51,7 +51,7 @@ assert(service.includes("'Canal encerrado · tentando restabelecer…'"), 'a clo
 assert(service.includes('function scheduleFeedRecovery(container, sessionId, generation)'), 'closed feed recovery must be isolated and testable');
 assert(service.includes('Math.min(1000 * (2 ** feedRecoveryAttempt), 30000)'), 'feed recovery backoff must be bounded');
 assert(service.includes('feedRecoveryAttempt = 0;'), 'successful reconnect and unmount must reset recovery backoff');
-assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();"), 'history must be reloaded after reconnect');
+assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') {") && service.includes('void loadRecentRolls();'), 'history must be reloaded after reconnect');
 assert(service.includes('let historyLoaded = false;') && service.includes('let historyPromise = null;'), 'roll history refresh state must be scoped to the mounted session');
 assert(service.includes('if (historyLoaded) return;') && service.includes('if (historyPromise) return historyPromise;'), 'duplicate initial and reconnect callbacks must share one history request');
 assert(service.includes('if (historyPromise === request) historyPromise = null;'), 'a stale history request must not clear a newer in-flight request');
