@@ -194,7 +194,8 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
     feedGeneration: 4,
     mountedRoot: null,
     setTimeout(callback, delay) { scheduled.push({ callback, delay }); return scheduled.length; },
-    mountSharedRollFeed(container, sessionId) { this.recovered = { container, sessionId }; }
+    recoveredCalls: [],
+    mountSharedRollFeed(container, sessionId) { recoveredCalls.push({ container, sessionId }); }
   };
   vm.createContext(sandbox);
   vm.runInContext(scheduler, sandbox);
@@ -205,13 +206,12 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
   assert.equal(scheduled.length, 1, 'only one recovery timer may be pending per feed');
   assert.equal(scheduled[0].delay, 1000, 'first recovery attempt must wait one second');
   scheduled[0].callback();
-  assert.deepEqual(sandbox.recovered, { container, sessionId: 'session-a' }, 'valid recovery must remount the same session feed');
-  sandbox.recovered = null;
+  assert.deepEqual(sandbox.recoveredCalls, [{ container, sessionId: 'session-a' }], 'valid recovery must remount the same session feed');
   sandbox.feedGeneration = 5;
   sandbox.scheduleFeedRecovery(container, 'session-a', 4);
   assert.equal(scheduled[1].delay, 2000, 'subsequent recovery attempts must use exponential backoff');
   scheduled[1].callback();
-  assert.equal(sandbox.recovered, null, 'a timer from an obsolete feed generation must not remount a stale session');
+  assert.equal(sandbox.recoveredCalls.length, 1, 'a timer from an obsolete feed generation must not remount a stale session');
 }
 
 // A delayed INSERT from a previous session must not contaminate the newly mounted feed.
