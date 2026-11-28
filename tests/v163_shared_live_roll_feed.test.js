@@ -47,8 +47,11 @@ assert(service.includes(".limit(20)"), 'shared feed history must remain bounded'
 assert(service.includes("'● Sincronizada'"), 'connection status must be visible');
 assert(service.includes("'Reconectando…'"), 'connection loss must be visible');
 assert(service.includes("subscriptionStatus === 'CLOSED'"), 'a permanently closed feed channel must not appear to be reconnecting');
-assert(service.includes("'Canal encerrado · reabra a sala'"), 'a closed feed channel must expose a truthful recovery instruction');
-assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') void loadRecentRolls();"), 'history must be reloaded after reconnect');
+assert(service.includes("'Canal encerrado · tentando restabelecer…'"), 'a closed feed channel must schedule automatic recovery');
+assert(service.includes('function scheduleFeedRecovery(container, sessionId, generation)'), 'closed feed recovery must be isolated and testable');
+assert(service.includes('Math.min(1000 * (2 ** feedRecoveryAttempt), 30000)'), 'feed recovery backoff must be bounded');
+assert(service.includes('feedRecoveryAttempt = 0;'), 'successful reconnect and unmount must reset recovery backoff');
+assert(service.includes("if (subscriptionStatus === 'SUBSCRIBED') {") && service.includes('void loadRecentRolls();'), 'history must be reloaded after reconnect');
 assert(service.includes('let historyLoaded = false;') && service.includes('let historyPromise = null;'), 'roll history refresh state must be scoped to the mounted session');
 assert(service.includes('if (historyLoaded) return;') && service.includes('if (historyPromise) return historyPromise;'), 'duplicate initial and reconnect callbacks must share one history request');
 assert(service.includes('if (historyPromise === request) historyPromise = null;'), 'a stale history request must not clear a newer in-flight request');
@@ -177,6 +180,39 @@ assert(live.includes("generation !== presenceGeneration || !window.location.hash
     'the current tab must retain its hydrated portrait');
 }
 
+
+// Closed Realtime channels retry with bounded backoff and ignore stale-session timers.
+{
+  const start = service.indexOf('  function scheduleFeedRecovery(');
+  const end = service.indexOf('  async function mountSharedRollFeed(', start);
+  assert.ok(start >= 0 && end > start, 'feed recovery scheduler must remain independently testable');
+  const scheduler = service.slice(start, end);
+  const scheduled = [];
+  const sandbox = {
+    feedRecoveryTimer: null,
+    feedRecoveryAttempt: 0,
+    feedGeneration: 4,
+    mountedRoot: null,
+    setTimeout(callback, delay) { scheduled.push({ callback, delay }); return scheduled.length; },
+    recoveredCalls: [],
+    mountSharedRollFeed: (container, sessionId) => { sandbox.recoveredCalls.push({ container, sessionId }); }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(scheduler, sandbox);
+  const container = { isConnected: true };
+  sandbox.mountedRoot = container;
+  sandbox.scheduleFeedRecovery(container, 'session-a', 4);
+  sandbox.scheduleFeedRecovery(container, 'session-a', 4);
+  assert.equal(scheduled.length, 1, 'only one recovery timer may be pending per feed');
+  assert.equal(scheduled[0].delay, 1000, 'first recovery attempt must wait one second');
+  scheduled[0].callback();
+  assert.deepEqual(sandbox.recoveredCalls, [{ container, sessionId: 'session-a' }], 'valid recovery must remount the same session feed');
+  sandbox.feedGeneration = 5;
+  sandbox.scheduleFeedRecovery(container, 'session-a', 4);
+  assert.equal(scheduled[1].delay, 2000, 'subsequent recovery attempts must use exponential backoff');
+  scheduled[1].callback();
+  assert.equal(sandbox.recoveredCalls.length, 1, 'a timer from an obsolete feed generation must not remount a stale session');
+}
 
 // A delayed INSERT from a previous session must not contaminate the newly mounted feed.
 {
